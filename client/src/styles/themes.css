@@ -1,0 +1,19 @@
+:root {
+    color-scheme: dark;
+
+    --background: #070b12;
+    --surface: #101826;
+    --surface-raised: #172033;
+    --surface-hover: #1c2940;
+    --foreground: #e7eef8;
+    --secondary: #c5d0e0;
+    --muted: #8b9caf;
+    --border: #243044;
+    --border-strong: #334761;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --cyan: #22d3ee;
+    --canvas: #080e18;
+    --canvas-board: #0c1526;
+    --grid: rgb(148 163 184 / 0.16);
+}
