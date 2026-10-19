@@ -1,0 +1,336 @@
+---
+description: LiveBoard Studio project architecture and coding standards
+alwaysApply: true
+---
+# LiveBoard Studio - Project Rules
+## 1. Project Overview
+LiveBoard Studio is a Full Stack application for designing, managing,
+previewing, and publishing digital signage boards.
+The application consists of three main interfaces:
+1. Studio - Visual board editor and management interface.
+2. Preview - Accurate preview of the current draft.
+3. Display - Fullscreen presentation of published boards.
+The approved visual mockup is the primary design reference.
+The final implementation should closely match the approved design while
+remaining fully functional.
+Do not introduce major visual or architectural changes without approval.
+## 2. Primary Development Principle
+This project must follow the same development philosophy used in the
+TeamHub project.
+The code should be clean, readable, consistent, modular, and easy to
+maintain.
+Prefer simple, well-structured solutions over unnecessary abstractions.
+Do not introduce new architectural patterns without a clear reason.
+Never perform large refactoring operations unless explicitly requested.
+## 3. Technology Stack
+Frontend:
+- React 19
+- TypeScript
+- Vite
+- React Router
+- Redux Toolkit
+- React Redux
+- Axios
+- CSS Modules
+- Tailwind CSS
+- Socket.IO Client
+Backend:
+- Node.js
+- Express 5
+- JavaScript with CommonJS modules
+- PostgreSQL
+- pg
+- JWT authentication
+- bcrypt
+- express-validator
+- Socket.IO
+Additional libraries:
+- Introduce only when needed.
+- Explain why each new dependency is required.
+- Avoid unnecessary dependencies.
+- Never install packages without approval.
+Do not introduce:
+- Next.js
+- Angular
+- Prisma
+- Sequelize
+- TypeORM
+- GraphQL
+unless explicitly approved.
+## 4. Repository Structure
+Use a single Git repository containing:
+- client/
+- server/
+Treat client/ and server/ as separate npm packages.
+Do not add a root package.json unless it is genuinely needed.
+Additional folders should be created only when needed.
+Do not generate empty directory trees.
+Do not create placeholder files merely to preserve folders.
+Do not create unused utilities, services, hooks, or abstractions.
+Do not create a shared package unless there is a real use case.
+Keep the folder organization consistent with TeamHub.
+## 5. Frontend Architecture
+Use feature-based architecture.
+Organize related functionality within feature folders.
+Examples of future features:
+- authentication
+- boards
+- editor
+- preview
+- display
+- media
+- screens
+Create feature folders only when implementing the relevant feature.
+Within each feature, use the same organization style as TeamHub.
+Typical folders may include:
+- api
+- components
+- hooks
+- pages
+- services
+- store
+- types
+Create only folders actually required by the implementation.
+Reusable UI components should be placed in shared component locations.
+Avoid duplicated components and duplicated business logic.
+Declare React components with function declarations.
+Type component props with type aliases whose names end in Props.
+Colocate each CSS Module with its component.
+Keep shared design tokens in styles/tokens.css.
+Keep theme variables in styles/themes.css.
+Use global CSS for shared tokens, theme variables, resets, and truly
+global styles.
+Use one Redux Toolkit store.
+Load async work with createAsyncThunk and handle pending, fulfilled,
+and rejected.
+Name those thunks with an Async suffix.
+Use one shared Axios client.
+Keep feature API calls in feature-specific API modules.
+Use relative imports and explicit TypeScript file extensions,
+consistent with the TypeScript configuration.
+## 6. Backend Architecture
+Follow the TeamHub architecture:
+Route -> Controller -> Service -> Repository
+Responsibilities:
+Routes:
+- Define endpoints.
+- Attach validation and authentication middleware.
+- Delegate requests to controllers.
+Controllers:
+- Handle HTTP requests and responses.
+- Extract validated request data.
+- Delegate business logic to services.
+Services:
+- Implement business logic.
+- Coordinate repositories and application operations.
+- Remain independent of HTTP-specific behavior when practical.
+Repositories:
+- Handle PostgreSQL database access.
+- Use parameterized SQL queries.
+- Never concatenate untrusted values into SQL statements.
+Keep request validation in separate validator modules.
+Use one API response envelope:
+- Success: { success, message, data }
+- Error: { success, message, errors }
+Map database rows to API responses when that mapping is useful.
+Use one centralized Express error-handling middleware.
+Return appropriate HTTP status codes.
+Keep REST and Socket.IO CORS configuration consistent.
+Database:
+- Use UUID primary keys.
+- Enforce relationships with foreign keys and database constraints.
+- Wrap multi-step dependent writes in a transaction.
+- Do not introduce an ORM.
+- Add SQL migrations only when database development begins.
+Use CommonJS modules in the backend.
+Keep backend code consistent with the existing TeamHub JavaScript style.
+Do not migrate the backend to TypeScript unless explicitly requested.
+## 7. Code Quality
+Write clean, readable, maintainable code.
+Use meaningful names for:
+- variables
+- functions
+- components
+- files
+- classes
+Indent with four spaces.
+Use semicolons consistently.
+Prefer double quotes in JavaScript and TypeScript.
+Use PascalCase for React components and pages.
+Use camelCase for variables and functions.
+Avoid:
+- unnecessary abstractions
+- duplicated logic
+- overly complex functions
+- deeply nested conditions
+- unused variables
+- unused imports
+- dead code
+- excessive comments
+- console.log debugging left in production code
+Prefer small functions with a single clear responsibility.
+Keep code formatting consistent.
+Use existing project conventions before introducing new ones.
+Do not use `any` in TypeScript unless there is a documented and approved
+reason.
+Do not suppress ESLint warnings merely to make the build pass.
+## 8. Comments and Documentation
+Write code comments in English.
+Comments should explain non-obvious behavior or important decisions.
+Do not comment every line.
+Use clear, concise documentation.
+Do not generate unnecessary documentation files.
+Update existing documentation when implementation changes require it.
+## 9. Development Workflow
+Development must be performed in small, reviewable steps.
+For every requested task:
+1. Inspect the relevant existing code.
+2. Identify the exact files that need changes.
+3. Briefly explain the implementation plan.
+4. Implement only the approved scope.
+5. Run relevant checks when possible.
+6. Report the results.
+7. Stop and wait for review.
+Do not implement future features proactively.
+Do not modify unrelated files.
+Do not perform unrelated cleanup or refactoring.
+Do not silently fix unrelated issues.
+If an unexpected issue is discovered, report it before proceeding.
+## 10. Git Workflow
+Git is managed manually by the project owner using SourceTree.
+Never automatically:
+- create commits
+- push changes
+- merge branches
+- rebase branches
+- reset branches
+- force push
+- delete branches
+Do not create or switch branches without explicit approval.
+The project owner reviews every change before committing.
+Keep changes small enough for focused commits.
+After completing a task, suggest:
+- A concise English commit message.
+- A summary of modified files.
+- Any relevant verification steps.
+## 11. Testing and Validation
+Every implementation step must be testable.
+Prefer visible, working results whenever the task involves UI.
+When possible, run the relevant application locally.
+Report:
+- What was implemented.
+- Which files were changed.
+- Which checks were executed.
+- Whether those checks passed.
+- How to test the changes manually.
+- Any known limitations.
+Never claim that code works without appropriate verification.
+Do not hide errors or warnings.
+Do not continue to the next task without approval.
+## 12. UI and Design
+The approved LiveBoard Studio mockup defines the visual target.
+The admin interface should use:
+- A modern dark theme.
+- Consistent spacing.
+- Clear visual hierarchy.
+- High-quality panels and cards.
+- Consistent typography.
+- Professional icons.
+- Subtle animations and transitions.
+Use Tailwind CSS alongside CSS Modules.
+Keep the two styling systems clearly separated.
+Use Tailwind CSS for:
+- Studio application layout.
+- Navigation.
+- Toolbars.
+- Panels.
+- Buttons.
+- Forms.
+- Common administrative UI components.
+Use CSS Modules for:
+- Canvas widgets.
+- Display rendering components.
+- Complex component-specific styling.
+- Complex animations when appropriate.
+Use shared design tokens for:
+- Colors.
+- Typography.
+- Spacing.
+- Border radius.
+- Shadows.
+Do not duplicate design values unnecessarily.
+Avoid excessive Tailwind utility classes.
+Extract reusable React components when appropriate.
+Do not introduce additional UI libraries without approval.
+Do not redesign the approved layout without permission.
+Prioritize visual consistency across all Studio screens.
+## 13. Canvas and Widget Architecture
+The editor must support visual placement and resizing of widgets.
+The first supported board aspect ratio is 16:9.
+Use a grid-based layout system.
+Avoid unnecessary complexity.
+Do not implement a fully freeform design editor unless explicitly
+requested.
+Keep widget rendering separate from editor interactions.
+Studio, Preview, and Display should share the same rendering components.
+Draft changes must not automatically modify published displays.
+## 14. Realtime Communication
+Use Socket.IO following the same general approach as TeamHub.
+REST remains the primary write mechanism.
+Emit Socket.IO events only after the change is persisted successfully.
+Authenticate and authorize room access.
+Rejoin rooms after reconnection.
+Refresh authentication when required.
+Keep realtime state updates idempotent.
+After reconnection, synchronize the current state.
+Use dedicated rooms for board-specific updates.
+Avoid duplicate event handling.
+Clean up listeners correctly.
+Handle reconnection.
+Ensure the display can retrieve the latest published state after
+reconnecting.
+Do not broadcast unnecessary events.
+## 15. Security
+Never hardcode:
+- passwords
+- database credentials
+- private keys
+- JWT secrets
+- API secrets
+Use environment variables.
+Never commit `.env` files containing secrets.
+Use `.env.example` with placeholder values when configuration
+documentation is needed.
+Validate external input.
+Enforce authorization on the server.
+Display authentication and management authentication may use different
+permission models.
+Do not decide the final Display authentication architecture without
+approval.
+Use parameterized SQL queries.
+Do not expose sensitive configuration in client code.
+## 16. Communication Rules
+Before implementing significant changes, explain the intended approach.
+If a request is ambiguous, prefer the simplest solution compatible with
+the existing architecture.
+Ask for approval before introducing:
+- new dependencies
+- major architecture changes
+- database schema changes
+- destructive operations
+- substantial refactoring
+Keep responses concise and technical.
+The project owner may communicate in Hebrew.
+Source code, identifiers, comments, and commit messages should remain in
+English.
+## 17. End-of-Task Report
+At the end of each task, provide:
+1. Summary of implementation.
+2. Files created or modified.
+3. Dependencies added, if any.
+4. Validation results.
+5. Manual testing instructions.
+6. Known issues or limitations.
+7. Suggested commit message.
+Stop after the report.
+Wait for explicit approval before continuing.
