@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock" | "image";
+export type WidgetType = "text" | "clock" | "image" | "information-card";
 
 export type WidgetLayout = {
     x: number;
@@ -28,6 +28,17 @@ export type ImageWidgetSettings = {
     fallbackBackgroundColor: string;
 };
 
+export type InformationCardWidgetSettings = {
+    title: string;
+    subtitle?: string;
+    description?: string;
+    badge?: string;
+    imageSrc?: string;
+    backgroundColor: string;
+    textColor: string;
+    borderRadius: number;
+};
+
 export type Widget = {
     id: string;
     layout: WidgetLayout;
@@ -43,6 +54,10 @@ export type Widget = {
     | {
         type: "image";
         settings: ImageWidgetSettings;
+    }
+    | {
+        type: "information-card";
+        settings: InformationCardWidgetSettings;
     }
 );
 

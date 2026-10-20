@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react";
 import type { Board, BoardBackground, Widget } from "../types/boardTypes.ts";
 import ClockWidget from "./ClockWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
+import InformationCardWidget from "./InformationCardWidget.tsx";
 import styles from "./BoardRenderer.module.css";
 import TextWidget from "./TextWidget.tsx";
 
@@ -96,6 +97,8 @@ function renderWidget(widget: Widget) {
             return <ClockWidget settings={widget.settings} />;
         case "image":
             return <ImageWidget settings={widget.settings} />;
+        case "information-card":
+            return <InformationCardWidget settings={widget.settings} />;
     }
 }
 

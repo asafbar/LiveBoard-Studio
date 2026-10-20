@@ -55,5 +55,19 @@ export const techSummitBoard: Board = {
                 fallbackBackgroundColor: "var(--surface-raised)",
             },
         },
+        {
+            id: "next-session",
+            type: "information-card",
+            layout: { x: 140, y: 740, width: 1040, height: 240 },
+            settings: {
+                badge: "NEXT SESSION",
+                subtitle: "1:00 PM - 2:00 PM",
+                title: "The Future of AI",
+                description: "Opportunities, Risks and What Comes Next",
+                backgroundColor: "color-mix(in srgb, var(--accent) 24%, var(--canvas-board))",
+                textColor: "var(--foreground)",
+                borderRadius: 24,
+            },
+        },
     ],
 };
