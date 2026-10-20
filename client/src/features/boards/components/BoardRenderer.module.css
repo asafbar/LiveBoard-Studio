@@ -1,0 +1,40 @@
+.root {
+    container-type: size;
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+}
+
+.frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    width: min(100cqi, calc(100cqb * 16 / 9));
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    container-type: size;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-panel);
+}
+
+/* Logical 1920x1080 stage. Scale keeps positions and type in proportion. */
+.stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+    transform: scale(calc(100cqw / var(--board-width)));
+    background-color: var(--canvas-board);
+    background-image:
+        radial-gradient(ellipse 70% 55% at 18% 42%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 62%),
+        radial-gradient(ellipse 46% 40% at 88% 78%, color-mix(in srgb, var(--cyan) 20%, transparent), transparent 58%),
+        linear-gradient(155deg, var(--background), var(--canvas) 48%, var(--canvas-board));
+}
+
+.widget {
+    position: absolute;
+}
