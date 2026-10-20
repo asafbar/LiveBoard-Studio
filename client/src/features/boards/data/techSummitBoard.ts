@@ -46,7 +46,7 @@ export const techSummitBoard: Board = {
         {
             id: "summit-visual",
             type: "image",
-            layout: { x: 1260, y: 300, width: 520, height: 680 },
+            layout: { x: 1388, y: 700, width: 412, height: 280 },
             settings: {
                 src: "",
                 alt: "Tech Summit visual",
@@ -58,7 +58,7 @@ export const techSummitBoard: Board = {
         {
             id: "next-session",
             type: "information-card",
-            layout: { x: 140, y: 740, width: 1040, height: 240 },
+            layout: { x: 140, y: 700, width: 600, height: 280 },
             settings: {
                 badge: "NEXT SESSION",
                 subtitle: "1:00 PM - 2:00 PM",
@@ -67,6 +67,40 @@ export const techSummitBoard: Board = {
                 backgroundColor: "color-mix(in srgb, var(--accent) 24%, var(--canvas-board))",
                 textColor: "var(--foreground)",
                 borderRadius: 24,
+            },
+        },
+        {
+            id: "summit-announcements",
+            type: "announcements",
+            layout: { x: 764, y: 700, width: 600, height: 280 },
+            settings: {
+                title: "ANNOUNCEMENTS",
+                backgroundColor: "color-mix(in srgb, var(--accent) 24%, var(--canvas-board))",
+                textColor: "var(--foreground)",
+                borderRadius: 24,
+                items: [
+                    {
+                        id: "networking-lunch",
+                        title: "Networking Lunch",
+                        description: "Today at 12:30 PM",
+                        meta: "Main Hall",
+                        icon: "food",
+                    },
+                    {
+                        id: "workshop-rooms",
+                        title: "Workshop Rooms Open",
+                        description: "Starting at 2:00 PM",
+                        meta: "Rooms A, B, C",
+                        icon: "people",
+                    },
+                    {
+                        id: "after-party",
+                        title: "After Party",
+                        description: "From 6:00 PM",
+                        meta: "Riverside Lounge",
+                        icon: "music",
+                    },
+                ],
             },
         },
     ],

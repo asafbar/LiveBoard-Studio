@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import type { Board, BoardBackground, Widget } from "../types/boardTypes.ts";
+import AnnouncementsWidget from "./AnnouncementsWidget.tsx";
 import ClockWidget from "./ClockWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
 import InformationCardWidget from "./InformationCardWidget.tsx";
@@ -99,6 +100,8 @@ function renderWidget(widget: Widget) {
             return <ImageWidget settings={widget.settings} />;
         case "information-card":
             return <InformationCardWidget settings={widget.settings} />;
+        case "announcements":
+            return <AnnouncementsWidget settings={widget.settings} />;
     }
 }
 

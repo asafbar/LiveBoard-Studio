@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock" | "image" | "information-card";
+export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements";
 
 export type WidgetLayout = {
     x: number;
@@ -39,6 +39,24 @@ export type InformationCardWidgetSettings = {
     borderRadius: number;
 };
 
+export type AnnouncementIconName = "food" | "people" | "music" | "info";
+
+export type AnnouncementItem = {
+    id: string;
+    title: string;
+    description?: string;
+    meta?: string;
+    icon?: AnnouncementIconName;
+};
+
+export type AnnouncementsWidgetSettings = {
+    title: string;
+    items: AnnouncementItem[];
+    backgroundColor: string;
+    textColor: string;
+    borderRadius: number;
+};
+
 export type Widget = {
     id: string;
     layout: WidgetLayout;
@@ -58,6 +76,10 @@ export type Widget = {
     | {
         type: "information-card";
         settings: InformationCardWidgetSettings;
+    }
+    | {
+        type: "announcements";
+        settings: AnnouncementsWidgetSettings;
     }
 );
 
