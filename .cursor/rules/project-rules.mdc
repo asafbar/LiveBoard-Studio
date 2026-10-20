@@ -324,13 +324,21 @@ The project owner may communicate in Hebrew.
 Source code, identifiers, comments, and commit messages should remain in
 English.
 ## 17. End-of-Task Report
-At the end of each task, provide:
-1. Summary of implementation.
+All end-of-task implementation and code review reports must be returned
+inside one single Markdown code block using four backticks as the outer
+delimiter.
+Do not use nested code blocks.
+Use plain Markdown headings, lists, and inline code inside the report.
+The goal is to allow the entire report to be copied using one Copy button.
+Do not create a separate report file.
+The report must include:
+1. Implementation summary.
 2. Files created or modified.
-3. Dependencies added, if any.
-4. Validation results.
-5. Manual testing instructions.
-6. Known issues or limitations.
-7. Suggested commit message.
+3. Dependencies added or removed.
+4. Explanation of important code and architecture.
+5. Potential issues or risks.
+6. Build and lint results.
+7. Manual testing instructions.
+8. Suggested English commit message.
 Stop after the report.
 Wait for explicit approval before continuing.
