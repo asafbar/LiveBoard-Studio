@@ -46,10 +46,30 @@ export type Widget = {
     }
 );
 
+export type BoardBackground =
+    | {
+        type: "solid";
+        color: string;
+    }
+    | {
+        type: "gradient";
+        from: string;
+        to: string;
+        angle: number;
+    }
+    | {
+        type: "image";
+        src: string;
+        fit: "cover" | "contain";
+        position: string;
+        fallbackColor: string;
+    };
+
 export type Board = {
     id: string;
     name: string;
     width: number;
     height: number;
+    background: BoardBackground;
     widgets: Widget[];
 };

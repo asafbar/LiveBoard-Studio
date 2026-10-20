@@ -5,6 +5,12 @@ export const techSummitBoard: Board = {
     name: "Tech Summit 2026",
     width: 1920,
     height: 1080,
+    background: {
+        type: "gradient",
+        from: "color-mix(in srgb, var(--accent) 28%, var(--background))",
+        to: "color-mix(in srgb, var(--cyan) 16%, var(--canvas-board))",
+        angle: 155,
+    },
     widgets: [
         {
             id: "welcome-line",
