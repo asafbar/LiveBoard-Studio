@@ -37,5 +37,17 @@ export const techSummitBoard: Board = {
                 align: "right",
             },
         },
+        {
+            id: "summit-visual",
+            type: "image",
+            layout: { x: 1260, y: 300, width: 520, height: 680 },
+            settings: {
+                src: "",
+                alt: "Tech Summit visual",
+                objectFit: "cover",
+                borderRadius: 28,
+                fallbackBackgroundColor: "var(--surface-raised)",
+            },
+        },
     ],
 };

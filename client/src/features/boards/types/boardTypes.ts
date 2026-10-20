@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock";
+export type WidgetType = "text" | "clock" | "image";
 
 export type WidgetLayout = {
     x: number;
@@ -20,6 +20,14 @@ export type ClockWidgetSettings = {
     align: "left" | "right";
 };
 
+export type ImageWidgetSettings = {
+    src: string;
+    alt: string;
+    objectFit: "cover" | "contain";
+    borderRadius: number;
+    fallbackBackgroundColor: string;
+};
+
 export type Widget = {
     id: string;
     layout: WidgetLayout;
@@ -31,6 +39,10 @@ export type Widget = {
     | {
         type: "clock";
         settings: ClockWidgetSettings;
+    }
+    | {
+        type: "image";
+        settings: ImageWidgetSettings;
     }
 );
 

@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Board, Widget } from "../types/boardTypes.ts";
 import ClockWidget from "./ClockWidget.tsx";
+import ImageWidget from "./ImageWidget.tsx";
 import styles from "./BoardRenderer.module.css";
 import TextWidget from "./TextWidget.tsx";
 
@@ -16,10 +17,19 @@ type StageStyle = CSSProperties & {
     "--board-width": string;
 };
 
+function renderWidget(widget: Widget) {
+    switch (widget.type) {
+        case "text":
+            return <TextWidget settings={widget.settings} />;
+        case "clock":
+            return <ClockWidget settings={widget.settings} />;
+        case "image":
+            return <ImageWidget settings={widget.settings} />;
+    }
+}
+
 function WidgetView({ widget }: WidgetViewProps) {
-    const content = widget.type === "text"
-        ? <TextWidget settings={widget.settings} />
-        : <ClockWidget settings={widget.settings} />;
+    const content = renderWidget(widget);
 
     return (
         <div
