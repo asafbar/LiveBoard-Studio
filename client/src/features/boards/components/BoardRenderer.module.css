@@ -55,3 +55,31 @@
     position: absolute;
     z-index: 1;
 }
+
+.widgetSelectable {
+    cursor: pointer;
+}
+
+.widgetSelectable:focus {
+    outline: none;
+}
+
+.widgetSelectable:focus-visible:not(.widgetSelected) {
+    z-index: 2;
+    outline: 2px solid var(--cyan);
+    outline-offset: -2px;
+}
+
+.widgetSelected {
+    z-index: 2;
+}
+
+.widgetSelected::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background-color: color-mix(in srgb, var(--cyan) 12%, transparent);
+    box-shadow: inset 0 0 0 2px var(--cyan);
+}

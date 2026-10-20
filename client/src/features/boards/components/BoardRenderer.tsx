@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
 import type { Board, BoardBackground, Widget } from "../types/boardTypes.ts";
 import AnnouncementsWidget from "./AnnouncementsWidget.tsx";
 import ClockWidget from "./ClockWidget.tsx";
@@ -9,10 +9,15 @@ import TextWidget from "./TextWidget.tsx";
 
 type BoardRendererProps = {
     board: Board;
+    selectedWidgetId?: string | null;
+    onSelectWidget?: (widgetId: string | null) => void;
 };
 
 type WidgetViewProps = {
     widget: Widget;
+    selected: boolean;
+    interactive: boolean;
+    onSelectWidget?: (widgetId: string | null) => void;
 };
 
 type StageStyle = CSSProperties & {
@@ -90,6 +95,21 @@ function BoardBackgroundLayer({ background }: BoardBackgroundLayerProps) {
     }
 }
 
+function widgetAccessibleName(widget: Widget): string {
+    switch (widget.type) {
+        case "text":
+            return widget.settings.text;
+        case "clock":
+            return "Clock";
+        case "image":
+            return widget.settings.alt.length > 0 ? widget.settings.alt : "Image";
+        case "information-card":
+            return widget.settings.title;
+        case "announcements":
+            return widget.settings.title;
+    }
+}
+
 function renderWidget(widget: Widget) {
     switch (widget.type) {
         case "text":
@@ -105,38 +125,79 @@ function renderWidget(widget: Widget) {
     }
 }
 
-function WidgetView({ widget }: WidgetViewProps) {
+function WidgetView({ widget, selected, interactive, onSelectWidget }: WidgetViewProps) {
     const content = renderWidget(widget);
+    const className = [
+        styles.widget,
+        interactive ? styles.widgetSelectable : "",
+        selected ? styles.widgetSelected : "",
+    ].filter((name) => name.length > 0).join(" ");
+
+    function handleClick(event: MouseEvent<HTMLDivElement>) {
+        event.stopPropagation();
+        onSelectWidget?.(widget.id);
+    }
+
+    function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+        if (event.key !== "Enter" && event.key !== " ") {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        onSelectWidget?.(widget.id);
+    }
 
     return (
         <div
-            className={styles.widget}
+            className={className}
             style={{
                 left: widget.layout.x,
                 top: widget.layout.y,
                 width: widget.layout.width,
                 height: widget.layout.height,
             }}
+            role={interactive ? "button" : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            aria-pressed={interactive ? selected : undefined}
+            aria-label={interactive ? widgetAccessibleName(widget) : undefined}
+            onClick={interactive ? handleClick : undefined}
+            onKeyDown={interactive ? handleKeyDown : undefined}
         >
             {content}
         </div>
     );
 }
 
-function BoardRenderer({ board }: BoardRendererProps) {
+function BoardRenderer({ board, selectedWidgetId = null, onSelectWidget }: BoardRendererProps) {
+    const interactive = onSelectWidget !== undefined;
     const stageStyle: StageStyle = {
         width: board.width,
         height: board.height,
         "--board-width": `${board.width}px`,
     };
 
+    function handleStageClick() {
+        onSelectWidget?.(null);
+    }
+
     return (
         <div className={styles.root}>
             <div className={styles.frame} aria-label={board.name}>
-                <div className={styles.stage} style={stageStyle}>
+                <div
+                    className={styles.stage}
+                    style={stageStyle}
+                    onClick={interactive ? handleStageClick : undefined}
+                >
                     <BoardBackgroundLayer background={board.background} />
                     {board.widgets.map((widget) => (
-                        <WidgetView key={widget.id} widget={widget} />
+                        <WidgetView
+                            key={widget.id}
+                            widget={widget}
+                            selected={interactive && widget.id === selectedWidgetId}
+                            interactive={interactive}
+                            onSelectWidget={onSelectWidget}
+                        />
                     ))}
                 </div>
             </div>
