@@ -15,7 +15,7 @@ export const techSummitBoard: Board = {
         {
             id: "welcome-line",
             type: "text",
-            layout: { x: 140, y: 360, width: 1200, height: 90 },
+            layout: { x: 140, y: 360, width: 560, height: 90 },
             settings: {
                 text: "Welcome to",
                 tone: "default",
@@ -25,7 +25,7 @@ export const techSummitBoard: Board = {
         {
             id: "summit-title",
             type: "text",
-            layout: { x: 140, y: 450, width: 1500, height: 170 },
+            layout: { x: 140, y: 450, width: 960, height: 170 },
             settings: {
                 text: "Tech Summit 2026",
                 tone: "accent",
@@ -44,15 +44,27 @@ export const techSummitBoard: Board = {
             },
         },
         {
-            id: "summit-visual",
+            id: "conference-hero",
+            type: "image",
+            layout: { x: 1124, y: 296, width: 676, height: 380 },
+            settings: {
+                src: "/media/tech-summit/conference-hero.png",
+                alt: "Speaker presenting at the Tech Summit",
+                objectFit: "cover",
+                borderRadius: 28,
+                fallbackBackgroundColor: "var(--canvas-board)",
+            },
+        },
+        {
+            id: "summit-networking",
             type: "image",
             layout: { x: 1388, y: 700, width: 412, height: 280 },
             settings: {
-                src: "",
-                alt: "Tech Summit visual",
+                src: "/media/tech-summit/networking.png",
+                alt: "Attendees networking at the Tech Summit",
                 objectFit: "cover",
                 borderRadius: 28,
-                fallbackBackgroundColor: "var(--surface-raised)",
+                fallbackBackgroundColor: "var(--canvas-board)",
             },
         },
         {
@@ -64,6 +76,7 @@ export const techSummitBoard: Board = {
                 subtitle: "1:00 PM - 2:00 PM",
                 title: "The Future of AI",
                 description: "Opportunities, Risks and What Comes Next",
+                imageSrc: "/media/tech-summit/next-session.png",
                 backgroundColor: "color-mix(in srgb, var(--accent) 24%, var(--canvas-board))",
                 textColor: "var(--foreground)",
                 borderRadius: 24,
