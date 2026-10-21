@@ -1,15 +1,27 @@
-import { useState } from "react";
-import type { Widget } from "../../boards/types/boardTypes.ts";
+import { useState, type ChangeEvent } from "react";
+import type { TextWidgetSettings, Widget } from "../../boards/types/boardTypes.ts";
 
 type PropertiesPanelProps = {
     selectedWidget: Widget | null;
     onTextChange: (text: string) => void;
+    onTextToneChange: (tone: TextWidgetSettings["tone"]) => void;
+    onTextSizeChange: (size: TextWidgetSettings["size"]) => void;
 };
 
 type TextContentFieldProps = {
     value: string;
     onTextChange: (text: string) => void;
 };
+
+type TextStyleFieldsProps = {
+    tone: TextWidgetSettings["tone"];
+    size: TextWidgetSettings["size"];
+    onToneChange: (tone: TextWidgetSettings["tone"]) => void;
+    onSizeChange: (size: TextWidgetSettings["size"]) => void;
+};
+
+const textToneOptions: TextWidgetSettings["tone"][] = ["default", "accent"];
+const textSizeOptions: TextWidgetSettings["size"][] = ["title", "display"];
 
 type PropertyTabName = "Content" | "Style" | "Position";
 
@@ -148,6 +160,78 @@ function TextContentField({ value, onTextChange }: TextContentFieldProps) {
     );
 }
 
+function TextStyleFields({ tone, size, onToneChange, onSizeChange }: TextStyleFieldsProps) {
+    const selectClassName = "h-9 w-full appearance-none rounded-control border border-border bg-surface-raised px-3 pr-8 text-sm text-foreground outline-none";
+
+    function handleToneChange(event: ChangeEvent<HTMLSelectElement>) {
+        const nextTone = textToneOptions.find((option) => option === event.target.value);
+
+        if (nextTone !== undefined) {
+            onToneChange(nextTone);
+        }
+    }
+
+    function handleSizeChange(event: ChangeEvent<HTMLSelectElement>) {
+        const nextSize = textSizeOptions.find((option) => option === event.target.value);
+
+        if (nextSize !== undefined) {
+            onSizeChange(nextSize);
+        }
+    }
+
+    return (
+        <>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Tone</span>
+                <span className="relative">
+                    <select
+                        value={tone}
+                        onChange={handleToneChange}
+                        className={selectClassName}
+                    >
+                        {textToneOptions.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Size</span>
+                <span className="relative">
+                    <select
+                        value={size}
+                        onChange={handleSizeChange}
+                        className={selectClassName}
+                    >
+                        {textSizeOptions.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+        </>
+    );
+}
+
+function SelectChevron() {
+    return (
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted">
+            <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+            >
+                <path d="m6 9 6 6 6-6" />
+            </svg>
+        </span>
+    );
+}
+
 function PropertyField({ property }: PropertyFieldProps) {
     if (property.kind === "toggle") {
         const trackClassName = property.enabled
@@ -184,28 +268,23 @@ function PropertyField({ property }: PropertyFieldProps) {
                     className={inputClassName}
                 />
                 {property.kind === "select" ? (
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted">
-                        <svg
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            className="size-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.75"
-                        >
-                            <path d="m6 9 6 6 6-6" />
-                        </svg>
-                    </span>
+                    <SelectChevron />
                 ) : null}
             </span>
         </label>
     );
 }
 
-function PropertiesPanel({ selectedWidget, onTextChange }: PropertiesPanelProps) {
+function PropertiesPanel({
+    selectedWidget,
+    onTextChange,
+    onTextToneChange,
+    onTextSizeChange,
+}: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
     const editingText = selectedWidget?.type === "text" && activeTab === "Content";
+    const editingTextStyle = selectedWidget?.type === "text" && activeTab === "Style";
 
     return (
         <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-surface">
@@ -258,10 +337,18 @@ function PropertiesPanel({ selectedWidget, onTextChange }: PropertiesPanelProps)
                             onTextChange={onTextChange}
                         />
                     ) : null}
-                    {!editingText && activeTab === "Style" && properties.length === 0 ? (
+                    {editingTextStyle && selectedWidget.type === "text" ? (
+                        <TextStyleFields
+                            tone={selectedWidget.settings.tone}
+                            size={selectedWidget.settings.size}
+                            onToneChange={onTextToneChange}
+                            onSizeChange={onTextSizeChange}
+                        />
+                    ) : null}
+                    {!editingText && !editingTextStyle && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
                     ) : null}
-                    {!editingText && properties.length > 0 ? (
+                    {!editingText && !editingTextStyle && properties.length > 0 ? (
                         properties.map((property) => (
                             <PropertyField key={property.label} property={property} />
                         ))

@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { techSummitBoard } from "../../boards/data/techSummitBoard.ts";
-import type { Board } from "../../boards/types/boardTypes.ts";
+import type { Board, TextWidgetSettings } from "../../boards/types/boardTypes.ts";
 import ComponentsPanel from "../components/ComponentsPanel.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
 import StudioTopBar from "../components/StudioTopBar.tsx";
 
-function updateTextContent(board: Board, widgetId: string, text: string): Board {
+function updateTextSettings(
+    board: Board,
+    widgetId: string,
+    settings: Partial<TextWidgetSettings>,
+): Board {
     return {
         ...board,
         widgets: board.widgets.map((widget) => {
@@ -18,7 +22,7 @@ function updateTextContent(board: Board, widgetId: string, text: string): Board 
                 ...widget,
                 settings: {
                     ...widget.settings,
-                    text,
+                    ...settings,
                 },
             };
         }),
@@ -35,7 +39,23 @@ function StudioPage() {
             return;
         }
 
-        setBoard((currentBoard) => updateTextContent(currentBoard, selectedWidgetId, text));
+        setBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { text }));
+    }
+
+    function handleTextToneChange(tone: TextWidgetSettings["tone"]) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        setBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { tone }));
+    }
+
+    function handleTextSizeChange(size: TextWidgetSettings["size"]) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        setBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { size }));
     }
 
     return (
@@ -51,6 +71,8 @@ function StudioPage() {
                 <PropertiesPanel
                     selectedWidget={selectedWidget}
                     onTextChange={handleTextChange}
+                    onTextToneChange={handleTextToneChange}
+                    onTextSizeChange={handleTextSizeChange}
                 />
             </div>
             <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">
