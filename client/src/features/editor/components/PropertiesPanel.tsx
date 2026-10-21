@@ -3,6 +3,12 @@ import type { Widget } from "../../boards/types/boardTypes.ts";
 
 type PropertiesPanelProps = {
     selectedWidget: Widget | null;
+    onTextChange: (text: string) => void;
+};
+
+type TextContentFieldProps = {
+    value: string;
+    onTextChange: (text: string) => void;
 };
 
 type PropertyTabName = "Content" | "Style" | "Position";
@@ -126,6 +132,22 @@ function propertiesForTab(widget: Widget, tab: PropertyTabName): Property[] {
     }
 }
 
+function TextContentField({ value, onTextChange }: TextContentFieldProps) {
+    return (
+        <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted">Text</span>
+            <textarea
+                value={value}
+                rows={4}
+                onChange={(event) => {
+                    onTextChange(event.target.value);
+                }}
+                className="min-h-24 w-full resize-y rounded-control border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none"
+            />
+        </label>
+    );
+}
+
 function PropertyField({ property }: PropertyFieldProps) {
     if (property.kind === "toggle") {
         const trackClassName = property.enabled
@@ -180,9 +202,10 @@ function PropertyField({ property }: PropertyFieldProps) {
     );
 }
 
-function PropertiesPanel({ selectedWidget }: PropertiesPanelProps) {
+function PropertiesPanel({ selectedWidget, onTextChange }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
+    const editingText = selectedWidget?.type === "text" && activeTab === "Content";
 
     return (
         <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-surface">
@@ -229,13 +252,20 @@ function PropertiesPanel({ selectedWidget }: PropertiesPanelProps) {
                             Widget
                         </span>
                     </div>
-                    {activeTab === "Style" && properties.length === 0 ? (
+                    {editingText && selectedWidget.type === "text" ? (
+                        <TextContentField
+                            value={selectedWidget.settings.text}
+                            onTextChange={onTextChange}
+                        />
+                    ) : null}
+                    {!editingText && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
-                    ) : (
+                    ) : null}
+                    {!editingText && properties.length > 0 ? (
                         properties.map((property) => (
                             <PropertyField key={property.label} property={property} />
                         ))
-                    )}
+                    ) : null}
                 </div>
             )}
         </aside>
