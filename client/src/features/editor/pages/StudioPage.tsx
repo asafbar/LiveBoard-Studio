@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { techSummitBoard } from "../../boards/data/techSummitBoard.ts";
-import type { Board, TextWidgetSettings } from "../../boards/types/boardTypes.ts";
+import type { Board, ClockWidgetSettings, TextWidgetSettings } from "../../boards/types/boardTypes.ts";
+import { clockTimeZones } from "../clockTimeZones.ts";
 import ComponentsPanel from "../components/ComponentsPanel.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
@@ -24,6 +25,55 @@ function updateTextSettings(
                     ...widget.settings,
                     ...settings,
                 },
+            };
+        }),
+    };
+}
+
+const clockAlignments: ClockWidgetSettings["align"][] = ["left", "right"];
+
+function isAllowedClockTimeZone(timeZone: string, currentTimeZone: string): boolean {
+    return timeZone === currentTimeZone || clockTimeZones.some((zone) => zone === timeZone);
+}
+
+function updateClockSettings(
+    board: Board,
+    widgetId: string,
+    settings: Partial<ClockWidgetSettings>,
+): Board {
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId || widget.type !== "clock") {
+                return widget;
+            }
+
+            const nextSettings: ClockWidgetSettings = {
+                ...widget.settings,
+            };
+
+            if (
+                settings.timeZone !== undefined
+                && isAllowedClockTimeZone(settings.timeZone, widget.settings.timeZone)
+            ) {
+                nextSettings.timeZone = settings.timeZone;
+            }
+
+            if (typeof settings.showDate === "boolean") {
+                nextSettings.showDate = settings.showDate;
+            }
+
+            if (typeof settings.showSeconds === "boolean") {
+                nextSettings.showSeconds = settings.showSeconds;
+            }
+
+            if (settings.align !== undefined && clockAlignments.includes(settings.align)) {
+                nextSettings.align = settings.align;
+            }
+
+            return {
+                ...widget,
+                settings: nextSettings,
             };
         }),
     };
@@ -58,6 +108,14 @@ function StudioPage() {
         setBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { size }));
     }
 
+    function handleClockSettingsChange(settings: Partial<ClockWidgetSettings>) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        setBoard((currentBoard) => updateClockSettings(currentBoard, selectedWidgetId, settings));
+    }
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
             <StudioTopBar />
@@ -73,6 +131,7 @@ function StudioPage() {
                     onTextChange={handleTextChange}
                     onTextToneChange={handleTextToneChange}
                     onTextSizeChange={handleTextSizeChange}
+                    onClockSettingsChange={handleClockSettingsChange}
                 />
             </div>
             <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">

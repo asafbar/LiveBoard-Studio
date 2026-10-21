@@ -1,11 +1,13 @@
 import { useState, type ChangeEvent } from "react";
-import type { TextWidgetSettings, Widget } from "../../boards/types/boardTypes.ts";
+import type { ClockWidgetSettings, TextWidgetSettings, Widget } from "../../boards/types/boardTypes.ts";
+import { clockTimeZones } from "../clockTimeZones.ts";
 
 type PropertiesPanelProps = {
     selectedWidget: Widget | null;
     onTextChange: (text: string) => void;
     onTextToneChange: (tone: TextWidgetSettings["tone"]) => void;
     onTextSizeChange: (size: TextWidgetSettings["size"]) => void;
+    onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
 };
 
 type TextContentFieldProps = {
@@ -20,8 +22,27 @@ type TextStyleFieldsProps = {
     onSizeChange: (size: TextWidgetSettings["size"]) => void;
 };
 
+type ClockContentFieldsProps = {
+    timeZone: string;
+    showDate: boolean;
+    showSeconds: boolean;
+    onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
+};
+
+type ClockStyleFieldsProps = {
+    align: ClockWidgetSettings["align"];
+    onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
+};
+
+type ClockToggleProps = {
+    label: string;
+    enabled: boolean;
+    onChange: (enabled: boolean) => void;
+};
+
 const textToneOptions: TextWidgetSettings["tone"][] = ["default", "accent"];
 const textSizeOptions: TextWidgetSettings["size"][] = ["title", "display"];
+const clockAlignmentOptions: ClockWidgetSettings["align"][] = ["left", "right"];
 
 type PropertyTabName = "Content" | "Style" | "Position";
 
@@ -215,6 +236,121 @@ function TextStyleFields({ tone, size, onToneChange, onSizeChange }: TextStyleFi
     );
 }
 
+function clockTimeZoneOptions(currentTimeZone: string): readonly string[] {
+    if (clockTimeZones.some((zone) => zone === currentTimeZone)) {
+        return clockTimeZones;
+    }
+
+    return [currentTimeZone, ...clockTimeZones];
+}
+
+function ClockToggle({ label, enabled, onChange }: ClockToggleProps) {
+    const trackClassName = enabled
+        ? "relative h-5 w-9 rounded-full bg-accent"
+        : "relative h-5 w-9 rounded-full bg-surface-hover";
+    const knobClassName = enabled
+        ? "absolute top-0.5 right-0.5 size-4 rounded-full bg-white"
+        : "absolute top-0.5 left-0.5 size-4 rounded-full bg-white";
+
+    return (
+        <button
+            type="button"
+            aria-pressed={enabled}
+            onClick={() => {
+                onChange(!enabled);
+            }}
+            className="flex items-center justify-between gap-3 text-left"
+        >
+            <span className="text-sm text-secondary">{label}</span>
+            <span className="inline-flex items-center gap-2 text-xs font-medium text-secondary">
+                {enabled ? "On" : "Off"}
+                <span className={trackClassName} aria-hidden="true">
+                    <span className={knobClassName} />
+                </span>
+            </span>
+        </button>
+    );
+}
+
+function ClockContentFields({
+    timeZone,
+    showDate,
+    showSeconds,
+    onClockSettingsChange,
+}: ClockContentFieldsProps) {
+    const options = clockTimeZoneOptions(timeZone);
+
+    function handleTimeZoneChange(event: ChangeEvent<HTMLSelectElement>) {
+        const nextTimeZone = options.find((option) => option === event.target.value);
+
+        if (nextTimeZone !== undefined) {
+            onClockSettingsChange({ timeZone: nextTimeZone });
+        }
+    }
+
+    return (
+        <>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Time zone</span>
+                <span className="relative">
+                    <select
+                        value={timeZone}
+                        onChange={handleTimeZoneChange}
+                        className="h-9 w-full appearance-none rounded-control border border-border bg-surface-raised px-3 pr-8 text-sm text-foreground outline-none"
+                    >
+                        {options.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+            <ClockToggle
+                label="Show date"
+                enabled={showDate}
+                onChange={(enabled) => {
+                    onClockSettingsChange({ showDate: enabled });
+                }}
+            />
+            <ClockToggle
+                label="Show seconds"
+                enabled={showSeconds}
+                onChange={(enabled) => {
+                    onClockSettingsChange({ showSeconds: enabled });
+                }}
+            />
+        </>
+    );
+}
+
+function ClockStyleFields({ align, onClockSettingsChange }: ClockStyleFieldsProps) {
+    function handleAlignChange(event: ChangeEvent<HTMLSelectElement>) {
+        const nextAlign = clockAlignmentOptions.find((option) => option === event.target.value);
+
+        if (nextAlign !== undefined) {
+            onClockSettingsChange({ align: nextAlign });
+        }
+    }
+
+    return (
+        <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted">Alignment</span>
+            <span className="relative">
+                <select
+                    value={align}
+                    onChange={handleAlignChange}
+                    className="h-9 w-full appearance-none rounded-control border border-border bg-surface-raised px-3 pr-8 text-sm text-foreground outline-none"
+                >
+                    {clockAlignmentOptions.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                    ))}
+                </select>
+                <SelectChevron />
+            </span>
+        </label>
+    );
+}
+
 function SelectChevron() {
     return (
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted">
@@ -280,11 +416,19 @@ function PropertiesPanel({
     onTextChange,
     onTextToneChange,
     onTextSizeChange,
+    onClockSettingsChange,
 }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
     const editingText = selectedWidget?.type === "text" && activeTab === "Content";
     const editingTextStyle = selectedWidget?.type === "text" && activeTab === "Style";
+    const editingClock = selectedWidget?.type === "clock" && activeTab === "Content";
+    const editingClockStyle = selectedWidget?.type === "clock" && activeTab === "Style";
+    const showingReadOnlyProperties = !editingText
+        && !editingTextStyle
+        && !editingClock
+        && !editingClockStyle
+        && properties.length > 0;
 
     return (
         <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-surface">
@@ -345,10 +489,24 @@ function PropertiesPanel({
                             onSizeChange={onTextSizeChange}
                         />
                     ) : null}
-                    {!editingText && !editingTextStyle && activeTab === "Style" && properties.length === 0 ? (
+                    {editingClock && selectedWidget.type === "clock" ? (
+                        <ClockContentFields
+                            timeZone={selectedWidget.settings.timeZone}
+                            showDate={selectedWidget.settings.showDate}
+                            showSeconds={selectedWidget.settings.showSeconds}
+                            onClockSettingsChange={onClockSettingsChange}
+                        />
+                    ) : null}
+                    {editingClockStyle && selectedWidget.type === "clock" ? (
+                        <ClockStyleFields
+                            align={selectedWidget.settings.align}
+                            onClockSettingsChange={onClockSettingsChange}
+                        />
+                    ) : null}
+                    {!editingTextStyle && !editingClockStyle && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
                     ) : null}
-                    {!editingText && !editingTextStyle && properties.length > 0 ? (
+                    {showingReadOnlyProperties ? (
                         properties.map((property) => (
                             <PropertyField key={property.label} property={property} />
                         ))
