@@ -1,6 +1,13 @@
 import { useState, type ChangeEvent } from "react";
-import type { ClockWidgetSettings, TextWidgetSettings, Widget } from "../../boards/types/boardTypes.ts";
+import type { ClockWidgetSettings, ImageWidgetSettings, TextWidgetSettings, Widget } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
+import {
+    imageObjectFitOptions,
+    maximumImageBorderRadius,
+    minimumImageBorderRadius,
+    normalizeImageSource,
+    parseImageBorderRadius,
+} from "../imageSettings.ts";
 
 type PropertiesPanelProps = {
     selectedWidget: Widget | null;
@@ -8,6 +15,7 @@ type PropertiesPanelProps = {
     onTextToneChange: (tone: TextWidgetSettings["tone"]) => void;
     onTextSizeChange: (size: TextWidgetSettings["size"]) => void;
     onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
+    onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
 };
 
 type TextContentFieldProps = {
@@ -39,6 +47,21 @@ type ClockToggleProps = {
     enabled: boolean;
     onChange: (enabled: boolean) => void;
 };
+
+type ImageContentFieldsProps = {
+    source: string;
+    alt: string;
+    onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
+};
+
+type ImageStyleFieldsProps = {
+    objectFit: ImageWidgetSettings["objectFit"];
+    borderRadius: number;
+    onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
+};
+
+const inspectorFieldClassName = "h-9 w-full rounded-control border border-border bg-surface-raised px-3 text-sm text-foreground outline-none";
+const inspectorSelectClassName = "h-9 w-full appearance-none rounded-control border border-border bg-surface-raised px-3 pr-8 text-sm text-foreground outline-none";
 
 const textToneOptions: TextWidgetSettings["tone"][] = ["default", "accent"];
 const textSizeOptions: TextWidgetSettings["size"][] = ["title", "display"];
@@ -351,6 +374,150 @@ function ClockStyleFields({ align, onClockSettingsChange }: ClockStyleFieldsProp
     );
 }
 
+function ImageContentFields({
+    source,
+    alt,
+    onImageSettingsChange,
+}: ImageContentFieldsProps) {
+    const [sourceDraft, setSourceDraft] = useState(source);
+
+    function handleSourceChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        setSourceDraft(nextDraft);
+
+        if (nextDraft !== nextDraft.trim() && nextDraft.trim().length > 0) {
+            return;
+        }
+
+        const normalized = normalizeImageSource(nextDraft);
+
+        if (normalized === null || normalized === source) {
+            return;
+        }
+
+        onImageSettingsChange({ src: normalized });
+
+        if (normalized !== nextDraft) {
+            setSourceDraft(normalized);
+        }
+    }
+
+    function handleSourceBlur() {
+        const normalized = normalizeImageSource(sourceDraft);
+
+        if (normalized === null) {
+            setSourceDraft(source);
+            return;
+        }
+
+        setSourceDraft(normalized);
+
+        if (normalized !== source) {
+            onImageSettingsChange({ src: normalized });
+        }
+    }
+
+    return (
+        <>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Image source</span>
+                <input
+                    value={sourceDraft}
+                    spellCheck={false}
+                    autoComplete="off"
+                    onChange={handleSourceChange}
+                    onBlur={handleSourceBlur}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Alternative text</span>
+                <input
+                    value={alt}
+                    onChange={(event) => {
+                        onImageSettingsChange({ alt: event.target.value });
+                    }}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+        </>
+    );
+}
+
+function ImageStyleFields({
+    objectFit,
+    borderRadius,
+    onImageSettingsChange,
+}: ImageStyleFieldsProps) {
+    const [radiusDraft, setRadiusDraft] = useState(String(borderRadius));
+
+    function handleObjectFitChange(event: ChangeEvent<HTMLSelectElement>) {
+        const nextObjectFit = imageObjectFitOptions.find((option) => option === event.target.value);
+
+        if (nextObjectFit !== undefined) {
+            onImageSettingsChange({ objectFit: nextObjectFit });
+        }
+    }
+
+    function commitBorderRadius(value: string) {
+        const radius = parseImageBorderRadius(value);
+
+        if (radius === null) {
+            return;
+        }
+
+        if (radius !== borderRadius) {
+            onImageSettingsChange({ borderRadius: radius });
+        }
+    }
+
+    function handleRadiusChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        setRadiusDraft(nextDraft);
+        commitBorderRadius(nextDraft);
+    }
+
+    function handleRadiusBlur() {
+        if (parseImageBorderRadius(radiusDraft) === null) {
+            setRadiusDraft(String(borderRadius));
+        }
+    }
+
+    return (
+        <>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Object fit</span>
+                <span className="relative">
+                    <select
+                        value={objectFit}
+                        onChange={handleObjectFitChange}
+                        className={inspectorSelectClassName}
+                    >
+                        {imageObjectFitOptions.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Border radius</span>
+                <input
+                    type="number"
+                    inputMode="decimal"
+                    min={minimumImageBorderRadius}
+                    max={maximumImageBorderRadius}
+                    step="any"
+                    value={radiusDraft}
+                    onChange={handleRadiusChange}
+                    onBlur={handleRadiusBlur}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+        </>
+    );
+}
+
 function SelectChevron() {
     return (
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted">
@@ -417,6 +584,7 @@ function PropertiesPanel({
     onTextToneChange,
     onTextSizeChange,
     onClockSettingsChange,
+    onImageSettingsChange,
 }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
@@ -424,10 +592,14 @@ function PropertiesPanel({
     const editingTextStyle = selectedWidget?.type === "text" && activeTab === "Style";
     const editingClock = selectedWidget?.type === "clock" && activeTab === "Content";
     const editingClockStyle = selectedWidget?.type === "clock" && activeTab === "Style";
+    const editingImage = selectedWidget?.type === "image" && activeTab === "Content";
+    const editingImageStyle = selectedWidget?.type === "image" && activeTab === "Style";
     const showingReadOnlyProperties = !editingText
         && !editingTextStyle
         && !editingClock
         && !editingClockStyle
+        && !editingImage
+        && !editingImageStyle
         && properties.length > 0;
 
     return (
@@ -503,7 +675,23 @@ function PropertiesPanel({
                             onClockSettingsChange={onClockSettingsChange}
                         />
                     ) : null}
-                    {!editingTextStyle && !editingClockStyle && activeTab === "Style" && properties.length === 0 ? (
+                    {editingImage && selectedWidget.type === "image" ? (
+                        <ImageContentFields
+                            key={selectedWidget.id}
+                            source={selectedWidget.settings.src}
+                            alt={selectedWidget.settings.alt}
+                            onImageSettingsChange={onImageSettingsChange}
+                        />
+                    ) : null}
+                    {editingImageStyle && selectedWidget.type === "image" ? (
+                        <ImageStyleFields
+                            key={selectedWidget.id}
+                            objectFit={selectedWidget.settings.objectFit}
+                            borderRadius={selectedWidget.settings.borderRadius}
+                            onImageSettingsChange={onImageSettingsChange}
+                        />
+                    ) : null}
+                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
                     ) : null}
                     {showingReadOnlyProperties ? (

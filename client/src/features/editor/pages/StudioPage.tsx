@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { techSummitBoard } from "../../boards/data/techSummitBoard.ts";
-import type { Board, ClockWidgetSettings, TextWidgetSettings } from "../../boards/types/boardTypes.ts";
+import type { Board, ClockWidgetSettings, ImageWidgetSettings, TextWidgetSettings } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
+import {
+    imageObjectFitOptions,
+    normalizeImageSource,
+    radiusIsInRange,
+} from "../imageSettings.ts";
 import ComponentsPanel from "../components/ComponentsPanel.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
@@ -79,6 +84,56 @@ function updateClockSettings(
     };
 }
 
+function updateImageSettings(
+    board: Board,
+    widgetId: string,
+    settings: Partial<ImageWidgetSettings>,
+): Board {
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId || widget.type !== "image") {
+                return widget;
+            }
+
+            const nextSettings: ImageWidgetSettings = {
+                ...widget.settings,
+            };
+
+            if (settings.src !== undefined) {
+                const source = normalizeImageSource(settings.src);
+
+                if (source !== null) {
+                    nextSettings.src = source;
+                }
+            }
+
+            if (typeof settings.alt === "string") {
+                nextSettings.alt = settings.alt;
+            }
+
+            if (
+                settings.objectFit !== undefined
+                && imageObjectFitOptions.some((option) => option === settings.objectFit)
+            ) {
+                nextSettings.objectFit = settings.objectFit;
+            }
+
+            if (
+                typeof settings.borderRadius === "number"
+                && radiusIsInRange(settings.borderRadius)
+            ) {
+                nextSettings.borderRadius = settings.borderRadius;
+            }
+
+            return {
+                ...widget,
+                settings: nextSettings,
+            };
+        }),
+    };
+}
+
 function StudioPage() {
     const [board, setBoard] = useState(techSummitBoard);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
@@ -116,6 +171,14 @@ function StudioPage() {
         setBoard((currentBoard) => updateClockSettings(currentBoard, selectedWidgetId, settings));
     }
 
+    function handleImageSettingsChange(settings: Partial<ImageWidgetSettings>) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        setBoard((currentBoard) => updateImageSettings(currentBoard, selectedWidgetId, settings));
+    }
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
             <StudioTopBar />
@@ -132,6 +195,7 @@ function StudioPage() {
                     onTextToneChange={handleTextToneChange}
                     onTextSizeChange={handleTextSizeChange}
                     onClockSettingsChange={handleClockSettingsChange}
+                    onImageSettingsChange={handleImageSettingsChange}
                 />
             </div>
             <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">
