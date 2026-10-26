@@ -330,6 +330,48 @@ function updateAnnouncementsSettings(
     };
 }
 
+function clampAxis(value: number, boardSize: number, widgetSize: number): number {
+    const maximum = Math.max(0, boardSize - widgetSize);
+
+    return Math.min(maximum, Math.max(0, value));
+}
+
+function updateWidgetPosition(
+    board: Board,
+    widgetId: string,
+    x: number,
+    y: number,
+): Board {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return board;
+    }
+
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId) {
+                return widget;
+            }
+
+            const nextX = clampAxis(Math.round(x), board.width, widget.layout.width);
+            const nextY = clampAxis(Math.round(y), board.height, widget.layout.height);
+
+            if (nextX === widget.layout.x && nextY === widget.layout.y) {
+                return widget;
+            }
+
+            return {
+                ...widget,
+                layout: {
+                    ...widget.layout,
+                    x: nextX,
+                    y: nextY,
+                },
+            };
+        }),
+    };
+}
+
 function StudioPage() {
     const [board, setBoard] = useState(techSummitBoard);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
@@ -391,6 +433,10 @@ function StudioPage() {
         setBoard((currentBoard) => updateAnnouncementsSettings(currentBoard, selectedWidgetId, settings));
     }
 
+    function handleWidgetPositionChange(widgetId: string, position: { x: number; y: number }) {
+        setBoard((currentBoard) => updateWidgetPosition(currentBoard, widgetId, position.x, position.y));
+    }
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
             <StudioTopBar />
@@ -400,6 +446,7 @@ function StudioPage() {
                     board={board}
                     selectedWidgetId={selectedWidgetId}
                     onSelectWidget={setSelectedWidgetId}
+                    onWidgetPositionChange={handleWidgetPositionChange}
                 />
                 <PropertiesPanel
                     selectedWidget={selectedWidget}

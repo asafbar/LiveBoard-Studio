@@ -6,9 +6,15 @@ type EditorCanvasProps = {
     board: Board;
     selectedWidgetId: string | null;
     onSelectWidget: (widgetId: string | null) => void;
+    onWidgetPositionChange: (widgetId: string, position: { x: number; y: number }) => void;
 };
 
-function EditorCanvas({ board, selectedWidgetId, onSelectWidget }: EditorCanvasProps) {
+function EditorCanvas({
+    board,
+    selectedWidgetId,
+    onSelectWidget,
+    onWidgetPositionChange,
+}: EditorCanvasProps) {
     return (
         <section className="flex min-h-0 min-w-0 flex-1 bg-canvas" aria-label="Board canvas">
             <div className={styles.viewport}>
@@ -16,6 +22,7 @@ function EditorCanvas({ board, selectedWidgetId, onSelectWidget }: EditorCanvasP
                     board={board}
                     selectedWidgetId={selectedWidgetId}
                     onSelectWidget={onSelectWidget}
+                    onWidgetPositionChange={onWidgetPositionChange}
                 />
             </div>
         </section>
