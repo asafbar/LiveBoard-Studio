@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { techSummitBoard } from "../../boards/data/techSummitBoard.ts";
 import type {
+    AnnouncementIconName,
+    AnnouncementItem,
+    AnnouncementsWidgetSettings,
     Board,
     ClockWidgetSettings,
     ImageWidgetSettings,
@@ -212,6 +215,121 @@ function updateInformationCardSettings(
     };
 }
 
+const announcementIcons: AnnouncementIconName[] = ["food", "people", "music", "info"];
+
+function isAnnouncementIcon(icon: string): icon is AnnouncementIconName {
+    return announcementIcons.some((option) => option === icon);
+}
+
+function normalizeAnnouncementItems(items: AnnouncementItem[]): AnnouncementItem[] | null {
+    const ids = new Set<string>();
+    const nextItems: AnnouncementItem[] = [];
+
+    for (const item of items) {
+        if (typeof item.id !== "string" || item.id.length === 0 || ids.has(item.id)) {
+            return null;
+        }
+
+        if (typeof item.title !== "string") {
+            return null;
+        }
+
+        ids.add(item.id);
+
+        const nextItem: AnnouncementItem = {
+            id: item.id,
+            title: item.title,
+        };
+
+        if (item.description !== undefined) {
+            if (typeof item.description !== "string") {
+                return null;
+            }
+
+            nextItem.description = item.description;
+        }
+
+        if (item.meta !== undefined) {
+            if (typeof item.meta !== "string") {
+                return null;
+            }
+
+            nextItem.meta = item.meta;
+        }
+
+        if (item.icon !== undefined) {
+            if (!isAnnouncementIcon(item.icon)) {
+                return null;
+            }
+
+            nextItem.icon = item.icon;
+        }
+
+        nextItems.push(nextItem);
+    }
+
+    return nextItems;
+}
+
+function updateAnnouncementsSettings(
+    board: Board,
+    widgetId: string,
+    settings: Partial<AnnouncementsWidgetSettings>,
+): Board {
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId || widget.type !== "announcements") {
+                return widget;
+            }
+
+            const nextSettings: AnnouncementsWidgetSettings = {
+                ...widget.settings,
+            };
+
+            if (typeof settings.title === "string") {
+                nextSettings.title = settings.title;
+            }
+
+            if (settings.items !== undefined) {
+                const items = normalizeAnnouncementItems(settings.items);
+
+                if (items !== null) {
+                    nextSettings.items = items;
+                }
+            }
+
+            if (typeof settings.backgroundColor === "string") {
+                const color = normalizeCssColor(settings.backgroundColor);
+
+                if (color !== null) {
+                    nextSettings.backgroundColor = color;
+                }
+            }
+
+            if (typeof settings.textColor === "string") {
+                const color = normalizeCssColor(settings.textColor);
+
+                if (color !== null) {
+                    nextSettings.textColor = color;
+                }
+            }
+
+            if (
+                typeof settings.borderRadius === "number"
+                && radiusIsInRange(settings.borderRadius)
+            ) {
+                nextSettings.borderRadius = settings.borderRadius;
+            }
+
+            return {
+                ...widget,
+                settings: nextSettings,
+            };
+        }),
+    };
+}
+
 function StudioPage() {
     const [board, setBoard] = useState(techSummitBoard);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
@@ -265,6 +383,14 @@ function StudioPage() {
         setBoard((currentBoard) => updateInformationCardSettings(currentBoard, selectedWidgetId, settings));
     }
 
+    function handleAnnouncementsSettingsChange(settings: Partial<AnnouncementsWidgetSettings>) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        setBoard((currentBoard) => updateAnnouncementsSettings(currentBoard, selectedWidgetId, settings));
+    }
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
             <StudioTopBar />
@@ -283,6 +409,7 @@ function StudioPage() {
                     onClockSettingsChange={handleClockSettingsChange}
                     onImageSettingsChange={handleImageSettingsChange}
                     onInformationCardSettingsChange={handleInformationCardSettingsChange}
+                    onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
                 />
             </div>
             <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">

@@ -1,5 +1,8 @@
 import { useState, type ChangeEvent } from "react";
 import type {
+    AnnouncementIconName,
+    AnnouncementItem,
+    AnnouncementsWidgetSettings,
     ClockWidgetSettings,
     ImageWidgetSettings,
     InformationCardWidgetSettings,
@@ -24,6 +27,7 @@ type PropertiesPanelProps = {
     onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
     onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
+    onAnnouncementsSettingsChange: (settings: Partial<AnnouncementsWidgetSettings>) => void;
 };
 
 type TextContentFieldProps = {
@@ -101,8 +105,35 @@ type CardImageSourceFieldProps = {
     onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
 };
 
+type AnnouncementsContentFieldsProps = {
+    title: string;
+    items: AnnouncementItem[];
+    onAnnouncementsSettingsChange: (settings: Partial<AnnouncementsWidgetSettings>) => void;
+};
+
+type AnnouncementsStyleFieldsProps = {
+    backgroundColor: string;
+    textColor: string;
+    borderRadius: number;
+    onAnnouncementsSettingsChange: (settings: Partial<AnnouncementsWidgetSettings>) => void;
+};
+
+type AnnouncementItemFieldsProps = {
+    index: number;
+    item: AnnouncementItem;
+    onItemChange: (itemId: string, item: AnnouncementItem) => void;
+    onRemove: (itemId: string) => void;
+};
+
 const inspectorFieldClassName = "h-9 w-full rounded-control border border-border bg-surface-raised px-3 text-sm text-foreground outline-none";
 const inspectorSelectClassName = "h-9 w-full appearance-none rounded-control border border-border bg-surface-raised px-3 pr-8 text-sm text-foreground outline-none";
+
+const announcementIconOptions: { value: AnnouncementIconName; label: string }[] = [
+    { value: "food", label: "Food" },
+    { value: "people", label: "People" },
+    { value: "music", label: "Music" },
+    { value: "info", label: "Info" },
+];
 
 const textToneOptions: TextWidgetSettings["tone"][] = ["default", "accent"];
 const textSizeOptions: TextWidgetSettings["size"][] = ["title", "display"];
@@ -813,6 +844,247 @@ function InformationCardStyleFields({
     );
 }
 
+function nextAnnouncementId(): string {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
+
+    return `announcement-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createAnnouncementId(existingIds: ReadonlySet<string>): string {
+    const id = nextAnnouncementId();
+
+    if (existingIds.has(id)) {
+        return createAnnouncementId(existingIds);
+    }
+
+    return id;
+}
+
+function AnnouncementItemFields({
+    index,
+    item,
+    onItemChange,
+    onRemove,
+}: AnnouncementItemFieldsProps) {
+    const itemLabel = item.title.length > 0 ? item.title : `Announcement ${index + 1}`;
+
+    function handleIconChange(event: ChangeEvent<HTMLSelectElement>) {
+        const icon = announcementIconOptions.find((option) => option.value === event.target.value);
+
+        if (icon === undefined) {
+            return;
+        }
+
+        onItemChange(item.id, {
+            ...item,
+            icon: icon.value,
+        });
+    }
+
+    return (
+        <div className="flex flex-col gap-3 border-t border-border pt-3">
+            <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-secondary">
+                    {`Announcement ${index + 1}`}
+                </span>
+                <button
+                    type="button"
+                    aria-label={`Remove ${itemLabel}`}
+                    onClick={() => {
+                        onRemove(item.id);
+                    }}
+                    className="text-xs font-medium text-muted"
+                >
+                    Remove
+                </button>
+            </div>
+            <CardTextField
+                label="Title"
+                value={item.title}
+                onChange={(value) => {
+                    onItemChange(item.id, {
+                        ...item,
+                        title: value,
+                    });
+                }}
+            />
+            <CardTextField
+                label="Description"
+                value={item.description ?? ""}
+                onChange={(value) => {
+                    onItemChange(item.id, {
+                        ...item,
+                        description: value,
+                    });
+                }}
+            />
+            <CardTextField
+                label="Meta"
+                value={item.meta ?? ""}
+                onChange={(value) => {
+                    onItemChange(item.id, {
+                        ...item,
+                        meta: value,
+                    });
+                }}
+            />
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Icon</span>
+                <span className="relative">
+                    <select
+                        aria-label={`Icon for ${itemLabel}`}
+                        value={item.icon ?? ""}
+                        onChange={handleIconChange}
+                        className={inspectorSelectClassName}
+                    >
+                        {item.icon === undefined ? (
+                            <option value="">Select icon</option>
+                        ) : null}
+                        {announcementIconOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+        </div>
+    );
+}
+
+function AnnouncementsContentFields({
+    title,
+    items,
+    onAnnouncementsSettingsChange,
+}: AnnouncementsContentFieldsProps) {
+    function handleItemChange(itemId: string, nextItem: AnnouncementItem) {
+        onAnnouncementsSettingsChange({
+            items: items.map((item) => item.id === itemId ? nextItem : item),
+        });
+    }
+
+    function handleRemove(itemId: string) {
+        onAnnouncementsSettingsChange({
+            items: items.filter((item) => item.id !== itemId),
+        });
+    }
+
+    function handleAdd() {
+        const existingIds = new Set(items.map((item) => item.id));
+
+        onAnnouncementsSettingsChange({
+            items: [
+                ...items,
+                {
+                    id: createAnnouncementId(existingIds),
+                    title: "New announcement",
+                    description: "",
+                    meta: "",
+                    icon: "info",
+                },
+            ],
+        });
+    }
+
+    return (
+        <>
+            <CardTextField
+                label="Title"
+                value={title}
+                onChange={(value) => {
+                    onAnnouncementsSettingsChange({ title: value });
+                }}
+            />
+            {items.length === 0 ? (
+                <p className="text-sm text-muted">No announcements.</p>
+            ) : (
+                items.map((item, index) => (
+                    <AnnouncementItemFields
+                        key={item.id}
+                        index={index}
+                        item={item}
+                        onItemChange={handleItemChange}
+                        onRemove={handleRemove}
+                    />
+                ))
+            )}
+            <button
+                type="button"
+                onClick={handleAdd}
+                className="h-9 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-foreground"
+            >
+                Add announcement
+            </button>
+        </>
+    );
+}
+
+function AnnouncementsStyleFields({
+    backgroundColor,
+    textColor,
+    borderRadius,
+    onAnnouncementsSettingsChange,
+}: AnnouncementsStyleFieldsProps) {
+    const [radiusDraft, setRadiusDraft] = useState(String(borderRadius));
+
+    function commitBorderRadius(value: string) {
+        const radius = parseImageBorderRadius(value);
+
+        if (radius === null || radius === borderRadius) {
+            return;
+        }
+
+        onAnnouncementsSettingsChange({ borderRadius: radius });
+    }
+
+    function handleRadiusChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        setRadiusDraft(nextDraft);
+        commitBorderRadius(nextDraft);
+    }
+
+    function handleRadiusBlur() {
+        if (parseImageBorderRadius(radiusDraft) === null) {
+            setRadiusDraft(String(borderRadius));
+        }
+    }
+
+    return (
+        <>
+            <CardColorField
+                label="Background color"
+                value={backgroundColor}
+                onColorChange={(color) => {
+                    onAnnouncementsSettingsChange({ backgroundColor: color });
+                }}
+            />
+            <CardColorField
+                label="Text color"
+                value={textColor}
+                onColorChange={(color) => {
+                    onAnnouncementsSettingsChange({ textColor: color });
+                }}
+            />
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Border radius</span>
+                <input
+                    type="number"
+                    inputMode="decimal"
+                    min={minimumImageBorderRadius}
+                    max={maximumImageBorderRadius}
+                    step="any"
+                    aria-label="Border radius"
+                    value={radiusDraft}
+                    onChange={handleRadiusChange}
+                    onBlur={handleRadiusBlur}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+        </>
+    );
+}
+
 function SelectChevron() {
     return (
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted">
@@ -881,6 +1153,7 @@ function PropertiesPanel({
     onClockSettingsChange,
     onImageSettingsChange,
     onInformationCardSettingsChange,
+    onAnnouncementsSettingsChange,
 }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
@@ -892,6 +1165,8 @@ function PropertiesPanel({
     const editingImageStyle = selectedWidget?.type === "image" && activeTab === "Style";
     const editingInformationCard = selectedWidget?.type === "information-card" && activeTab === "Content";
     const editingInformationCardStyle = selectedWidget?.type === "information-card" && activeTab === "Style";
+    const editingAnnouncements = selectedWidget?.type === "announcements" && activeTab === "Content";
+    const editingAnnouncementsStyle = selectedWidget?.type === "announcements" && activeTab === "Style";
     const showingReadOnlyProperties = !editingText
         && !editingTextStyle
         && !editingClock
@@ -900,6 +1175,8 @@ function PropertiesPanel({
         && !editingImageStyle
         && !editingInformationCard
         && !editingInformationCardStyle
+        && !editingAnnouncements
+        && !editingAnnouncementsStyle
         && properties.length > 0;
 
     return (
@@ -1011,7 +1288,24 @@ function PropertiesPanel({
                             onInformationCardSettingsChange={onInformationCardSettingsChange}
                         />
                     ) : null}
-                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && !editingInformationCardStyle && activeTab === "Style" && properties.length === 0 ? (
+                    {editingAnnouncements && selectedWidget.type === "announcements" ? (
+                        <AnnouncementsContentFields
+                            key={selectedWidget.id}
+                            title={selectedWidget.settings.title}
+                            items={selectedWidget.settings.items}
+                            onAnnouncementsSettingsChange={onAnnouncementsSettingsChange}
+                        />
+                    ) : null}
+                    {editingAnnouncementsStyle && selectedWidget.type === "announcements" ? (
+                        <AnnouncementsStyleFields
+                            key={selectedWidget.id}
+                            backgroundColor={selectedWidget.settings.backgroundColor}
+                            textColor={selectedWidget.settings.textColor}
+                            borderRadius={selectedWidget.settings.borderRadius}
+                            onAnnouncementsSettingsChange={onAnnouncementsSettingsChange}
+                        />
+                    ) : null}
+                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && !editingInformationCardStyle && !editingAnnouncementsStyle && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
                     ) : null}
                     {showingReadOnlyProperties ? (
