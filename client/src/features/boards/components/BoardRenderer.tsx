@@ -24,6 +24,10 @@ type StageStyle = CSSProperties & {
     "--board-width": string;
 };
 
+type WidgetFrameStyle = CSSProperties & {
+    "--widget-radius"?: string;
+};
+
 type BoardBackgroundLayerProps = {
     background: BoardBackground;
 };
@@ -125,6 +129,18 @@ function renderWidget(widget: Widget) {
     }
 }
 
+function selectionRadius(widget: Widget): string | undefined {
+    switch (widget.type) {
+        case "image":
+        case "information-card":
+        case "announcements":
+            return `${widget.settings.borderRadius}px`;
+        case "text":
+        case "clock":
+            return undefined;
+    }
+}
+
 function WidgetView({ widget, selected, interactive, onSelectWidget }: WidgetViewProps) {
     const content = renderWidget(widget);
     const className = [
@@ -132,6 +148,17 @@ function WidgetView({ widget, selected, interactive, onSelectWidget }: WidgetVie
         interactive ? styles.widgetSelectable : "",
         selected ? styles.widgetSelected : "",
     ].filter((name) => name.length > 0).join(" ");
+    const radius = selectionRadius(widget);
+    const frameStyle: WidgetFrameStyle = {
+        left: widget.layout.x,
+        top: widget.layout.y,
+        width: widget.layout.width,
+        height: widget.layout.height,
+    };
+
+    if (radius !== undefined) {
+        frameStyle["--widget-radius"] = radius;
+    }
 
     function handleClick(event: MouseEvent<HTMLDivElement>) {
         event.stopPropagation();
@@ -151,12 +178,7 @@ function WidgetView({ widget, selected, interactive, onSelectWidget }: WidgetVie
     return (
         <div
             className={className}
-            style={{
-                left: widget.layout.x,
-                top: widget.layout.y,
-                width: widget.layout.width,
-                height: widget.layout.height,
-            }}
+            style={frameStyle}
             role={interactive ? "button" : undefined}
             tabIndex={interactive ? 0 : undefined}
             aria-pressed={interactive ? selected : undefined}

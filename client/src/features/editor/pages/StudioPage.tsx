@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { techSummitBoard } from "../../boards/data/techSummitBoard.ts";
-import type { Board, ClockWidgetSettings, ImageWidgetSettings, TextWidgetSettings } from "../../boards/types/boardTypes.ts";
+import type {
+    Board,
+    ClockWidgetSettings,
+    ImageWidgetSettings,
+    InformationCardWidgetSettings,
+    TextWidgetSettings,
+} from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
+import { normalizeCssColor } from "../cssColor.ts";
 import {
     imageObjectFitOptions,
     normalizeImageSource,
@@ -134,6 +141,77 @@ function updateImageSettings(
     };
 }
 
+function updateInformationCardSettings(
+    board: Board,
+    widgetId: string,
+    settings: Partial<InformationCardWidgetSettings>,
+): Board {
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId || widget.type !== "information-card") {
+                return widget;
+            }
+
+            const nextSettings: InformationCardWidgetSettings = {
+                ...widget.settings,
+            };
+
+            if (typeof settings.title === "string") {
+                nextSettings.title = settings.title;
+            }
+
+            if (typeof settings.subtitle === "string") {
+                nextSettings.subtitle = settings.subtitle;
+            }
+
+            if (typeof settings.description === "string") {
+                nextSettings.description = settings.description;
+            }
+
+            if (typeof settings.badge === "string") {
+                nextSettings.badge = settings.badge;
+            }
+
+            if (settings.imageSrc !== undefined) {
+                const source = normalizeImageSource(settings.imageSrc);
+
+                if (source !== null) {
+                    nextSettings.imageSrc = source;
+                }
+            }
+
+            if (typeof settings.backgroundColor === "string") {
+                const color = normalizeCssColor(settings.backgroundColor);
+
+                if (color !== null) {
+                    nextSettings.backgroundColor = color;
+                }
+            }
+
+            if (typeof settings.textColor === "string") {
+                const color = normalizeCssColor(settings.textColor);
+
+                if (color !== null) {
+                    nextSettings.textColor = color;
+                }
+            }
+
+            if (
+                typeof settings.borderRadius === "number"
+                && radiusIsInRange(settings.borderRadius)
+            ) {
+                nextSettings.borderRadius = settings.borderRadius;
+            }
+
+            return {
+                ...widget,
+                settings: nextSettings,
+            };
+        }),
+    };
+}
+
 function StudioPage() {
     const [board, setBoard] = useState(techSummitBoard);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
@@ -179,6 +257,14 @@ function StudioPage() {
         setBoard((currentBoard) => updateImageSettings(currentBoard, selectedWidgetId, settings));
     }
 
+    function handleInformationCardSettingsChange(settings: Partial<InformationCardWidgetSettings>) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        setBoard((currentBoard) => updateInformationCardSettings(currentBoard, selectedWidgetId, settings));
+    }
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
             <StudioTopBar />
@@ -196,6 +282,7 @@ function StudioPage() {
                     onTextSizeChange={handleTextSizeChange}
                     onClockSettingsChange={handleClockSettingsChange}
                     onImageSettingsChange={handleImageSettingsChange}
+                    onInformationCardSettingsChange={handleInformationCardSettingsChange}
                 />
             </div>
             <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">

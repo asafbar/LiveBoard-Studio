@@ -1,6 +1,13 @@
 import { useState, type ChangeEvent } from "react";
-import type { ClockWidgetSettings, ImageWidgetSettings, TextWidgetSettings, Widget } from "../../boards/types/boardTypes.ts";
+import type {
+    ClockWidgetSettings,
+    ImageWidgetSettings,
+    InformationCardWidgetSettings,
+    TextWidgetSettings,
+    Widget,
+} from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
+import { hexColorInputValue, normalizeCssColor } from "../cssColor.ts";
 import {
     imageObjectFitOptions,
     maximumImageBorderRadius,
@@ -16,6 +23,7 @@ type PropertiesPanelProps = {
     onTextSizeChange: (size: TextWidgetSettings["size"]) => void;
     onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
+    onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
 };
 
 type TextContentFieldProps = {
@@ -58,6 +66,39 @@ type ImageStyleFieldsProps = {
     objectFit: ImageWidgetSettings["objectFit"];
     borderRadius: number;
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
+};
+
+type InformationCardContentFieldsProps = {
+    title: string;
+    subtitle: string;
+    description: string;
+    badge: string;
+    imageSrc: string;
+    onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
+};
+
+type InformationCardStyleFieldsProps = {
+    backgroundColor: string;
+    textColor: string;
+    borderRadius: number;
+    onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
+};
+
+type CardColorFieldProps = {
+    label: string;
+    value: string;
+    onColorChange: (color: string) => void;
+};
+
+type CardTextFieldProps = {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+};
+
+type CardImageSourceFieldProps = {
+    source: string;
+    onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
 };
 
 const inspectorFieldClassName = "h-9 w-full rounded-control border border-border bg-surface-raised px-3 text-sm text-foreground outline-none";
@@ -518,6 +559,260 @@ function ImageStyleFields({
     );
 }
 
+function CardTextField({
+    label,
+    value,
+    onChange,
+}: CardTextFieldProps) {
+    return (
+        <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted">{label}</span>
+            <input
+                value={value}
+                onChange={(event) => {
+                    onChange(event.target.value);
+                }}
+                className={inspectorFieldClassName}
+            />
+        </label>
+    );
+}
+
+function CardImageSourceField({
+    source,
+    onInformationCardSettingsChange,
+}: CardImageSourceFieldProps) {
+    const [sourceDraft, setSourceDraft] = useState(source);
+
+    function handleSourceChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        setSourceDraft(nextDraft);
+
+        if (nextDraft !== nextDraft.trim() && nextDraft.trim().length > 0) {
+            return;
+        }
+
+        const normalized = normalizeImageSource(nextDraft);
+
+        if (normalized === null || normalized === source) {
+            return;
+        }
+
+        onInformationCardSettingsChange({ imageSrc: normalized });
+
+        if (normalized !== nextDraft) {
+            setSourceDraft(normalized);
+        }
+    }
+
+    function handleSourceBlur() {
+        const normalized = normalizeImageSource(sourceDraft);
+
+        if (normalized === null) {
+            setSourceDraft(source);
+            return;
+        }
+
+        setSourceDraft(normalized);
+
+        if (normalized !== source) {
+            onInformationCardSettingsChange({ imageSrc: normalized });
+        }
+    }
+
+    return (
+        <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted">Image source</span>
+            <input
+                value={sourceDraft}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={handleSourceChange}
+                onBlur={handleSourceBlur}
+                className={inspectorFieldClassName}
+            />
+        </label>
+    );
+}
+
+function InformationCardContentFields({
+    title,
+    subtitle,
+    description,
+    badge,
+    imageSrc,
+    onInformationCardSettingsChange,
+}: InformationCardContentFieldsProps) {
+    return (
+        <>
+            <CardTextField
+                label="Title"
+                value={title}
+                onChange={(value) => {
+                    onInformationCardSettingsChange({ title: value });
+                }}
+            />
+            <CardTextField
+                label="Subtitle"
+                value={subtitle}
+                onChange={(value) => {
+                    onInformationCardSettingsChange({ subtitle: value });
+                }}
+            />
+            <CardTextField
+                label="Description"
+                value={description}
+                onChange={(value) => {
+                    onInformationCardSettingsChange({ description: value });
+                }}
+            />
+            <CardTextField
+                label="Badge"
+                value={badge}
+                onChange={(value) => {
+                    onInformationCardSettingsChange({ badge: value });
+                }}
+            />
+            <CardImageSourceField
+                source={imageSrc}
+                onInformationCardSettingsChange={onInformationCardSettingsChange}
+            />
+        </>
+    );
+}
+
+function CardColorField({ label, value, onColorChange }: CardColorFieldProps) {
+    const [draft, setDraft] = useState(value);
+
+    function handleDraftChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        setDraft(nextDraft);
+
+        if (nextDraft !== nextDraft.trim() && nextDraft.trim().length > 0) {
+            return;
+        }
+
+        const color = normalizeCssColor(nextDraft);
+
+        if (color === null || color === value) {
+            return;
+        }
+
+        onColorChange(color);
+
+        if (color !== nextDraft) {
+            setDraft(color);
+        }
+    }
+
+    function handleDraftBlur() {
+        if (normalizeCssColor(draft) === null) {
+            setDraft(value);
+        }
+    }
+
+    function handlePickerChange(event: ChangeEvent<HTMLInputElement>) {
+        const color = normalizeCssColor(event.target.value);
+
+        if (color === null) {
+            return;
+        }
+
+        setDraft(color);
+
+        if (color !== value) {
+            onColorChange(color);
+        }
+    }
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted">{label}</span>
+            <div className="flex items-center gap-2">
+                <input
+                    type="color"
+                    aria-label={`${label} picker`}
+                    value={hexColorInputValue(value)}
+                    onChange={handlePickerChange}
+                    className="h-9 w-9 shrink-0 cursor-pointer rounded-control border border-border bg-surface-raised p-1"
+                />
+                <input
+                    aria-label={label}
+                    value={draft}
+                    spellCheck={false}
+                    onChange={handleDraftChange}
+                    onBlur={handleDraftBlur}
+                    className={`${inspectorFieldClassName} min-w-0 flex-1`}
+                />
+            </div>
+        </div>
+    );
+}
+
+function InformationCardStyleFields({
+    backgroundColor,
+    textColor,
+    borderRadius,
+    onInformationCardSettingsChange,
+}: InformationCardStyleFieldsProps) {
+    const [radiusDraft, setRadiusDraft] = useState(String(borderRadius));
+
+    function commitBorderRadius(value: string) {
+        const radius = parseImageBorderRadius(value);
+
+        if (radius === null || radius === borderRadius) {
+            return;
+        }
+
+        onInformationCardSettingsChange({ borderRadius: radius });
+    }
+
+    function handleRadiusChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        setRadiusDraft(nextDraft);
+        commitBorderRadius(nextDraft);
+    }
+
+    function handleRadiusBlur() {
+        if (parseImageBorderRadius(radiusDraft) === null) {
+            setRadiusDraft(String(borderRadius));
+        }
+    }
+
+    return (
+        <>
+            <CardColorField
+                label="Background color"
+                value={backgroundColor}
+                onColorChange={(color) => {
+                    onInformationCardSettingsChange({ backgroundColor: color });
+                }}
+            />
+            <CardColorField
+                label="Text color"
+                value={textColor}
+                onColorChange={(color) => {
+                    onInformationCardSettingsChange({ textColor: color });
+                }}
+            />
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Border radius</span>
+                <input
+                    type="number"
+                    inputMode="decimal"
+                    min={minimumImageBorderRadius}
+                    max={maximumImageBorderRadius}
+                    step="any"
+                    value={radiusDraft}
+                    onChange={handleRadiusChange}
+                    onBlur={handleRadiusBlur}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+        </>
+    );
+}
+
 function SelectChevron() {
     return (
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted">
@@ -585,6 +880,7 @@ function PropertiesPanel({
     onTextSizeChange,
     onClockSettingsChange,
     onImageSettingsChange,
+    onInformationCardSettingsChange,
 }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
@@ -594,12 +890,16 @@ function PropertiesPanel({
     const editingClockStyle = selectedWidget?.type === "clock" && activeTab === "Style";
     const editingImage = selectedWidget?.type === "image" && activeTab === "Content";
     const editingImageStyle = selectedWidget?.type === "image" && activeTab === "Style";
+    const editingInformationCard = selectedWidget?.type === "information-card" && activeTab === "Content";
+    const editingInformationCardStyle = selectedWidget?.type === "information-card" && activeTab === "Style";
     const showingReadOnlyProperties = !editingText
         && !editingTextStyle
         && !editingClock
         && !editingClockStyle
         && !editingImage
         && !editingImageStyle
+        && !editingInformationCard
+        && !editingInformationCardStyle
         && properties.length > 0;
 
     return (
@@ -691,7 +991,27 @@ function PropertiesPanel({
                             onImageSettingsChange={onImageSettingsChange}
                         />
                     ) : null}
-                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && activeTab === "Style" && properties.length === 0 ? (
+                    {editingInformationCard && selectedWidget.type === "information-card" ? (
+                        <InformationCardContentFields
+                            key={selectedWidget.id}
+                            title={selectedWidget.settings.title}
+                            subtitle={selectedWidget.settings.subtitle ?? ""}
+                            description={selectedWidget.settings.description ?? ""}
+                            badge={selectedWidget.settings.badge ?? ""}
+                            imageSrc={selectedWidget.settings.imageSrc ?? ""}
+                            onInformationCardSettingsChange={onInformationCardSettingsChange}
+                        />
+                    ) : null}
+                    {editingInformationCardStyle && selectedWidget.type === "information-card" ? (
+                        <InformationCardStyleFields
+                            key={selectedWidget.id}
+                            backgroundColor={selectedWidget.settings.backgroundColor}
+                            textColor={selectedWidget.settings.textColor}
+                            borderRadius={selectedWidget.settings.borderRadius}
+                            onInformationCardSettingsChange={onInformationCardSettingsChange}
+                        />
+                    ) : null}
+                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && !editingInformationCardStyle && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
                     ) : null}
                     {showingReadOnlyProperties ? (
