@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const env = require("./config/env");
 const healthRoutes = require("./routes/healthRoutes");
+const boardRoutes = require("./routes/boardRoutes");
 const {
     notFoundHandler,
     errorHandler
@@ -25,6 +26,7 @@ app.use(express.json({
 }));
 
 app.use("/api/health", healthRoutes);
+app.use("/api/boards", boardRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

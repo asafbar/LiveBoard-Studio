@@ -19,7 +19,10 @@ function errorHandler(err, req, res, next) {
     }
 
     res.status(statusCode).json(
-        errorResponse(getPublicMessage(err, statusCode))
+        errorResponse(
+            getPublicMessage(err, statusCode),
+            getPublicErrors(err, statusCode)
+        )
     );
 }
 
@@ -59,6 +62,17 @@ function getPublicMessage(err, statusCode) {
     }
 
     return "Request failed.";
+}
+
+function getPublicErrors(err, statusCode) {
+    if (statusCode >= 500 || !Array.isArray(err.errors)) {
+        return null;
+    }
+
+    return err.errors.map((item) => ({
+        path: typeof item.path === "string" ? item.path : "",
+        message: typeof item.message === "string" ? item.message : "Invalid value."
+    }));
 }
 
 module.exports = {
