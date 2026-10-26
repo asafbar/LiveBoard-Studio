@@ -42,6 +42,10 @@
     --color-accent: var(--accent);
     --color-accent-hover: var(--accent-hover);
     --color-cyan: var(--cyan);
+    --color-danger: var(--danger);
+    --color-danger-border: var(--danger-border);
+    --color-danger-strong: var(--danger-strong);
+    --color-danger-strong-hover: var(--danger-strong-hover);
     --color-canvas: var(--canvas);
     --color-canvas-board: var(--canvas-board);
     --color-grid: var(--grid);

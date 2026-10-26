@@ -4,6 +4,7 @@ export type StudioIconName =
     | "text"
     | "clock"
     | "image"
+    | "information-card"
     | "video"
     | "announcements"
     | "gallery"
@@ -35,6 +36,14 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
             <rect x="4" y="5" width="16" height="14" rx="2" />
             <circle cx="9" cy="10" r="1.25" />
             <path d="m4 16 4.5-4.5 3 3L15 11l5 5" />
+        </>
+    ),
+    "information-card": (
+        <>
+            <rect x="4" y="5" width="16" height="14" rx="2" />
+            <path d="M8 10h8" />
+            <path d="M8 13h6" />
+            <path d="M8 16h3" />
         </>
     ),
     video: (

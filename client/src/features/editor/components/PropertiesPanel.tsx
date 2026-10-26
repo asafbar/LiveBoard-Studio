@@ -28,6 +28,7 @@ type PropertiesPanelProps = {
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
     onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
     onAnnouncementsSettingsChange: (settings: Partial<AnnouncementsWidgetSettings>) => void;
+    onDeleteWidget: () => void;
 };
 
 type TextContentFieldProps = {
@@ -1154,6 +1155,7 @@ function PropertiesPanel({
     onImageSettingsChange,
     onInformationCardSettingsChange,
     onAnnouncementsSettingsChange,
+    onDeleteWidget,
 }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
@@ -1313,6 +1315,15 @@ function PropertiesPanel({
                             <PropertyField key={property.label} property={property} />
                         ))
                     ) : null}
+                    <div className="border-t border-border pt-4">
+                        <button
+                            type="button"
+                            onClick={onDeleteWidget}
+                            className="h-9 w-full rounded-control border border-danger-border bg-surface-raised text-sm font-medium text-danger transition-colors duration-150 hover:bg-danger/10"
+                        >
+                            Delete Widget
+                        </button>
+                    </div>
                 </div>
             )}
         </aside>

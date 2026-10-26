@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { techSummitBoard } from "../../boards/data/techSummitBoard.ts";
 import type {
     AnnouncementIconName,
@@ -9,7 +9,9 @@ import type {
     ImageWidgetSettings,
     InformationCardWidgetSettings,
     TextWidgetSettings,
+    Widget,
     WidgetLayout,
+    WidgetType,
 } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
 import { normalizeCssColor } from "../cssColor.ts";
@@ -19,9 +21,11 @@ import {
     radiusIsInRange,
 } from "../imageSettings.ts";
 import ComponentsPanel from "../components/ComponentsPanel.tsx";
+import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
 import StudioTopBar from "../components/StudioTopBar.tsx";
+import { createWidget } from "../createWidget.ts";
 
 function updateTextSettings(
     board: Board,
@@ -449,9 +453,33 @@ function updateWidgetLayout(
     };
 }
 
+function appendWidget(board: Board, widget: Widget): Board {
+    if (board.widgets.some((item) => item.id === widget.id)) {
+        return board;
+    }
+
+    return {
+        ...board,
+        widgets: [...board.widgets, widget],
+    };
+}
+
+function removeWidget(board: Board, widgetId: string): Board {
+    if (!board.widgets.some((widget) => widget.id === widgetId)) {
+        return board;
+    }
+
+    return {
+        ...board,
+        widgets: board.widgets.filter((widget) => widget.id !== widgetId),
+    };
+}
+
 function StudioPage() {
     const [board, setBoard] = useState(techSummitBoard);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const restoreFocusRef = useRef<HTMLElement | null>(null);
     const selectedWidget = board.widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
 
     function handleTextChange(text: string) {
@@ -518,38 +546,105 @@ function StudioPage() {
         setBoard((currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout));
     }
 
+    function handleAddWidget(type: WidgetType) {
+        const widget = createWidget(type, board);
+
+        setBoard((currentBoard) => appendWidget(currentBoard, widget));
+        setSelectedWidgetId(widget.id);
+    }
+
+    function handleDeleteSelectedWidget() {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        const widgetId = selectedWidgetId;
+
+        setBoard((currentBoard) => removeWidget(currentBoard, widgetId));
+        setSelectedWidgetId(null);
+    }
+
+    function handleRequestDeleteSelectedWidget() {
+        if (selectedWidgetId === null || deleteDialogOpen) {
+            return;
+        }
+
+        restoreFocusRef.current = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        setDeleteDialogOpen(true);
+    }
+
+    function handleCancelDelete() {
+        setDeleteDialogOpen(false);
+    }
+
+    function handleConfirmDelete() {
+        handleDeleteSelectedWidget();
+        setDeleteDialogOpen(false);
+    }
+
+    useEffect(() => {
+        if (deleteDialogOpen || restoreFocusRef.current === null) {
+            return;
+        }
+
+        const previous = restoreFocusRef.current;
+        restoreFocusRef.current = null;
+
+        if (previous.isConnected) {
+            previous.focus();
+            return;
+        }
+
+        document.querySelector<HTMLElement>("[aria-label='Board canvas']")?.focus();
+    }, [deleteDialogOpen]);
+
     return (
-        <div className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
-            <StudioTopBar />
-            <div className="flex min-h-0 flex-1">
-                <ComponentsPanel />
-                <EditorCanvas
-                    board={board}
-                    selectedWidgetId={selectedWidgetId}
-                    onSelectWidget={setSelectedWidgetId}
-                    onWidgetPositionChange={handleWidgetPositionChange}
-                    onWidgetLayoutChange={handleWidgetLayoutChange}
-                />
-                <PropertiesPanel
-                    selectedWidget={selectedWidget}
-                    onTextChange={handleTextChange}
-                    onTextToneChange={handleTextToneChange}
-                    onTextSizeChange={handleTextSizeChange}
-                    onClockSettingsChange={handleClockSettingsChange}
-                    onImageSettingsChange={handleImageSettingsChange}
-                    onInformationCardSettingsChange={handleInformationCardSettingsChange}
-                    onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
-                />
+        <>
+            <div
+                className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased"
+                inert={deleteDialogOpen}
+            >
+                <StudioTopBar />
+                <div className="flex min-h-0 flex-1">
+                    <ComponentsPanel onAddWidget={handleAddWidget} />
+                    <EditorCanvas
+                        board={board}
+                        selectedWidgetId={selectedWidgetId}
+                        onSelectWidget={setSelectedWidgetId}
+                        onWidgetPositionChange={handleWidgetPositionChange}
+                        onWidgetLayoutChange={handleWidgetLayoutChange}
+                        onDeleteSelectedWidget={handleRequestDeleteSelectedWidget}
+                    />
+                    <PropertiesPanel
+                        selectedWidget={selectedWidget}
+                        onTextChange={handleTextChange}
+                        onTextToneChange={handleTextToneChange}
+                        onTextSizeChange={handleTextSizeChange}
+                        onClockSettingsChange={handleClockSettingsChange}
+                        onImageSettingsChange={handleImageSettingsChange}
+                        onInformationCardSettingsChange={handleInformationCardSettingsChange}
+                        onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
+                        onDeleteWidget={handleRequestDeleteSelectedWidget}
+                    />
+                </div>
+                <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">
+                    <p>Board resolution: 1920 x 1080</p>
+                    <p>Zoom 100%</p>
+                    <p className="inline-flex items-center gap-2">
+                        <span className="size-1.5 rounded-full bg-cyan" aria-hidden="true" />
+                        Draft
+                    </p>
+                </footer>
             </div>
-            <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">
-                <p>Board resolution: 1920 x 1080</p>
-                <p>Zoom 100%</p>
-                <p className="inline-flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-cyan" aria-hidden="true" />
-                    Draft
-                </p>
-            </footer>
-        </div>
+            {deleteDialogOpen ? (
+                <DeleteWidgetDialog
+                    onCancel={handleCancelDelete}
+                    onConfirm={handleConfirmDelete}
+                />
+            ) : null}
+        </>
     );
 }
 

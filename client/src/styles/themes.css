@@ -13,6 +13,10 @@
     --accent: #3b82f6;
     --accent-hover: #2563eb;
     --cyan: #22d3ee;
+    --danger: #ef4444;
+    --danger-border: #b91c1c;
+    --danger-strong: #dc2626;
+    --danger-strong-hover: #b91c1c;
     --canvas: #080e18;
     --canvas-board: #0c1526;
     --grid: rgb(148 163 184 / 0.16);
