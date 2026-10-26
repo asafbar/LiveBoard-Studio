@@ -9,6 +9,7 @@ import type {
     ImageWidgetSettings,
     InformationCardWidgetSettings,
     TextWidgetSettings,
+    WidgetLayout,
 } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
 import { normalizeCssColor } from "../cssColor.ts";
@@ -330,6 +331,9 @@ function updateAnnouncementsSettings(
     };
 }
 
+const minimumWidgetWidth = 100;
+const minimumWidgetHeight = 60;
+
 function clampAxis(value: number, boardSize: number, widgetSize: number): number {
     const maximum = Math.max(0, boardSize - widgetSize);
 
@@ -366,6 +370,79 @@ function updateWidgetPosition(
                     ...widget.layout,
                     x: nextX,
                     y: nextY,
+                },
+            };
+        }),
+    };
+}
+
+function updateWidgetLayout(
+    board: Board,
+    widgetId: string,
+    layout: WidgetLayout,
+): Board {
+    if (
+        !Number.isFinite(layout.x)
+        || !Number.isFinite(layout.y)
+        || !Number.isFinite(layout.width)
+        || !Number.isFinite(layout.height)
+    ) {
+        return board;
+    }
+
+    let width = Math.max(minimumWidgetWidth, Math.round(layout.width));
+    let height = Math.max(minimumWidgetHeight, Math.round(layout.height));
+    let x = Math.round(layout.x);
+    let y = Math.round(layout.y);
+
+    if (width > board.width) {
+        width = board.width;
+    }
+
+    if (height > board.height) {
+        height = board.height;
+    }
+
+    if (x < 0) {
+        x = 0;
+    }
+
+    if (y < 0) {
+        y = 0;
+    }
+
+    if (x + width > board.width) {
+        x = Math.max(0, board.width - width);
+    }
+
+    if (y + height > board.height) {
+        y = Math.max(0, board.height - height);
+    }
+
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId) {
+                return widget;
+            }
+
+            if (
+                x === widget.layout.x
+                && y === widget.layout.y
+                && width === widget.layout.width
+                && height === widget.layout.height
+            ) {
+                return widget;
+            }
+
+            return {
+                ...widget,
+                layout: {
+                    ...widget.layout,
+                    x,
+                    y,
+                    width,
+                    height,
                 },
             };
         }),
@@ -437,6 +514,10 @@ function StudioPage() {
         setBoard((currentBoard) => updateWidgetPosition(currentBoard, widgetId, position.x, position.y));
     }
 
+    function handleWidgetLayoutChange(widgetId: string, layout: WidgetLayout) {
+        setBoard((currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout));
+    }
+
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
             <StudioTopBar />
@@ -447,6 +528,7 @@ function StudioPage() {
                     selectedWidgetId={selectedWidgetId}
                     onSelectWidget={setSelectedWidgetId}
                     onWidgetPositionChange={handleWidgetPositionChange}
+                    onWidgetLayoutChange={handleWidgetLayoutChange}
                 />
                 <PropertiesPanel
                     selectedWidget={selectedWidget}

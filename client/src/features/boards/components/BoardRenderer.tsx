@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
-import type { Board, BoardBackground, Widget } from "../types/boardTypes.ts";
+import type { Board, BoardBackground, Widget, WidgetLayout } from "../types/boardTypes.ts";
 import AnnouncementsWidget from "./AnnouncementsWidget.tsx";
 import ClockWidget from "./ClockWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
@@ -17,6 +17,7 @@ type BoardRendererProps = {
     selectedWidgetId?: string | null;
     onSelectWidget?: (widgetId: string | null) => void;
     onWidgetPositionChange?: (widgetId: string, position: WidgetPosition) => void;
+    onWidgetLayoutChange?: (widgetId: string, layout: WidgetLayout) => void;
 };
 
 type WidgetViewProps = {
@@ -27,6 +28,7 @@ type WidgetViewProps = {
     boardHeight: number;
     onSelectWidget?: (widgetId: string | null) => void;
     onWidgetPositionChange?: (widgetId: string, position: WidgetPosition) => void;
+    onWidgetLayoutChange?: (widgetId: string, layout: WidgetLayout) => void;
     onDragRelease?: () => void;
 };
 
@@ -37,6 +39,27 @@ type DragSession = {
     originX: number;
     originY: number;
     dragging: boolean;
+};
+
+type ResizeCorner = "nw" | "ne" | "sw" | "se";
+
+type ResizeSession = {
+    pointerId: number;
+    corner: ResizeCorner;
+    originClientX: number;
+    originClientY: number;
+    originLayout: WidgetLayout;
+    resizing: boolean;
+    handle: HTMLDivElement;
+};
+
+type ResizeHandleProps = {
+    corner: ResizeCorner;
+    onPointerDown: (corner: ResizeCorner, event: PointerEvent<HTMLDivElement>) => void;
+    onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+    onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+    onPointerCancel: (event: PointerEvent<HTMLDivElement>) => void;
+    onLostPointerCapture: (event: PointerEvent<HTMLDivElement>) => void;
 };
 
 type StageStyle = CSSProperties & {
@@ -149,6 +172,16 @@ function renderWidget(widget: Widget) {
 }
 
 const dragStartDistance = 3;
+const minimumWidgetWidth = 100;
+const minimumWidgetHeight = 60;
+const resizeCorners: ResizeCorner[] = ["nw", "ne", "sw", "se"];
+
+const resizeHandleClassNames: Record<ResizeCorner, string> = {
+    nw: styles.resizeNw,
+    ne: styles.resizeNe,
+    sw: styles.resizeSw,
+    se: styles.resizeSe,
+};
 
 function selectionRadius(widget: Widget): string | undefined {
     switch (widget.type) {
@@ -179,6 +212,130 @@ function logicalStagePoint(
     };
 }
 
+function stageElement(element: HTMLElement): HTMLElement | null {
+    const stage = element.closest(`.${styles.stage}`);
+
+    if (stage instanceof HTMLElement) {
+        return stage;
+    }
+
+    return null;
+}
+
+type ResizeEdges = {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+};
+
+function containResizeEdges(
+    edges: ResizeEdges,
+    movesLeft: boolean,
+    movesTop: boolean,
+    boardWidth: number,
+    boardHeight: number,
+): ResizeEdges {
+    let { left, top, right, bottom } = edges;
+
+    if (right - left < minimumWidgetWidth) {
+        if (movesLeft) {
+            left = right - minimumWidgetWidth;
+        } else {
+            right = left + minimumWidgetWidth;
+        }
+    }
+
+    if (bottom - top < minimumWidgetHeight) {
+        if (movesTop) {
+            top = bottom - minimumWidgetHeight;
+        } else {
+            bottom = top + minimumWidgetHeight;
+        }
+    }
+
+    left = Math.max(0, left);
+    top = Math.max(0, top);
+    right = Math.min(boardWidth, right);
+    bottom = Math.min(boardHeight, bottom);
+
+    if (right - left < minimumWidgetWidth) {
+        if (movesLeft) {
+            left = Math.max(0, right - minimumWidgetWidth);
+        } else {
+            right = Math.min(boardWidth, left + minimumWidgetWidth);
+        }
+    }
+
+    if (bottom - top < minimumWidgetHeight) {
+        if (movesTop) {
+            top = Math.max(0, bottom - minimumWidgetHeight);
+        } else {
+            bottom = Math.min(boardHeight, top + minimumWidgetHeight);
+        }
+    }
+
+    return { left, top, right, bottom };
+}
+
+function resizeLayout(
+    origin: WidgetLayout,
+    corner: ResizeCorner,
+    deltaX: number,
+    deltaY: number,
+    boardWidth: number,
+    boardHeight: number,
+): WidgetLayout {
+    const movesLeft = corner === "nw" || corner === "sw";
+    const movesTop = corner === "nw" || corner === "ne";
+    const moved = containResizeEdges({
+        left: origin.x + (movesLeft ? deltaX : 0),
+        top: origin.y + (movesTop ? deltaY : 0),
+        right: origin.x + origin.width + (movesLeft ? 0 : deltaX),
+        bottom: origin.y + origin.height + (movesTop ? 0 : deltaY),
+    }, movesLeft, movesTop, boardWidth, boardHeight);
+    const rounded = containResizeEdges({
+        left: Math.round(moved.left),
+        top: Math.round(moved.top),
+        right: Math.round(moved.right),
+        bottom: Math.round(moved.bottom),
+    }, movesLeft, movesTop, boardWidth, boardHeight);
+
+    return {
+        x: rounded.left,
+        y: rounded.top,
+        width: rounded.right - rounded.left,
+        height: rounded.bottom - rounded.top,
+    };
+}
+
+function ResizeHandle({
+    corner,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+    onLostPointerCapture,
+}: ResizeHandleProps) {
+    return (
+        <div
+            className={`${styles.resizeHandle} ${resizeHandleClassNames[corner]}`}
+            data-resize-corner={corner}
+            aria-hidden="true"
+            onClick={(event) => {
+                event.stopPropagation();
+            }}
+            onPointerDown={(event) => {
+                onPointerDown(corner, event);
+            }}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onLostPointerCapture={onLostPointerCapture}
+        />
+    );
+}
+
 function WidgetView({
     widget,
     selected,
@@ -187,10 +344,12 @@ function WidgetView({
     boardHeight,
     onSelectWidget,
     onWidgetPositionChange,
+    onWidgetLayoutChange,
     onDragRelease,
 }: WidgetViewProps) {
     const frameRef = useRef<HTMLDivElement>(null);
     const dragSessionRef = useRef<DragSession | null>(null);
+    const resizeSessionRef = useRef<ResizeSession | null>(null);
     const draggable = interactive && onWidgetPositionChange !== undefined;
     const content = renderWidget(widget);
     const className = [
@@ -217,15 +376,44 @@ function WidgetView({
             const session = dragSessionRef.current;
             dragSessionRef.current = null;
 
-            if (session === null || frame === null || !frame.isConnected) {
-                return;
+            if (
+                session !== null
+                && frame !== null
+                && frame.isConnected
+                && frame.hasPointerCapture(session.pointerId)
+            ) {
+                frame.releasePointerCapture(session.pointerId);
             }
 
-            if (frame.hasPointerCapture(session.pointerId)) {
-                frame.releasePointerCapture(session.pointerId);
+            const resizeSession = resizeSessionRef.current;
+            resizeSessionRef.current = null;
+
+            if (
+                resizeSession !== null
+                && resizeSession.handle.isConnected
+                && resizeSession.handle.hasPointerCapture(resizeSession.pointerId)
+            ) {
+                resizeSession.handle.releasePointerCapture(resizeSession.pointerId);
             }
         };
     }, []);
+
+    useEffect(() => {
+        if (selected) {
+            return;
+        }
+
+        const resizeSession = resizeSessionRef.current;
+        resizeSessionRef.current = null;
+
+        if (
+            resizeSession !== null
+            && resizeSession.handle.isConnected
+            && resizeSession.handle.hasPointerCapture(resizeSession.pointerId)
+        ) {
+            resizeSession.handle.releasePointerCapture(resizeSession.pointerId);
+        }
+    }, [selected]);
 
     function finishDrag(element: HTMLDivElement, pointerId: number) {
         const session = dragSessionRef.current;
@@ -350,6 +538,133 @@ function WidgetView({
         finishDrag(event.currentTarget, event.pointerId);
     }
 
+    function finishResize(element: HTMLDivElement, pointerId: number) {
+        const session = resizeSessionRef.current;
+
+        if (session === null || session.pointerId !== pointerId) {
+            return;
+        }
+
+        resizeSessionRef.current = null;
+
+        if (element.hasPointerCapture(pointerId)) {
+            element.releasePointerCapture(pointerId);
+        }
+    }
+
+    function handleResizePointerDown(corner: ResizeCorner, event: PointerEvent<HTMLDivElement>) {
+        if (event.button !== 0 || onWidgetLayoutChange === undefined) {
+            return;
+        }
+
+        const activeSession = resizeSessionRef.current;
+
+        if (activeSession !== null && activeSession.handle.isConnected) {
+            event.stopPropagation();
+            return;
+        }
+
+        event.stopPropagation();
+        resizeSessionRef.current = {
+            pointerId: event.pointerId,
+            corner,
+            originClientX: event.clientX,
+            originClientY: event.clientY,
+            originLayout: {
+                x: widget.layout.x,
+                y: widget.layout.y,
+                width: widget.layout.width,
+                height: widget.layout.height,
+            },
+            resizing: false,
+            handle: event.currentTarget,
+        };
+
+        try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+            // Capture requires an active pointer. The gesture still ends on pointerup.
+        }
+
+        onSelectWidget?.(widget.id);
+    }
+
+    function handleResizePointerMove(event: PointerEvent<HTMLDivElement>) {
+        const session = resizeSessionRef.current;
+
+        if (session === null || session.pointerId !== event.pointerId || onWidgetLayoutChange === undefined) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        if (!session.resizing) {
+            const distance = Math.hypot(
+                event.clientX - session.originClientX,
+                event.clientY - session.originClientY,
+            );
+
+            if (distance < dragStartDistance) {
+                return;
+            }
+
+            session.resizing = true;
+        }
+
+        const stage = stageElement(event.currentTarget);
+
+        if (stage === null) {
+            return;
+        }
+
+        event.preventDefault();
+        const origin = logicalStagePoint(
+            stage,
+            session.originClientX,
+            session.originClientY,
+            boardWidth,
+            boardHeight,
+        );
+        const current = logicalStagePoint(
+            stage,
+            event.clientX,
+            event.clientY,
+            boardWidth,
+            boardHeight,
+        );
+
+        onWidgetLayoutChange(widget.id, resizeLayout(
+            session.originLayout,
+            session.corner,
+            current.x - origin.x,
+            current.y - origin.y,
+            boardWidth,
+            boardHeight,
+        ));
+    }
+
+    function handleResizePointerUp(event: PointerEvent<HTMLDivElement>) {
+        const session = resizeSessionRef.current;
+        const resizing = session?.resizing === true && session.pointerId === event.pointerId;
+
+        event.stopPropagation();
+
+        if (resizing) {
+            onDragRelease?.();
+        }
+
+        finishResize(event.currentTarget, event.pointerId);
+    }
+
+    function handleResizePointerCancel(event: PointerEvent<HTMLDivElement>) {
+        event.stopPropagation();
+        finishResize(event.currentTarget, event.pointerId);
+    }
+
+    function handleResizeLostPointerCapture(event: PointerEvent<HTMLDivElement>) {
+        finishResize(event.currentTarget, event.pointerId);
+    }
+
     return (
         <div
             ref={frameRef}
@@ -369,6 +684,17 @@ function WidgetView({
             onLostPointerCapture={draggable ? handleLostPointerCapture : undefined}
         >
             {content}
+            {selected && onWidgetLayoutChange !== undefined ? resizeCorners.map((corner) => (
+                <ResizeHandle
+                    key={corner}
+                    corner={corner}
+                    onPointerDown={handleResizePointerDown}
+                    onPointerMove={handleResizePointerMove}
+                    onPointerUp={handleResizePointerUp}
+                    onPointerCancel={handleResizePointerCancel}
+                    onLostPointerCapture={handleResizeLostPointerCapture}
+                />
+            )) : null}
         </div>
     );
 }
@@ -378,6 +704,7 @@ function BoardRenderer({
     selectedWidgetId = null,
     onSelectWidget,
     onWidgetPositionChange,
+    onWidgetLayoutChange,
 }: BoardRendererProps) {
     const interactive = onSelectWidget !== undefined;
     const suppressStageClickRef = useRef(false);
@@ -421,6 +748,7 @@ function BoardRenderer({
                             boardHeight={board.height}
                             onSelectWidget={onSelectWidget}
                             onWidgetPositionChange={onWidgetPositionChange}
+                            onWidgetLayoutChange={onWidgetLayoutChange}
                             onDragRelease={handleDragRelease}
                         />
                     ))}

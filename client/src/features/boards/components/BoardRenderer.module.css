@@ -87,3 +87,45 @@
     background-color: color-mix(in srgb, var(--cyan) 12%, transparent);
     box-shadow: inset 0 0 0 2px var(--cyan);
 }
+
+/* Counter the stage scale so each handle stays about 12px on screen. */
+.resizeHandle {
+    position: absolute;
+    z-index: 3;
+    box-sizing: border-box;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--cyan);
+    border-radius: 2px;
+    background-color: var(--background);
+    touch-action: none;
+    transform: scale(calc(var(--board-width) / 100cqw));
+}
+
+.resizeNw {
+    top: 0;
+    left: 0;
+    cursor: nwse-resize;
+    transform-origin: top left;
+}
+
+.resizeNe {
+    top: 0;
+    right: 0;
+    cursor: nesw-resize;
+    transform-origin: top right;
+}
+
+.resizeSw {
+    bottom: 0;
+    left: 0;
+    cursor: nesw-resize;
+    transform-origin: bottom left;
+}
+
+.resizeSe {
+    bottom: 0;
+    right: 0;
+    cursor: nwse-resize;
+    transform-origin: bottom right;
+}
