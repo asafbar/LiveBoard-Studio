@@ -6,7 +6,9 @@ type StudioTopBarProps = {
     saveStatus: DraftSaveStatus | null;
     saveError: string | null;
     saveDisabled: boolean;
+    previewDisabled: boolean;
     onSave: () => void;
+    onPreview: () => void;
 };
 
 const saveStatusLabel: Record<DraftSaveStatus, string> = {
@@ -30,7 +32,14 @@ const saveStatusDotClassName: Record<DraftSaveStatus, string> = {
     failed: "bg-danger",
 };
 
-function StudioTopBar({ saveStatus, saveError, saveDisabled, onSave }: StudioTopBarProps) {
+function StudioTopBar({
+    saveStatus,
+    saveError,
+    saveDisabled,
+    previewDisabled,
+    onSave,
+    onPreview,
+}: StudioTopBarProps) {
     const statusLabel = saveStatus === null ? null : saveStatusLabel[saveStatus];
     const statusDescription = saveStatus === "failed" && saveError !== null
         ? `Save failed. ${saveError}`
@@ -83,7 +92,13 @@ function StudioTopBar({ saveStatus, saveError, saveDisabled, onSave }: StudioTop
                 </button>
                 <button
                     type="button"
-                    className="inline-flex h-9 items-center gap-2 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover"
+                    onClick={onPreview}
+                    disabled={previewDisabled}
+                    className={
+                        previewDisabled
+                            ? "inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
+                            : "inline-flex h-9 items-center gap-2 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover"
+                    }
                 >
                     <StudioIcon name="preview" />
                     Preview

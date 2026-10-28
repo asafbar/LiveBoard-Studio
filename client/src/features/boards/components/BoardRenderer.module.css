@@ -21,6 +21,12 @@
     box-shadow: var(--shadow-panel);
 }
 
+.framePlain {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 /* Logical 1920x1080 stage. Scale keeps positions and type in proportion. */
 .stage {
     position: absolute;

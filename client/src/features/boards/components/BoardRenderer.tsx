@@ -14,6 +14,7 @@ type WidgetPosition = {
 
 type BoardRendererProps = {
     board: Board;
+    framed?: boolean;
     selectedWidgetId?: string | null;
     onSelectWidget?: (widgetId: string | null) => void;
     onWidgetPositionChange?: (widgetId: string, position: WidgetPosition) => void;
@@ -701,6 +702,7 @@ function WidgetView({
 
 function BoardRenderer({
     board,
+    framed = true,
     selectedWidgetId = null,
     onSelectWidget,
     onWidgetPositionChange,
@@ -731,7 +733,10 @@ function BoardRenderer({
 
     return (
         <div className={styles.root}>
-            <div className={styles.frame} aria-label={board.name}>
+            <div
+                className={framed ? styles.frame : `${styles.frame} ${styles.framePlain}`}
+                aria-label={board.name}
+            >
                 <div
                     className={styles.stage}
                     style={stageStyle}

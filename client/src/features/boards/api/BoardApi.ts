@@ -21,6 +21,12 @@ type BoardRecord = {
     published: Board | null;
 };
 
+const boardIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isBoardId(value: string | undefined): value is string {
+    return typeof value === "string" && boardIdPattern.test(value);
+}
+
 async function getBoardById(boardId: string): Promise<BoardRecord> {
     if (apiClient.defaults.baseURL === "") {
         throw new Error("VITE_API_BASE_URL is not configured.");
@@ -65,6 +71,31 @@ function getDevelopmentBoard(): Promise<BoardRecord> {
 
     developmentBoardRequest = request;
     return request;
+}
+
+async function getBoard(boardId: string): Promise<BoardRecord> {
+    if (!isBoardId(boardId)) {
+        throw new Error("This board address is not valid.");
+    }
+
+    try {
+        const record = await getBoardById(boardId);
+
+        if (record.published !== null && !isBoardDraft(record.published)) {
+            throw new Error("The published board could not be read.");
+        }
+
+        return record;
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                readRequestError(error, "The board could not be loaded. Check that the API is running, then try again."),
+                { cause: error },
+            );
+        }
+
+        throw error;
+    }
 }
 
 function reloadDevelopmentBoard(): Promise<BoardRecord> {
@@ -146,7 +177,9 @@ function isBoardDraft(value: unknown): value is Board {
 }
 
 export {
+    getBoard,
     getDevelopmentBoard,
+    isBoardId,
     reloadDevelopmentBoard,
     saveBoardDraft,
 };

@@ -25,6 +25,7 @@ import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
 import SavingOverlay from "../components/SavingOverlay.tsx";
+import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
 import { createWidget } from "../createWidget.ts";
 
@@ -532,6 +533,7 @@ function StudioPage() {
     const [saveError, setSaveError] = useState<string | null>(null);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [previewOpen, setPreviewOpen] = useState(false);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
     const changeVersionRef = useRef(0);
     const saveInFlightRef = useRef(false);
@@ -607,6 +609,18 @@ function StudioPage() {
             .finally(() => {
                 saveInFlightRef.current = false;
             });
+    }
+
+    function handleOpenPreview() {
+        if (board === null || saveState === "saving" || deleteDialogOpen) {
+            return;
+        }
+
+        setPreviewOpen(true);
+    }
+
+    function handleClosePreview() {
+        setPreviewOpen(false);
     }
 
     function handleRetry() {
@@ -753,6 +767,10 @@ function StudioPage() {
         document.querySelector<HTMLElement>("[aria-label='Board canvas']")?.focus();
     }, [deleteDialogOpen]);
 
+    if (previewOpen && board !== null) {
+        return <StudioPreview board={board} onBack={handleClosePreview} />;
+    }
+
     return (
         <>
             <div
@@ -763,7 +781,9 @@ function StudioPage() {
                     saveStatus={draftSaveStatus(board !== null, saveState, hasUnsavedChanges)}
                     saveError={saveError}
                     saveDisabled={board === null || !hasUnsavedChanges || saveState === "saving"}
+                    previewDisabled={board === null || saveState === "saving"}
                     onSave={handleSave}
+                    onPreview={handleOpenPreview}
                 />
                 {board === null ? (
                     loadError === null ? (
