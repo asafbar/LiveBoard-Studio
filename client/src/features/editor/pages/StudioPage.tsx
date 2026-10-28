@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { techSummitBoard } from "../../boards/data/techSummitBoard.ts";
+import { getDevelopmentBoard, reloadDevelopmentBoard } from "../../boards/api/BoardApi.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -475,19 +475,91 @@ function removeWidget(board: Board, widgetId: string): Board {
     };
 }
 
+type StudioNoticeProps = {
+    title: string;
+    message: string;
+    actionLabel?: string;
+    onAction?: () => void;
+};
+
+function StudioNotice({ title, message, actionLabel, onAction }: StudioNoticeProps) {
+    return (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+            <div className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-panel">
+                <h2 className="text-base font-semibold text-foreground">{title}</h2>
+                <p className="mt-2 text-sm leading-5 text-secondary">{message}</p>
+                {actionLabel && onAction ? (
+                    <button
+                        type="button"
+                        onClick={onAction}
+                        className="mt-5 h-9 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+                    >
+                        {actionLabel}
+                    </button>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
 function StudioPage() {
-    const [board, setBoard] = useState(techSummitBoard);
+    const [board, setBoard] = useState<Board | null>(null);
+    const [loadAttempt, setLoadAttempt] = useState(0);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
-    const selectedWidget = board.widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
+    const selectedWidget = board?.widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
+
+    useEffect(() => {
+        let active = true;
+        const loadBoard = loadAttempt === 0
+            ? getDevelopmentBoard()
+            : reloadDevelopmentBoard();
+
+        loadBoard
+            .then((record) => {
+                if (!active) {
+                    return;
+                }
+
+                setBoard((currentBoard) => currentBoard ?? record.draft);
+                setLoadError(null);
+            })
+            .catch(() => {
+                if (!active) {
+                    return;
+                }
+
+                setLoadError("The board could not be loaded. Check that the API is running, then try again.");
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [loadAttempt]);
+
+    function updateBoard(update: (currentBoard: Board) => Board) {
+        setBoard((currentBoard) => {
+            if (currentBoard === null) {
+                return currentBoard;
+            }
+
+            return update(currentBoard);
+        });
+    }
+
+    function handleRetry() {
+        setLoadError(null);
+        setLoadAttempt((currentAttempt) => currentAttempt + 1);
+    }
 
     function handleTextChange(text: string) {
         if (selectedWidgetId === null) {
             return;
         }
 
-        setBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { text }));
+        updateBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { text }));
     }
 
     function handleTextToneChange(tone: TextWidgetSettings["tone"]) {
@@ -495,7 +567,7 @@ function StudioPage() {
             return;
         }
 
-        setBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { tone }));
+        updateBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { tone }));
     }
 
     function handleTextSizeChange(size: TextWidgetSettings["size"]) {
@@ -503,7 +575,7 @@ function StudioPage() {
             return;
         }
 
-        setBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { size }));
+        updateBoard((currentBoard) => updateTextSettings(currentBoard, selectedWidgetId, { size }));
     }
 
     function handleClockSettingsChange(settings: Partial<ClockWidgetSettings>) {
@@ -511,7 +583,7 @@ function StudioPage() {
             return;
         }
 
-        setBoard((currentBoard) => updateClockSettings(currentBoard, selectedWidgetId, settings));
+        updateBoard((currentBoard) => updateClockSettings(currentBoard, selectedWidgetId, settings));
     }
 
     function handleImageSettingsChange(settings: Partial<ImageWidgetSettings>) {
@@ -519,7 +591,7 @@ function StudioPage() {
             return;
         }
 
-        setBoard((currentBoard) => updateImageSettings(currentBoard, selectedWidgetId, settings));
+        updateBoard((currentBoard) => updateImageSettings(currentBoard, selectedWidgetId, settings));
     }
 
     function handleInformationCardSettingsChange(settings: Partial<InformationCardWidgetSettings>) {
@@ -527,7 +599,7 @@ function StudioPage() {
             return;
         }
 
-        setBoard((currentBoard) => updateInformationCardSettings(currentBoard, selectedWidgetId, settings));
+        updateBoard((currentBoard) => updateInformationCardSettings(currentBoard, selectedWidgetId, settings));
     }
 
     function handleAnnouncementsSettingsChange(settings: Partial<AnnouncementsWidgetSettings>) {
@@ -535,21 +607,25 @@ function StudioPage() {
             return;
         }
 
-        setBoard((currentBoard) => updateAnnouncementsSettings(currentBoard, selectedWidgetId, settings));
+        updateBoard((currentBoard) => updateAnnouncementsSettings(currentBoard, selectedWidgetId, settings));
     }
 
     function handleWidgetPositionChange(widgetId: string, position: { x: number; y: number }) {
-        setBoard((currentBoard) => updateWidgetPosition(currentBoard, widgetId, position.x, position.y));
+        updateBoard((currentBoard) => updateWidgetPosition(currentBoard, widgetId, position.x, position.y));
     }
 
     function handleWidgetLayoutChange(widgetId: string, layout: WidgetLayout) {
-        setBoard((currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout));
+        updateBoard((currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout));
     }
 
     function handleAddWidget(type: WidgetType) {
+        if (board === null) {
+            return;
+        }
+
         const widget = createWidget(type, board);
 
-        setBoard((currentBoard) => appendWidget(currentBoard, widget));
+        updateBoard((currentBoard) => appendWidget(currentBoard, widget));
         setSelectedWidgetId(widget.id);
     }
 
@@ -560,7 +636,7 @@ function StudioPage() {
 
         const widgetId = selectedWidgetId;
 
-        setBoard((currentBoard) => removeWidget(currentBoard, widgetId));
+        updateBoard((currentBoard) => removeWidget(currentBoard, widgetId));
         setSelectedWidgetId(null);
     }
 
@@ -607,28 +683,44 @@ function StudioPage() {
                 inert={deleteDialogOpen}
             >
                 <StudioTopBar />
-                <div className="flex min-h-0 flex-1">
-                    <ComponentsPanel onAddWidget={handleAddWidget} />
-                    <EditorCanvas
-                        board={board}
-                        selectedWidgetId={selectedWidgetId}
-                        onSelectWidget={setSelectedWidgetId}
-                        onWidgetPositionChange={handleWidgetPositionChange}
-                        onWidgetLayoutChange={handleWidgetLayoutChange}
-                        onDeleteSelectedWidget={handleRequestDeleteSelectedWidget}
-                    />
-                    <PropertiesPanel
-                        selectedWidget={selectedWidget}
-                        onTextChange={handleTextChange}
-                        onTextToneChange={handleTextToneChange}
-                        onTextSizeChange={handleTextSizeChange}
-                        onClockSettingsChange={handleClockSettingsChange}
-                        onImageSettingsChange={handleImageSettingsChange}
-                        onInformationCardSettingsChange={handleInformationCardSettingsChange}
-                        onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
-                        onDeleteWidget={handleRequestDeleteSelectedWidget}
-                    />
-                </div>
+                {board === null ? (
+                    loadError === null ? (
+                        <StudioNotice
+                            title="Loading board"
+                            message="The draft is being loaded from the API."
+                        />
+                    ) : (
+                        <StudioNotice
+                            title="Board unavailable"
+                            message={loadError}
+                            actionLabel="Retry"
+                            onAction={handleRetry}
+                        />
+                    )
+                ) : (
+                    <div className="flex min-h-0 flex-1">
+                        <ComponentsPanel onAddWidget={handleAddWidget} />
+                        <EditorCanvas
+                            board={board}
+                            selectedWidgetId={selectedWidgetId}
+                            onSelectWidget={setSelectedWidgetId}
+                            onWidgetPositionChange={handleWidgetPositionChange}
+                            onWidgetLayoutChange={handleWidgetLayoutChange}
+                            onDeleteSelectedWidget={handleRequestDeleteSelectedWidget}
+                        />
+                        <PropertiesPanel
+                            selectedWidget={selectedWidget}
+                            onTextChange={handleTextChange}
+                            onTextToneChange={handleTextToneChange}
+                            onTextSizeChange={handleTextSizeChange}
+                            onClockSettingsChange={handleClockSettingsChange}
+                            onImageSettingsChange={handleImageSettingsChange}
+                            onInformationCardSettingsChange={handleInformationCardSettingsChange}
+                            onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
+                            onDeleteWidget={handleRequestDeleteSelectedWidget}
+                        />
+                    </div>
+                )}
                 <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">
                     <p>Board resolution: 1920 x 1080</p>
                     <p>Zoom 100%</p>
