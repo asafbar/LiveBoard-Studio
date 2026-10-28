@@ -1,3 +1,4 @@
+import axios, { type AxiosResponse } from "axios";
 import apiClient from "../../../api/apiClient.ts";
 import type { Board } from "../types/boardTypes.ts";
 
@@ -72,6 +73,62 @@ function reloadDevelopmentBoard(): Promise<BoardRecord> {
     return getDevelopmentBoard();
 }
 
+async function saveBoardDraft(draft: Board): Promise<void> {
+    if (apiClient.defaults.baseURL === "") {
+        throw new Error("VITE_API_BASE_URL is not configured.");
+    }
+
+    let response: AxiosResponse<ApiResponse<BoardRecord>>;
+
+    try {
+        response = await apiClient.put<ApiResponse<BoardRecord>>(
+            `/api/boards/${developmentBoardId}/draft`,
+            draft,
+        );
+    } catch (error: unknown) {
+        throw new Error(
+            readRequestError(error, "The draft could not be saved. Check that the API is running, then try again."),
+            { cause: error },
+        );
+    }
+
+    if (!response.data.success) {
+        throw new Error(response.data.message || "The draft could not be saved.");
+    }
+
+    // Remember the snapshot that was stored. Studio keeps its own editable copy.
+    if (cachedDevelopmentBoard !== null && developmentBoardRequest === null) {
+        cachedDevelopmentBoard = {
+            ...cachedDevelopmentBoard,
+            draft,
+        };
+    }
+}
+
+function readRequestError(error: unknown, fallback: string): string {
+    if (!axios.isAxiosError(error)) {
+        return error instanceof Error && error.message.trim() !== ""
+            ? error.message
+            : fallback;
+    }
+
+    if (error.response === undefined) {
+        return fallback;
+    }
+
+    const data: unknown = error.response.data;
+
+    if (typeof data === "object" && data !== null && "message" in data) {
+        const message = data.message;
+
+        if (typeof message === "string" && message.trim() !== "") {
+            return message;
+        }
+    }
+
+    return fallback;
+}
+
 function isBoardDraft(value: unknown): value is Board {
     if (value === null || typeof value !== "object") {
         return false;
@@ -91,4 +148,5 @@ function isBoardDraft(value: unknown): value is Board {
 export {
     getDevelopmentBoard,
     reloadDevelopmentBoard,
+    saveBoardDraft,
 };

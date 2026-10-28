@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getDevelopmentBoard, reloadDevelopmentBoard } from "../../boards/api/BoardApi.ts";
+import { getDevelopmentBoard, reloadDevelopmentBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -24,7 +24,8 @@ import ComponentsPanel from "../components/ComponentsPanel.tsx";
 import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
-import StudioTopBar from "../components/StudioTopBar.tsx";
+import SavingOverlay from "../components/SavingOverlay.tsx";
+import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
 import { createWidget } from "../createWidget.ts";
 
 function updateTextSettings(
@@ -482,6 +483,26 @@ type StudioNoticeProps = {
     onAction?: () => void;
 };
 
+function draftSaveStatus(
+    boardLoaded: boolean,
+    saveState: "idle" | "saving" | "failed",
+    hasUnsavedChanges: boolean,
+): DraftSaveStatus | null {
+    if (!boardLoaded) {
+        return null;
+    }
+
+    if (saveState === "saving") {
+        return "saving";
+    }
+
+    if (saveState === "failed") {
+        return "failed";
+    }
+
+    return hasUnsavedChanges ? "unsaved" : "saved";
+}
+
 function StudioNotice({ title, message, actionLabel, onAction }: StudioNoticeProps) {
     return (
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
@@ -506,9 +527,15 @@ function StudioPage() {
     const [board, setBoard] = useState<Board | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [saveState, setSaveState] = useState<"idle" | "saving" | "failed">("idle");
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
+    const changeVersionRef = useRef(0);
+    const saveInFlightRef = useRef(false);
+    const [saveRestoreTarget, setSaveRestoreTarget] = useState<HTMLElement | null>(null);
     const selectedWidget = board?.widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
 
     useEffect(() => {
@@ -540,6 +567,8 @@ function StudioPage() {
     }, [loadAttempt]);
 
     function updateBoard(update: (currentBoard: Board) => Board) {
+        changeVersionRef.current += 1;
+        setHasUnsavedChanges(true);
         setBoard((currentBoard) => {
             if (currentBoard === null) {
                 return currentBoard;
@@ -547,6 +576,37 @@ function StudioPage() {
 
             return update(currentBoard);
         });
+    }
+
+    function handleSave() {
+        if (board === null || !hasUnsavedChanges || saveInFlightRef.current) {
+            return;
+        }
+
+        const snapshot = board;
+        const snapshotVersion = changeVersionRef.current;
+        saveInFlightRef.current = true;
+        setSaveRestoreTarget(document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null);
+        setSaveState("saving");
+        setSaveError(null);
+
+        saveBoardDraft(snapshot)
+            .then(() => {
+                setHasUnsavedChanges(changeVersionRef.current !== snapshotVersion);
+                setSaveState("idle");
+            })
+            .catch((error: unknown) => {
+                setHasUnsavedChanges(true);
+                setSaveState("failed");
+                setSaveError(error instanceof Error && error.message.trim() !== ""
+                    ? error.message
+                    : "The draft could not be saved. Check that the API is running, then try again.");
+            })
+            .finally(() => {
+                saveInFlightRef.current = false;
+            });
     }
 
     function handleRetry() {
@@ -661,6 +721,23 @@ function StudioPage() {
     }
 
     useEffect(() => {
+        if (!hasUnsavedChanges) {
+            return;
+        }
+
+        function handleBeforeUnload(event: BeforeUnloadEvent) {
+            event.preventDefault();
+            event.returnValue = "";
+        }
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
+    }, [hasUnsavedChanges]);
+
+    useEffect(() => {
         if (deleteDialogOpen || restoreFocusRef.current === null) {
             return;
         }
@@ -680,9 +757,14 @@ function StudioPage() {
         <>
             <div
                 className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased"
-                inert={deleteDialogOpen}
+                inert={deleteDialogOpen || saveState === "saving"}
             >
-                <StudioTopBar />
+                <StudioTopBar
+                    saveStatus={draftSaveStatus(board !== null, saveState, hasUnsavedChanges)}
+                    saveError={saveError}
+                    saveDisabled={board === null || !hasUnsavedChanges || saveState === "saving"}
+                    onSave={handleSave}
+                />
                 {board === null ? (
                     loadError === null ? (
                         <StudioNotice
@@ -730,6 +812,9 @@ function StudioPage() {
                     </p>
                 </footer>
             </div>
+            {saveState === "saving" ? (
+                <SavingOverlay restoreTarget={saveRestoreTarget} />
+            ) : null}
             {deleteDialogOpen ? (
                 <DeleteWidgetDialog
                     onCancel={handleCancelDelete}
