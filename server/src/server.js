@@ -1,9 +1,14 @@
+const http = require("http");
 const env = require("./config/env");
 const app = require("./app");
 const {
     verifyDatabaseConnection,
     closeDatabase
 } = require("./config/db");
+const {
+    attachBoardRealtime,
+    closeBoardRealtime
+} = require("./realtime/boardRealtime");
 
 const SHUTDOWN_TIMEOUT_MS = 10000;
 
@@ -44,7 +49,10 @@ async function startServer() {
 
     console.log("Database connection verified.");
 
-    const server = app.listen(env.port, () => {
+    const server = http.createServer(app);
+    attachBoardRealtime(server);
+
+    server.listen(env.port, () => {
         console.log(`LiveBoard Studio API listening on port ${env.port} (${env.nodeEnv})`);
     });
 
@@ -71,6 +79,7 @@ async function startServer() {
 
         shuttingDown = true;
         console.log(`${signal} received. Closing HTTP server.`);
+        closeBoardRealtime();
 
         const forceTimer = setTimeout(() => {
             console.error("HTTP server did not close in time.");

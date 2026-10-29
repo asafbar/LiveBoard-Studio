@@ -1,4 +1,5 @@
 const boardRepository = require("../repositories/boardRepository");
+const { notifyBoardPublished } = require("../realtime/boardRealtime");
 const { createHttpError } = require("../utils/httpError");
 
 async function listBoards() {
@@ -22,6 +23,7 @@ async function publishBoard(id) {
         throw createHttpError(404, "Board not found.");
     }
 
+    notifyBoardPublished(board.id);
     return board;
 }
 
