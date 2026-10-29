@@ -7,8 +7,11 @@ type StudioTopBarProps = {
     saveError: string | null;
     saveDisabled: boolean;
     previewDisabled: boolean;
+    publishDisabled: boolean;
+    publishGuidance: string | null;
     onSave: () => void;
     onPreview: () => void;
+    onPublish: () => void;
 };
 
 const saveStatusLabel: Record<DraftSaveStatus, string> = {
@@ -37,8 +40,11 @@ function StudioTopBar({
     saveError,
     saveDisabled,
     previewDisabled,
+    publishDisabled,
+    publishGuidance,
     onSave,
     onPreview,
+    onPublish,
 }: StudioTopBarProps) {
     const statusLabel = saveStatus === null ? null : saveStatusLabel[saveStatus];
     const statusDescription = saveStatus === "failed" && saveError !== null
@@ -103,9 +109,22 @@ function StudioTopBar({
                     <StudioIcon name="preview" />
                     Preview
                 </button>
+                {publishGuidance !== null ? (
+                    <p id="publish-guidance" className="max-w-52 text-right text-xs leading-4 text-secondary">
+                        {publishGuidance}
+                    </p>
+                ) : null}
                 <button
                     type="button"
-                    className="inline-flex h-9 items-center gap-2 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+                    onClick={onPublish}
+                    disabled={publishDisabled}
+                    title={publishGuidance ?? undefined}
+                    aria-describedby={publishGuidance !== null ? "publish-guidance" : undefined}
+                    className={
+                        publishDisabled
+                            ? "inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-control bg-accent/40 px-3 text-sm font-medium text-white opacity-60"
+                            : "inline-flex h-9 items-center gap-2 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+                    }
                 >
                     <StudioIcon name="publish" />
                     Publish

@@ -3,9 +3,19 @@ import styles from "./SavingOverlay.module.css";
 
 type SavingOverlayProps = {
     restoreTarget: HTMLElement | null;
+    title?: string;
+    message?: string;
+    titleId?: string;
+    messageId?: string;
 };
 
-function SavingOverlay({ restoreTarget }: SavingOverlayProps) {
+function SavingOverlay({
+    restoreTarget,
+    title = "Saving your changes",
+    message = "Updating your board...",
+    titleId = "saving-overlay-title",
+    messageId = "saving-overlay-message",
+}: SavingOverlayProps) {
     const dialogRef = useRef<HTMLDivElement>(null);
 
     useLayoutEffect(() => {
@@ -64,18 +74,18 @@ function SavingOverlay({ restoreTarget }: SavingOverlayProps) {
                 ref={dialogRef}
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="saving-overlay-title"
-                aria-describedby="saving-overlay-message"
+                aria-labelledby={titleId}
+                aria-describedby={messageId}
                 tabIndex={-1}
                 onKeyDown={handleKeyDown}
                 className={styles.panel}
             >
                 <div className={styles.spinner} aria-hidden="true" />
-                <h2 id="saving-overlay-title" className={styles.title}>
-                    Saving your changes
+                <h2 id={titleId} className={styles.title}>
+                    {title}
                 </h2>
-                <p id="saving-overlay-message" className={styles.message}>
-                    Updating your board...
+                <p id={messageId} className={styles.message}>
+                    {message}
                 </p>
             </div>
         </div>

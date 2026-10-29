@@ -35,6 +35,21 @@ async function getBoard(req, res, next) {
     }
 }
 
+async function publishBoard(req, res, next) {
+    try {
+        const board = await boardService.publishBoard(req.params.id);
+
+        res.status(200).json(
+            successResponse(
+                "Board published successfully.",
+                toBoardDetail(board)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
 async function replaceDraft(req, res, next) {
     try {
         const board = await boardService.replaceDraft(req.params.id, req.draft);
@@ -53,5 +68,6 @@ async function replaceDraft(req, res, next) {
 module.exports = {
     listBoards,
     getBoard,
+    publishBoard,
     replaceDraft
 };

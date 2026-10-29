@@ -15,6 +15,16 @@ async function getBoard(id) {
     return board;
 }
 
+async function publishBoard(id) {
+    const board = await boardRepository.publishDraft(id);
+
+    if (board === null) {
+        throw createHttpError(404, "Board not found.");
+    }
+
+    return board;
+}
+
 async function replaceDraft(id, draft) {
     const board = await boardRepository.replaceDraft(id, draft);
 
@@ -28,5 +38,6 @@ async function replaceDraft(id, draft) {
 module.exports = {
     listBoards,
     getBoard,
+    publishBoard,
     replaceDraft
 };

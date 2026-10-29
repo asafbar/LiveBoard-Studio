@@ -136,6 +136,43 @@ async function saveBoardDraft(draft: Board): Promise<void> {
     }
 }
 
+async function publishBoard(): Promise<BoardRecord> {
+    if (apiClient.defaults.baseURL === "") {
+        throw new Error("VITE_API_BASE_URL is not configured.");
+    }
+
+    let response: AxiosResponse<ApiResponse<BoardRecord>>;
+
+    try {
+        response = await apiClient.post<ApiResponse<BoardRecord>>(
+            `/api/boards/${developmentBoardId}/publish`,
+        );
+    } catch (error: unknown) {
+        throw new Error(
+            readRequestError(error, "The board could not be published. Check that the API is running, then try again."),
+            { cause: error },
+        );
+    }
+
+    const record = response.data.data;
+    const published = record?.published;
+
+    if (!response.data.success || record == null || typeof record.id !== "string" || !isBoardDraft(published)) {
+        throw new Error(response.data.message || "The board could not be published.");
+    }
+
+    // Remember the published snapshot only. Studio keeps its editable draft.
+    if (cachedDevelopmentBoard !== null && developmentBoardRequest === null) {
+        cachedDevelopmentBoard = {
+            ...cachedDevelopmentBoard,
+            published,
+            updatedAt: record.updatedAt,
+        };
+    }
+
+    return record;
+}
+
 function readRequestError(error: unknown, fallback: string): string {
     if (!axios.isAxiosError(error)) {
         return error instanceof Error && error.message.trim() !== ""
@@ -180,6 +217,7 @@ export {
     getBoard,
     getDevelopmentBoard,
     isBoardId,
+    publishBoard,
     reloadDevelopmentBoard,
     saveBoardDraft,
 };

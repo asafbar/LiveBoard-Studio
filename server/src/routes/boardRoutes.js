@@ -23,4 +23,11 @@ router.put(
     boardController.replaceDraft
 );
 
+// Publishes the draft stored in PostgreSQL. The request body is ignored.
+router.post(
+    "/:id/publish",
+    validateBoardId,
+    boardController.publishBoard
+);
+
 module.exports = router;

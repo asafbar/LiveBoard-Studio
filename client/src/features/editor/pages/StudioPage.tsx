@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getDevelopmentBoard, reloadDevelopmentBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
+import { getDevelopmentBoard, publishBoard, reloadDevelopmentBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -24,6 +24,7 @@ import ComponentsPanel from "../components/ComponentsPanel.tsx";
 import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
+import PublishBoardDialog from "../components/PublishBoardDialog.tsx";
 import SavingOverlay from "../components/SavingOverlay.tsx";
 import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
@@ -534,9 +535,14 @@ function StudioPage() {
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
+    const [boardRecordId, setBoardRecordId] = useState<string | null>(null);
+    const [publishPhase, setPublishPhase] = useState<"confirm" | "publishing" | "published" | "failed" | null>(null);
+    const [publishError, setPublishError] = useState<string | null>(null);
+    const [publishRestoreTarget, setPublishRestoreTarget] = useState<HTMLElement | null>(null);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
     const changeVersionRef = useRef(0);
     const saveInFlightRef = useRef(false);
+    const publishInFlightRef = useRef(false);
     const [saveRestoreTarget, setSaveRestoreTarget] = useState<HTMLElement | null>(null);
     const selectedWidget = board?.widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
 
@@ -552,6 +558,7 @@ function StudioPage() {
                     return;
                 }
 
+                setBoardRecordId((currentId) => currentId ?? record.id);
                 setBoard((currentBoard) => currentBoard ?? record.draft);
                 setLoadError(null);
             })
@@ -612,11 +619,71 @@ function StudioPage() {
     }
 
     function handleOpenPreview() {
-        if (board === null || saveState === "saving" || deleteDialogOpen) {
+        if (board === null || saveState === "saving" || deleteDialogOpen || publishPhase !== null) {
             return;
         }
 
         setPreviewOpen(true);
+    }
+
+    function handleOpenPublish() {
+        if (
+            board === null
+            || boardRecordId === null
+            || hasUnsavedChanges
+            || saveState === "saving"
+            || saveInFlightRef.current
+            || publishInFlightRef.current
+            || publishPhase !== null
+        ) {
+            return;
+        }
+
+        setPublishError(null);
+        setPublishPhase("confirm");
+    }
+
+    function handleCancelPublish() {
+        if (publishInFlightRef.current || publishPhase === "publishing") {
+            return;
+        }
+
+        setPublishPhase(null);
+        setPublishError(null);
+    }
+
+    function handlePublish() {
+        if (
+            board === null
+            || hasUnsavedChanges
+            || saveState === "saving"
+            || saveInFlightRef.current
+            || publishInFlightRef.current
+        ) {
+            return;
+        }
+
+        publishInFlightRef.current = true;
+        setPublishRestoreTarget(document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null);
+        setPublishPhase("publishing");
+        setPublishError(null);
+
+        publishBoard()
+            .then((record) => {
+                setBoardRecordId(record.id);
+                setPublishPhase("published");
+            })
+            .catch((error: unknown) => {
+                setPublishPhase("failed");
+                setPublishError(error instanceof Error && error.message.trim() !== ""
+                    ? error.message
+                    : "The board could not be published. Check that the API is running, then try again.");
+            })
+            .finally(() => {
+                publishInFlightRef.current = false;
+            });
     }
 
     function handleClosePreview() {
@@ -775,15 +842,28 @@ function StudioPage() {
         <>
             <div
                 className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased"
-                inert={deleteDialogOpen || saveState === "saving"}
+                inert={deleteDialogOpen || saveState === "saving" || publishPhase !== null}
             >
                 <StudioTopBar
                     saveStatus={draftSaveStatus(board !== null, saveState, hasUnsavedChanges)}
                     saveError={saveError}
-                    saveDisabled={board === null || !hasUnsavedChanges || saveState === "saving"}
-                    previewDisabled={board === null || saveState === "saving"}
+                    saveDisabled={board === null || !hasUnsavedChanges || saveState === "saving" || publishPhase !== null}
+                    previewDisabled={board === null || saveState === "saving" || publishPhase !== null}
+                    publishDisabled={
+                        board === null
+                        || boardRecordId === null
+                        || hasUnsavedChanges
+                        || saveState === "saving"
+                        || publishPhase !== null
+                    }
+                    publishGuidance={
+                        board !== null && hasUnsavedChanges && saveState !== "saving" && publishPhase === null
+                            ? "Save your changes before publishing."
+                            : null
+                    }
                     onSave={handleSave}
                     onPreview={handleOpenPreview}
+                    onPublish={handleOpenPublish}
                 />
                 {board === null ? (
                     loadError === null ? (
@@ -834,6 +914,25 @@ function StudioPage() {
             </div>
             {saveState === "saving" ? (
                 <SavingOverlay restoreTarget={saveRestoreTarget} />
+            ) : null}
+            {publishPhase === "publishing" ? (
+                <SavingOverlay
+                    restoreTarget={publishRestoreTarget}
+                    title="Publishing your board"
+                    message="Updating the display version..."
+                    titleId="publish-overlay-title"
+                    messageId="publish-overlay-message"
+                />
+            ) : null}
+            {publishPhase === "confirm" || publishPhase === "published" || publishPhase === "failed" ? (
+                <PublishBoardDialog
+                    phase={publishPhase}
+                    errorMessage={publishError}
+                    displayPath={boardRecordId === null ? null : `/display/${boardRecordId}`}
+                    onCancel={handleCancelPublish}
+                    onConfirm={handlePublish}
+                    onRetry={handlePublish}
+                />
             ) : null}
             {deleteDialogOpen ? (
                 <DeleteWidgetDialog
