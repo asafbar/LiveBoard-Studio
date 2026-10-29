@@ -10,6 +10,7 @@ const router = express.Router();
 
 // Local development administration only.
 // A display id does not prove device identity or authorization.
+// Online status is untrusted presence until device authentication exists.
 router.get("/", displayController.listDisplays);
 
 router.get(

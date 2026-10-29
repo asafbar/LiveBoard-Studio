@@ -1,5 +1,9 @@
 const { Server } = require("socket.io");
 const env = require("../config/env");
+const {
+    attachDisplayPresence,
+    resetDisplayPresence
+} = require("./displayPresence");
 
 // Subscriptions are public in this local-development foundation.
 // Socket.IO cannot publish a board. Publishing stays on the REST API.
@@ -28,6 +32,8 @@ function attachBoardRealtime(httpServer) {
             }
         }
     });
+
+    attachDisplayPresence(io);
 
     io.on("connection", (socket) => {
         socket.on(JOIN_BOARD_EVENT, (boardId, acknowledge) => {
@@ -78,6 +84,7 @@ function closeBoardRealtime() {
     const current = io;
     io = null;
     current.disconnectSockets(true);
+    resetDisplayPresence();
 }
 
 function boardRoom(boardId) {
