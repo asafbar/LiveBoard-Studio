@@ -38,6 +38,35 @@ function validateBoardId(req, res, next) {
     }]));
 }
 
+function validateCreateBoard(req, res, next) {
+    const errors = [];
+    const body = readRequestBody(req.body, errors);
+
+    if (body !== null) {
+        Object.keys(body).forEach((key) => {
+            if (key !== "name") {
+                errors.push({
+                    path: key,
+                    message: "Unknown field."
+                });
+            }
+        });
+
+        const name = readRequiredText(body.name, "name", MAX_SHORT_TEXT_LENGTH, errors);
+
+        if (errors.length === 0) {
+            req.boardName = name;
+        }
+    }
+
+    if (errors.length > 0) {
+        next(createHttpError(400, "Validation failed.", errors));
+        return;
+    }
+
+    next();
+}
+
 function validateDraft(req, res, next) {
     const errors = [];
     const draft = sanitizeDraft(req.body, errors);
@@ -420,6 +449,18 @@ function sanitizeAnnouncementItems(items, path, errors) {
     });
 }
 
+function readRequestBody(body, errors) {
+    if (!isPlainObject(body)) {
+        errors.push({
+            path: "",
+            message: "Request body must be an object."
+        });
+        return null;
+    }
+
+    return body;
+}
+
 function rejectForbiddenKeys(body, errors) {
     FORBIDDEN_BODY_KEYS.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(body, key)) {
@@ -673,6 +714,8 @@ function isPlainObject(value) {
 }
 
 module.exports = {
+    sanitizeDraft,
     validateBoardId,
+    validateCreateBoard,
     validateDraft
 };

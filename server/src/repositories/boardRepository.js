@@ -10,6 +10,15 @@ async function listBoards() {
     return result.rows;
 }
 
+async function listBoardIdentities() {
+    const result = await pool.query(
+        `SELECT name, draft->>'id' AS draft_id
+         FROM boards`
+    );
+
+    return result.rows;
+}
+
 async function findBoardById(id) {
     const result = await pool.query(
         `SELECT id, name, draft, published, created_at, updated_at
@@ -19,6 +28,17 @@ async function findBoardById(id) {
     );
 
     return result.rows[0] || null;
+}
+
+async function insertBoard(name, draft) {
+    const result = await pool.query(
+        `INSERT INTO boards (name, draft, published)
+         VALUES ($1, $2::jsonb, NULL)
+         RETURNING id, name, draft, published, created_at, updated_at`,
+        [name, JSON.stringify(draft)]
+    );
+
+    return result.rows[0];
 }
 
 async function replaceDraft(id, draft) {
@@ -50,7 +70,9 @@ async function publishDraft(id) {
 
 module.exports = {
     listBoards,
+    listBoardIdentities,
     findBoardById,
+    insertBoard,
     publishDraft,
     replaceDraft
 };

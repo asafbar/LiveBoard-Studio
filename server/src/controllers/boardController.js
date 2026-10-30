@@ -50,6 +50,36 @@ async function publishBoard(req, res, next) {
     }
 }
 
+async function createBoard(req, res, next) {
+    try {
+        const board = await boardService.createBoard(req.boardName);
+
+        res.status(201).json(
+            successResponse(
+                "Board created successfully.",
+                toBoardDetail(board)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
+async function duplicateBoard(req, res, next) {
+    try {
+        const board = await boardService.duplicateBoard(req.params.id);
+
+        res.status(201).json(
+            successResponse(
+                "Board duplicated successfully.",
+                toBoardDetail(board)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
 async function replaceDraft(req, res, next) {
     try {
         const board = await boardService.replaceDraft(req.params.id, req.draft);
@@ -68,6 +98,8 @@ async function replaceDraft(req, res, next) {
 module.exports = {
     listBoards,
     getBoard,
+    createBoard,
+    duplicateBoard,
     publishBoard,
     replaceDraft
 };

@@ -2,6 +2,7 @@ const express = require("express");
 const boardController = require("../controllers/boardController");
 const {
     validateBoardId,
+    validateCreateBoard,
     validateDraft
 } = require("../validators/boardValidator");
 
@@ -9,6 +10,12 @@ const router = express.Router();
 
 // Local development only. These routes are not authenticated.
 router.get("/", boardController.listBoards);
+
+router.post(
+    "/",
+    validateCreateBoard,
+    boardController.createBoard
+);
 
 router.get(
     "/:id",
@@ -28,6 +35,13 @@ router.post(
     "/:id/publish",
     validateBoardId,
     boardController.publishBoard
+);
+
+// Copies the saved draft onto a new unpublished board. The request body is ignored.
+router.post(
+    "/:id/duplicate",
+    validateBoardId,
+    boardController.duplicateBoard
 );
 
 module.exports = router;
