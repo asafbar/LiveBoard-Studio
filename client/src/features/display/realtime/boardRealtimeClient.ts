@@ -14,6 +14,10 @@ type BoardPublishedPayload = {
     boardId?: unknown;
 };
 
+type AssignmentChangedPayload = {
+    displayId?: unknown;
+};
+
 type BoardSubscriptionHandlers = {
     onConnectionState: (state: DisplayConnectionState) => void;
     onSubscribed: () => void;
@@ -33,6 +37,7 @@ type DisplayRegistrationHandlers = {
     onConnectionState: (state: DisplayConnectionState) => void;
     onRegistrationState: (state: DisplayRegistrationState) => void;
     onRegistrationError: (message: string | null) => void;
+    onAssignmentChanged: () => void;
 };
 
 type DisplayRegistration = {
@@ -271,6 +276,22 @@ function ensureSocket() {
         notifyConnectionState(nextSocket.active ? "reconnecting" : "disconnected");
     });
 
+    nextSocket.on("display:assignmentChanged", (payload: AssignmentChangedPayload) => {
+        if (typeof payload?.displayId !== "string") {
+            return;
+        }
+
+        const eventDisplayId = payload.displayId.toLowerCase();
+
+        for (const registration of displayRegistrations) {
+            if (!registration.registered || registration.displayId !== eventDisplayId) {
+                continue;
+            }
+
+            registration.handlers.onAssignmentChanged();
+        }
+    });
+
     nextSocket.on("board:published", (payload: BoardPublishedPayload) => {
         if (typeof payload?.boardId !== "string") {
             return;
@@ -371,6 +392,7 @@ function emitRegisterDisplay(registration: DisplayRegistration) {
             registration.registered = true;
             registration.handlers.onRegistrationState("registered");
             registration.handlers.onRegistrationError(null);
+            registration.handlers.onAssignmentChanged();
         },
     );
 }

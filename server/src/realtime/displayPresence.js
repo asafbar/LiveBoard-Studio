@@ -7,12 +7,16 @@ const displayRepository = require("../repositories/displayRepository");
 
 const REGISTER_DISPLAY_EVENT = "registerDisplay";
 const UNREGISTER_DISPLAY_EVENT = "unregisterDisplay";
+const ASSIGNMENT_CHANGED_EVENT = "display:assignmentChanged";
 const DISPLAY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const socketsByDisplay = new Map();
 const displaysBySocket = new Map();
+let presenceIo = null;
 
 function attachDisplayPresence(io) {
+    presenceIo = io;
+
     io.on("connection", (socket) => {
         socket.on(REGISTER_DISPLAY_EVENT, (displayId, acknowledge) => {
             registerDisplay(socket, displayId, acknowledge);
@@ -93,6 +97,28 @@ async function unregisterDisplay(socket, displayId, acknowledge) {
     }
 }
 
+function notifyDisplayAssignmentChanged(displayId) {
+    const normalizedDisplayId = normalizeDisplayId(displayId);
+
+    if (presenceIo === null || normalizedDisplayId === null) {
+        return;
+    }
+
+    const socketIds = socketsByDisplay.get(normalizedDisplayId);
+
+    if (socketIds === undefined || socketIds.size === 0) {
+        return;
+    }
+
+    const payload = {
+        displayId: normalizedDisplayId
+    };
+
+    for (const socketId of [...socketIds]) {
+        presenceIo.to(socketId).emit(ASSIGNMENT_CHANGED_EVENT, payload);
+    }
+}
+
 function isDisplayOnline(displayId) {
     const normalizedDisplayId = normalizeDisplayId(displayId);
 
@@ -108,6 +134,7 @@ function isDisplayOnline(displayId) {
 function resetDisplayPresence() {
     socketsByDisplay.clear();
     displaysBySocket.clear();
+    presenceIo = null;
 }
 
 function addRegistration(socketId, displayId) {
@@ -209,5 +236,6 @@ function respond(acknowledge, success, message) {
 module.exports = {
     attachDisplayPresence,
     isDisplayOnline,
+    notifyDisplayAssignmentChanged,
     resetDisplayPresence
 };

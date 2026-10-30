@@ -40,9 +40,6 @@ function DisplayEditorDialog({
     const unchanged = mode === "edit"
         && display !== null
         && !hasDisplayChanges(display, name, boardValue);
-    const boardChanged = mode === "edit"
-        && display !== null
-        && !isSameBoard(boardValue, display.boardId);
 
     useEffect(() => {
         nameRef.current?.focus();
@@ -201,7 +198,7 @@ function DisplayEditorDialog({
                             value={boardValue}
                             disabled={submitting}
                             aria-invalid={boardError !== null}
-                            aria-describedby={describeBoard(boardError, boardChanged)}
+                            aria-describedby={boardError !== null ? "display-board-error" : undefined}
                             onChange={(event) => {
                                 setBoardValue(event.target.value);
                                 setBoardError(null);
@@ -221,11 +218,6 @@ function DisplayEditorDialog({
                         {boardError !== null ? (
                             <p id="display-board-error" role="alert" className="text-sm text-danger">
                                 {boardError}
-                            </p>
-                        ) : null}
-                        {boardChanged ? (
-                            <p id="display-board-note" className="text-sm leading-5 text-secondary">
-                                An already open screen may need to be reloaded to show its new assigned board.
                             </p>
                         ) : null}
                     </div>
@@ -273,19 +265,6 @@ function DisplayEditorDialog({
             </div>
         </div>
     );
-}
-
-function describeBoard(boardError: string | null, boardChanged: boolean): string | undefined {
-    const ids = [
-        boardError !== null ? "display-board-error" : null,
-        boardChanged ? "display-board-note" : null,
-    ].filter((id): id is string => id !== null);
-
-    if (ids.length === 0) {
-        return undefined;
-    }
-
-    return ids.join(" ");
 }
 
 async function saveDisplay(

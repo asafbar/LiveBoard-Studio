@@ -1,5 +1,6 @@
 const boardRepository = require("../repositories/boardRepository");
 const displayRepository = require("../repositories/displayRepository");
+const { notifyDisplayAssignmentChanged } = require("../realtime/displayPresence");
 const { createHttpError } = require("../utils/httpError");
 
 async function listDisplays() {
@@ -42,11 +43,21 @@ async function updateDisplay(id, update) {
 
     await ensureBoardExists(boardId);
 
+    const boardChanged = !boardIdsEqual(current.board_id, boardId);
+
     try {
         const display = await displayRepository.updateDisplay(id, name, boardId);
 
         if (display === null) {
             throw createHttpError(404, "Display not found.");
+        }
+
+        if (boardChanged) {
+            try {
+                notifyDisplayAssignmentChanged(display.id);
+            } catch {
+                // The assignment is already stored. A socket failure must not fail the request.
+            }
         }
 
         return display;
@@ -72,6 +83,18 @@ async function ensureBoardExists(boardId) {
             message: "Assigned board was not found."
         }]);
     }
+}
+
+function boardIdsEqual(left, right) {
+    if (left === null || left === undefined) {
+        return right === null || right === undefined;
+    }
+
+    if (right === null || right === undefined) {
+        return false;
+    }
+
+    return String(left).toLowerCase() === String(right).toLowerCase();
 }
 
 function mapDisplayWriteError(error) {

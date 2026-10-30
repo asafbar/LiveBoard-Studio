@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     registerDisplayPresence,
     type DisplayConnectionState,
@@ -11,10 +11,18 @@ type DisplayRegistration = {
     registrationError: string | null;
 };
 
-function useDisplayRegistration(displayId: string): DisplayRegistration {
+function useDisplayRegistration(
+    displayId: string,
+    onAssignmentRefresh: () => void,
+): DisplayRegistration {
     const [connectionState, setConnectionState] = useState<DisplayConnectionState>("reconnecting");
     const [registrationState, setRegistrationState] = useState<DisplayRegistrationState>("inactive");
     const [registrationError, setRegistrationError] = useState<string | null>(null);
+    const refreshRef = useRef(onAssignmentRefresh);
+
+    useEffect(() => {
+        refreshRef.current = onAssignmentRefresh;
+    }, [onAssignmentRefresh]);
 
     useEffect(() => {
         return registerDisplayPresence(displayId, {
@@ -28,6 +36,9 @@ function useDisplayRegistration(displayId: string): DisplayRegistration {
             },
             onRegistrationState: setRegistrationState,
             onRegistrationError: setRegistrationError,
+            onAssignmentChanged: () => {
+                refreshRef.current();
+            },
         });
     }, [displayId]);
 

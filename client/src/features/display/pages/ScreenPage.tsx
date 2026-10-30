@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
     getDisplay,
@@ -21,6 +21,7 @@ type ScreenSessionProps = {
 
 type RegisteredScreenProps = {
     display: DisplayRecord;
+    registration: ReturnType<typeof useDisplayRegistration>;
 };
 
 function ScreenPage() {
@@ -43,8 +44,8 @@ function ScreenSession({ displayId }: ScreenSessionProps) {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const serialRef = useRef(0);
-
-    useEffect(() => {
+    const displayRef = useRef<DisplayRecord | null>(null);
+    const refreshAssignment = useCallback(() => {
         const serial = ++serialRef.current;
 
         getDisplay(displayId)
@@ -53,40 +54,45 @@ function ScreenSession({ displayId }: ScreenSessionProps) {
                     return;
                 }
 
+                displayRef.current = record;
                 setDisplay(record);
                 setLoadError(null);
             })
             .catch((error: unknown) => {
-                if (serial !== serialRef.current) {
+                if (serial !== serialRef.current || displayRef.current !== null) {
                     return;
                 }
 
-                setDisplay(null);
                 setLoadError(readLoadError(error));
             });
+    }, [displayId]);
+    const registration = useDisplayRegistration(displayId, refreshAssignment);
+
+    useEffect(() => {
+        refreshAssignment();
 
         return () => {
             serialRef.current += 1;
         };
-    }, [displayId, loadAttempt]);
+    }, [displayId, loadAttempt, refreshAssignment]);
 
     function handleRetry() {
         setLoadError(null);
         setLoadAttempt((currentAttempt) => currentAttempt + 1);
     }
 
-    if (loadError !== null) {
-        return (
-            <DisplayStatus
-                title="Display unavailable"
-                message={loadError}
-                actionLabel="Retry"
-                onAction={handleRetry}
-            />
-        );
-    }
-
     if (display === null) {
+        if (loadError !== null) {
+            return (
+                <DisplayStatus
+                    title="Display unavailable"
+                    message={loadError}
+                    actionLabel="Retry"
+                    onAction={handleRetry}
+                />
+            );
+        }
+
         return (
             <DisplayStatus
                 title="Loading screen"
@@ -95,11 +101,10 @@ function ScreenSession({ displayId }: ScreenSessionProps) {
         );
     }
 
-    return <RegisteredScreen display={display} />;
+    return <RegisteredScreen display={display} registration={registration} />;
 }
 
-function RegisteredScreen({ display }: RegisteredScreenProps) {
-    const registration = useDisplayRegistration(display.id);
+function RegisteredScreen({ display, registration }: RegisteredScreenProps) {
     const registrationDetails = registration.registrationError === null
         ? []
         : [registration.registrationError];
@@ -122,6 +127,7 @@ function RegisteredScreen({ display }: RegisteredScreenProps) {
 
     return (
         <PublishedDisplay
+            key={display.boardId}
             boardId={display.boardId}
             renderConnectionStatus={(status) => (
                 <ScreenPresenceStatus
