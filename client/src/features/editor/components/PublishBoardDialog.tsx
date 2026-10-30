@@ -1,12 +1,10 @@
 import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
-import { Link } from "react-router-dom";
 
-type PublishDialogPhase = "confirm" | "published" | "failed";
+type PublishDialogPhase = "confirm" | "failed";
 
 type PublishBoardDialogProps = {
     phase: PublishDialogPhase;
     errorMessage: string | null;
-    displayPath: string | null;
     onCancel: () => void;
     onConfirm: () => void;
     onRetry: () => void;
@@ -15,13 +13,11 @@ type PublishBoardDialogProps = {
 function PublishBoardDialog({
     phase,
     errorMessage,
-    displayPath,
     onCancel,
     onConfirm,
     onRetry,
 }: PublishBoardDialogProps) {
     const cancelRef = useRef<HTMLButtonElement>(null);
-    const confirmRef = useRef<HTMLButtonElement>(null);
     const retryRef = useRef<HTMLButtonElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -32,12 +28,7 @@ function PublishBoardDialog({
             return;
         }
 
-        if (phase === "failed") {
-            retryRef.current?.focus();
-            return;
-        }
-
-        closeRef.current?.focus();
+        retryRef.current?.focus();
     }, [phase]);
 
     function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -58,7 +49,7 @@ function PublishBoardDialog({
             return;
         }
 
-        const focusable = [...dialog.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")];
+        const focusable = [...dialog.querySelectorAll<HTMLElement>("button:not([disabled])")];
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
 
@@ -87,16 +78,10 @@ function PublishBoardDialog({
         onCancel();
     }
 
-    const title = phase === "confirm"
-        ? "Publish this board?"
-        : phase === "published"
-            ? "Published successfully"
-            : "Publish failed";
+    const title = phase === "confirm" ? "Publish this board?" : "Publish failed";
     const message = phase === "confirm"
         ? "This replaces the version visible on Display screens."
-        : phase === "published"
-            ? "Display screens show this version after they refresh."
-            : errorMessage ?? "The board could not be published. Check that the API is running, then try again.";
+        : errorMessage ?? "The board could not be published. Check that the API is running, then try again.";
 
     return (
         <div
@@ -130,7 +115,6 @@ function PublishBoardDialog({
                                 Cancel
                             </button>
                             <button
-                                ref={confirmRef}
                                 type="button"
                                 onClick={onConfirm}
                                 className="h-9 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
@@ -138,39 +122,26 @@ function PublishBoardDialog({
                                 Publish
                             </button>
                         </>
-                    ) : null}
-                    {phase === "published" && displayPath !== null ? (
-                        <Link
-                            to={displayPath}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={onCancel}
-                            className="inline-flex h-9 items-center rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
-                        >
-                            Open Display
-                            <span className="sr-only"> (opens in a new tab)</span>
-                        </Link>
-                    ) : null}
-                    {phase === "failed" ? (
-                        <button
-                            ref={retryRef}
-                            type="button"
-                            onClick={onRetry}
-                            className="h-9 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
-                        >
-                            Retry
-                        </button>
-                    ) : null}
-                    {phase !== "confirm" ? (
-                        <button
-                            ref={closeRef}
-                            type="button"
-                            onClick={onCancel}
-                            className="h-9 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
-                        >
-                            Close
-                        </button>
-                    ) : null}
+                    ) : (
+                        <>
+                            <button
+                                ref={retryRef}
+                                type="button"
+                                onClick={onRetry}
+                                className="h-9 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+                            >
+                                Retry
+                            </button>
+                            <button
+                                ref={closeRef}
+                                type="button"
+                                onClick={onCancel}
+                                className="h-9 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                            >
+                                Close
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

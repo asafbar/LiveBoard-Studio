@@ -3,6 +3,8 @@ import apiClient from "../../../api/apiClient.ts";
 
 export type DisplayConnectionState = "connected" | "reconnecting" | "disconnected";
 
+export type DisplayRegistrationState = "inactive" | "registering" | "registered" | "failed";
+
 type JoinAcknowledgement = {
     success: boolean;
     message?: string;
@@ -27,13 +29,29 @@ type Subscription = {
     subscribed: boolean;
 };
 
+type DisplayRegistrationHandlers = {
+    onConnectionState: (state: DisplayConnectionState) => void;
+    onRegistrationState: (state: DisplayRegistrationState) => void;
+    onRegistrationError: (message: string | null) => void;
+};
+
+type DisplayRegistration = {
+    displayId: string;
+    handlers: DisplayRegistrationHandlers;
+    generation: number;
+    pendingSocketId: string | null;
+    registered: boolean;
+};
+
 const JOIN_TIMEOUT_MS = 5000;
 const RELEASE_DELAY_MS = 50;
 const SUBSCRIBE_ERROR = "This display could not subscribe to publication updates.";
+const REGISTER_ERROR = "This display could not be registered.";
 
 let socket: Socket | null = null;
 let releaseTimer: ReturnType<typeof setTimeout> | null = null;
 const subscriptions = new Set<Subscription>();
+const displayRegistrations = new Set<DisplayRegistration>();
 
 function subscribeToBoardPublication(
     boardId: string,
@@ -75,6 +93,56 @@ function subscribeToBoardPublication(
     };
 }
 
+// Registration is not device authentication. A display id only marks this
+// socket present for local development.
+function registerDisplayPresence(
+    displayId: string,
+    handlers: DisplayRegistrationHandlers,
+): () => void {
+    const registration: DisplayRegistration = {
+        displayId: displayId.toLowerCase(),
+        handlers,
+        generation: 0,
+        pendingSocketId: null,
+        registered: false,
+    };
+
+    displayRegistrations.add(registration);
+    retainSocket();
+    queueMicrotask(() => {
+        if (!displayRegistrations.has(registration)) {
+            return;
+        }
+
+        reportRegistrationConnection(registration);
+
+        if (socket?.connected) {
+            emitRegisterDisplay(registration);
+        }
+    });
+
+    return () => {
+        const currentSocket = socket;
+        const socketId = currentSocket?.id;
+        const shouldUnregister = registration.registered || registration.pendingSocketId !== null;
+
+        displayRegistrations.delete(registration);
+        registration.generation += 1;
+        registration.registered = false;
+        registration.pendingSocketId = null;
+
+        if (
+            shouldUnregister
+            && currentSocket?.connected
+            && currentSocket.id === socketId
+        ) {
+            currentSocket.emit("unregisterDisplay", registration.displayId);
+        }
+
+        releaseSocketSoon();
+    };
+}
+
 function retainSocket() {
     if (releaseTimer !== null) {
         clearTimeout(releaseTimer);
@@ -85,14 +153,14 @@ function retainSocket() {
 }
 
 function releaseSocketSoon() {
-    if (subscriptions.size > 0 || releaseTimer !== null) {
+    if (hasSocketUsers() || releaseTimer !== null) {
         return;
     }
 
     releaseTimer = setTimeout(() => {
         releaseTimer = null;
 
-        if (subscriptions.size > 0 || socket === null) {
+        if (hasSocketUsers() || socket === null) {
             return;
         }
 
@@ -119,6 +187,12 @@ function ensureSocket() {
                 subscription.handlers.onConnectionState("disconnected");
                 subscription.handlers.onSubscribeError(SUBSCRIBE_ERROR);
             }
+
+            for (const registration of displayRegistrations) {
+                registration.handlers.onConnectionState("disconnected");
+                registration.handlers.onRegistrationState("failed");
+                registration.handlers.onRegistrationError(REGISTER_ERROR);
+            }
         });
         return;
     }
@@ -136,6 +210,13 @@ function ensureSocket() {
             subscription.handlers.onConnectionState("connected");
             joinBoard(subscription);
         }
+
+        for (const registration of displayRegistrations) {
+            registration.pendingSocketId = null;
+            registration.registered = false;
+            registration.handlers.onConnectionState("connected");
+            emitRegisterDisplay(registration);
+        }
     });
 
     nextSocket.on("disconnect", (reason) => {
@@ -149,9 +230,17 @@ function ensureSocket() {
             subscription.joinGeneration += 1;
         }
 
+        for (const registration of displayRegistrations) {
+            registration.pendingSocketId = null;
+            registration.registered = false;
+            registration.generation += 1;
+            registration.handlers.onRegistrationState("inactive");
+            registration.handlers.onRegistrationError(null);
+        }
+
         // A server shutdown uses a forced disconnect. Socket.IO does not
         // reconnect after that unless the client starts the connection again.
-        if (reason === "io server disconnect" && subscriptions.size > 0) {
+        if (reason === "io server disconnect" && hasSocketUsers()) {
             nextSocket.connect();
         }
 
@@ -160,18 +249,18 @@ function ensureSocket() {
         for (const subscription of subscriptions) {
             subscription.handlers.onConnectionState(state);
         }
+
+        for (const registration of displayRegistrations) {
+            registration.handlers.onConnectionState(state);
+        }
     });
 
     nextSocket.io.on("reconnect_attempt", () => {
-        for (const subscription of subscriptions) {
-            subscription.handlers.onConnectionState("reconnecting");
-        }
+        notifyConnectionState("reconnecting");
     });
 
     nextSocket.io.on("reconnect_failed", () => {
-        for (const subscription of subscriptions) {
-            subscription.handlers.onConnectionState("disconnected");
-        }
+        notifyConnectionState("disconnected");
     });
 
     nextSocket.on("connect_error", () => {
@@ -179,11 +268,7 @@ function ensureSocket() {
             return;
         }
 
-        const state: DisplayConnectionState = nextSocket.active ? "reconnecting" : "disconnected";
-
-        for (const subscription of subscriptions) {
-            subscription.handlers.onConnectionState(state);
-        }
+        notifyConnectionState(nextSocket.active ? "reconnecting" : "disconnected");
     });
 
     nextSocket.on("board:published", (payload: BoardPublishedPayload) => {
@@ -201,6 +286,93 @@ function ensureSocket() {
             subscription.handlers.onBoardPublished(eventBoardId);
         }
     });
+}
+
+function hasSocketUsers(): boolean {
+    return subscriptions.size > 0 || displayRegistrations.size > 0;
+}
+
+function notifyConnectionState(state: DisplayConnectionState) {
+    for (const subscription of subscriptions) {
+        subscription.handlers.onConnectionState(state);
+    }
+
+    for (const registration of displayRegistrations) {
+        registration.handlers.onConnectionState(state);
+    }
+}
+
+function reportRegistrationConnection(registration: DisplayRegistration) {
+    if (socket === null) {
+        registration.handlers.onConnectionState("disconnected");
+        return;
+    }
+
+    if (socket.connected) {
+        registration.handlers.onConnectionState("connected");
+        return;
+    }
+
+    registration.handlers.onConnectionState(socket.active ? "reconnecting" : "disconnected");
+}
+
+function emitRegisterDisplay(registration: DisplayRegistration) {
+    const currentSocket = socket;
+
+    if (currentSocket === null || !currentSocket.connected) {
+        return;
+    }
+
+    const socketId = currentSocket.id;
+
+    if (socketId === undefined || registration.pendingSocketId === socketId) {
+        return;
+    }
+
+    registration.pendingSocketId = socketId;
+    registration.registered = false;
+    registration.generation += 1;
+    const generation = registration.generation;
+    registration.handlers.onRegistrationState("registering");
+    registration.handlers.onRegistrationError(null);
+
+    currentSocket.timeout(JOIN_TIMEOUT_MS).emit(
+        "registerDisplay",
+        registration.displayId,
+        (error: unknown, response?: JoinAcknowledgement) => {
+            const acknowledged = !isJoinFailure(error) && response?.success === true;
+            const sameSocket = socket?.connected === true && socket.id === socketId;
+
+            if (
+                generation !== registration.generation
+                || !displayRegistrations.has(registration)
+                || !sameSocket
+            ) {
+                if (acknowledged && sameSocket) {
+                    socket?.emit("unregisterDisplay", registration.displayId);
+                }
+
+                return;
+            }
+
+            if (!acknowledged) {
+                registration.pendingSocketId = null;
+                registration.registered = false;
+                const message = response?.message?.trim();
+                registration.handlers.onRegistrationState("failed");
+                registration.handlers.onRegistrationError(
+                    message !== undefined && message !== ""
+                        ? message
+                        : REGISTER_ERROR,
+                );
+                return;
+            }
+
+            registration.registered = true;
+            registration.handlers.onRegistrationState("registered");
+            registration.handlers.onRegistrationError(null);
+        },
+    );
 }
 
 function reportConnectionState(subscription: Subscription) {
@@ -270,5 +442,6 @@ function isJoinFailure(error: unknown): boolean {
 }
 
 export {
+    registerDisplayPresence,
     subscribeToBoardPublication,
 };

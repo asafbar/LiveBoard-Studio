@@ -9,6 +9,7 @@ type StudioTopBarProps = {
     previewDisabled: boolean;
     publishDisabled: boolean;
     publishGuidance: string | null;
+    displayPath: string | null;
     onSave: () => void;
     onPreview: () => void;
     onPublish: () => void;
@@ -42,6 +43,7 @@ function StudioTopBar({
     previewDisabled,
     publishDisabled,
     publishGuidance,
+    displayPath,
     onSave,
     onPreview,
     onPublish,
@@ -52,7 +54,7 @@ function StudioTopBar({
         : undefined;
 
     return (
-        <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
             <div className="flex min-w-64 items-center gap-3">
                 <span className="flex size-8 items-center justify-center rounded-control bg-linear-to-br from-accent to-cyan text-[11px] font-semibold tracking-wide text-background">
                     LB
@@ -68,7 +70,8 @@ function StudioTopBar({
                 </p>
             </div>
 
-            <div className="flex shrink-0 items-center justify-end gap-2">
+            <div className="flex shrink-0 flex-col items-end justify-center gap-1">
+                <div className="flex items-center justify-end gap-2">
                 {statusLabel !== null && saveStatus !== null ? (
                     <p
                         role="status"
@@ -109,26 +112,53 @@ function StudioTopBar({
                     <StudioIcon name="preview" />
                     Preview
                 </button>
-                {publishGuidance !== null ? (
-                    <p id="publish-guidance" className="max-w-52 text-right text-xs leading-4 text-secondary">
-                        {publishGuidance}
-                    </p>
-                ) : null}
-                <button
-                    type="button"
-                    onClick={onPublish}
-                    disabled={publishDisabled}
-                    title={publishGuidance ?? undefined}
-                    aria-describedby={publishGuidance !== null ? "publish-guidance" : undefined}
-                    className={
-                        publishDisabled
-                            ? "inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-control bg-accent/40 px-3 text-sm font-medium text-white opacity-60"
-                            : "inline-flex h-9 items-center gap-2 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
-                    }
+                {displayPath === null ? (
+                    <button
+                        type="button"
+                        disabled
+                        className="inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
+                    >
+                        <StudioIcon name="open-display" />
+                        Open Display
+                    </button>
+                ) : (
+                    <a
+                        href={displayPath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-9 items-center gap-2 rounded-control border border-cyan/40 px-3 text-sm font-medium text-cyan transition-colors duration-150 hover:bg-cyan/10"
+                    >
+                        <StudioIcon name="open-display" />
+                        Open Display
+                        <span className="sr-only"> (opens in a new tab)</span>
+                    </a>
+                )}
+                <span title={publishGuidance ?? undefined} className="inline-flex">
+                    <button
+                        type="button"
+                        onClick={onPublish}
+                        disabled={publishDisabled}
+                        aria-describedby={publishGuidance !== null ? "publish-guidance" : undefined}
+                        className={
+                            publishDisabled
+                                ? "inline-flex h-9 cursor-not-allowed items-center gap-2 rounded-control bg-accent/40 px-3 text-sm font-medium text-white opacity-60"
+                                : "inline-flex h-9 items-center gap-2 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+                        }
+                    >
+                        <StudioIcon name="publish" />
+                        Publish
+                    </button>
+                </span>
+                </div>
+                <p
+                    id="publish-guidance"
+                    aria-live="polite"
+                    className={`h-4 text-right text-[11px] leading-4 font-medium ${
+                        publishGuidance === null ? "" : "text-warning"
+                    }`}
                 >
-                    <StudioIcon name="publish" />
-                    Publish
-                </button>
+                    {publishGuidance}
+                </p>
             </div>
         </header>
     );

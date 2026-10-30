@@ -25,6 +25,7 @@ import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
 import PublishBoardDialog from "../components/PublishBoardDialog.tsx";
+import PublishNotice from "../components/PublishNotice.tsx";
 import SavingOverlay from "../components/SavingOverlay.tsx";
 import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
@@ -536,8 +537,10 @@ function StudioPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
     const [boardRecordId, setBoardRecordId] = useState<string | null>(null);
-    const [publishPhase, setPublishPhase] = useState<"confirm" | "publishing" | "published" | "failed" | null>(null);
+    const [publishPhase, setPublishPhase] = useState<"confirm" | "publishing" | "failed" | null>(null);
     const [publishError, setPublishError] = useState<string | null>(null);
+    const [publishNoticeVisible, setPublishNoticeVisible] = useState(false);
+    const publishNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [publishRestoreTarget, setPublishRestoreTarget] = useState<HTMLElement | null>(null);
     const restoreFocusRef = useRef<HTMLElement | null>(null);
     const changeVersionRef = useRef(0);
@@ -643,6 +646,29 @@ function StudioPage() {
         setPublishPhase("confirm");
     }
 
+    function clearPublishNoticeTimer() {
+        if (publishNoticeTimerRef.current === null) {
+            return;
+        }
+
+        clearTimeout(publishNoticeTimerRef.current);
+        publishNoticeTimerRef.current = null;
+    }
+
+    function showPublishNotice() {
+        clearPublishNoticeTimer();
+        setPublishNoticeVisible(true);
+        publishNoticeTimerRef.current = setTimeout(() => {
+            publishNoticeTimerRef.current = null;
+            setPublishNoticeVisible(false);
+        }, 4000);
+    }
+
+    function dismissPublishNotice() {
+        clearPublishNoticeTimer();
+        setPublishNoticeVisible(false);
+    }
+
     function handleCancelPublish() {
         if (publishInFlightRef.current || publishPhase === "publishing") {
             return;
@@ -673,7 +699,8 @@ function StudioPage() {
         publishBoard()
             .then((record) => {
                 setBoardRecordId(record.id);
-                setPublishPhase("published");
+                setPublishPhase(null);
+                showPublishNotice();
             })
             .catch((error: unknown) => {
                 setPublishPhase("failed");
@@ -802,6 +829,14 @@ function StudioPage() {
     }
 
     useEffect(() => {
+        return () => {
+            if (publishNoticeTimerRef.current !== null) {
+                clearTimeout(publishNoticeTimerRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
         if (!hasUnsavedChanges) {
             return;
         }
@@ -858,7 +893,12 @@ function StudioPage() {
                     }
                     publishGuidance={
                         board !== null && hasUnsavedChanges && saveState !== "saving" && publishPhase === null
-                            ? "Save your changes before publishing."
+                            ? "Save before publishing"
+                            : null
+                    }
+                    displayPath={
+                        board !== null && boardRecordId !== null
+                            ? `/display/${boardRecordId}`
                             : null
                     }
                     onSave={handleSave}
@@ -924,15 +964,17 @@ function StudioPage() {
                     messageId="publish-overlay-message"
                 />
             ) : null}
-            {publishPhase === "confirm" || publishPhase === "published" || publishPhase === "failed" ? (
+            {publishPhase === "confirm" || publishPhase === "failed" ? (
                 <PublishBoardDialog
                     phase={publishPhase}
                     errorMessage={publishError}
-                    displayPath={boardRecordId === null ? null : `/display/${boardRecordId}`}
                     onCancel={handleCancelPublish}
                     onConfirm={handlePublish}
                     onRetry={handlePublish}
                 />
+            ) : null}
+            {publishNoticeVisible ? (
+                <PublishNotice onDismiss={dismissPublishNotice} />
             ) : null}
             {deleteDialogOpen ? (
                 <DeleteWidgetDialog

@@ -1,81 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { getBoard, isBoardId } from "../../boards/api/BoardApi.ts";
 import BoardRenderer from "../../boards/components/BoardRenderer.tsx";
 import type { Board } from "../../boards/types/boardTypes.ts";
+import {
+    DisplayConnectionStatus,
+    DisplayStatus,
+} from "../components/DisplayStatus.tsx";
 import usePublishedBoardUpdates from "../hooks/usePublishedBoardUpdates.ts";
 import type { DisplayConnectionState } from "../realtime/boardRealtimeClient.ts";
 
-type DisplayStatusProps = {
-    title: string;
-    message: string;
-    actionLabel?: string;
-    onAction?: () => void;
-};
-
 type DisplayPhase = "loading" | "unpublished" | "error" | "ready";
 
-type DisplayConnectionStatusProps = {
+type PublishedDisplayStatus = {
     connectionState: DisplayConnectionState;
     detail: string | null;
 };
 
-const connectionLabel: Record<DisplayConnectionState, string> = {
-    connected: "Connected",
-    reconnecting: "Reconnecting",
-    disconnected: "Disconnected",
+type PublishedDisplayProps = {
+    boardId: string;
+    renderConnectionStatus?: (status: PublishedDisplayStatus) => ReactNode;
 };
-
-const connectionDotClassName: Record<DisplayConnectionState, string> = {
-    connected: "bg-cyan",
-    reconnecting: "bg-secondary",
-    disconnected: "bg-danger",
-};
-
-function DisplayStatus({ title, message, actionLabel, onAction }: DisplayStatusProps) {
-    return (
-        <div className="flex h-dvh items-center justify-center bg-canvas p-6 font-sans text-foreground antialiased">
-            <div className="w-full max-w-md rounded-lg border border-border bg-surface p-5 text-center shadow-panel">
-                <h1 className="text-base font-semibold text-foreground">{title}</h1>
-                <p className="mt-2 text-sm leading-5 text-secondary">{message}</p>
-                {actionLabel && onAction ? (
-                    <button
-                        type="button"
-                        onClick={onAction}
-                        className="mt-5 h-9 rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
-                    >
-                        {actionLabel}
-                    </button>
-                ) : null}
-            </div>
-        </div>
-    );
-}
-
-function DisplayConnectionStatus({ connectionState, detail }: DisplayConnectionStatusProps) {
-    return (
-        <div className="pointer-events-none fixed bottom-4 left-4 z-20 flex max-w-xs flex-col items-start gap-2 font-sans">
-            <p
-                role="status"
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/90 px-3 py-1.5 text-xs font-medium text-secondary shadow-panel"
-            >
-                <span
-                    className={`size-1.5 rounded-full ${connectionDotClassName[connectionState]}`}
-                    aria-hidden="true"
-                />
-                {connectionLabel[connectionState]}
-            </p>
-            {detail !== null ? (
-                <p
-                    role="status"
-                    className="rounded-control border border-border bg-surface/90 px-3 py-2 text-xs leading-4 text-secondary shadow-panel"
-                >
-                    {detail}
-                </p>
-            ) : null}
-        </div>
-    );
-}
 
 function readLoadError(error: unknown): string {
     if (error instanceof Error && error.message.trim() !== "") {
@@ -85,11 +30,7 @@ function readLoadError(error: unknown): string {
     return "The board could not be loaded. Check that the API is running, then try again.";
 }
 
-type PublishedDisplayProps = {
-    boardId: string;
-};
-
-function PublishedDisplay({ boardId }: PublishedDisplayProps) {
+function PublishedDisplay({ boardId, renderConnectionStatus }: PublishedDisplayProps) {
     const [publishedBoard, setPublishedBoard] = useState<Board | null>(null);
     const [phase, setPhase] = useState<DisplayPhase>("loading");
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -199,10 +140,14 @@ function PublishedDisplay({ boardId }: PublishedDisplayProps) {
         );
     }
 
+    const connectionStatus = renderConnectionStatus === undefined
+        ? <DisplayConnectionStatus connectionState={connectionState} detail={detail} />
+        : renderConnectionStatus({ connectionState, detail });
+
     return (
         <>
             {content}
-            <DisplayConnectionStatus connectionState={connectionState} detail={detail} />
+            {connectionStatus}
         </>
     );
 }
@@ -223,3 +168,11 @@ function DisplayPage() {
 }
 
 export default DisplayPage;
+
+export {
+    PublishedDisplay,
+};
+
+export type {
+    PublishedDisplayStatus,
+};
