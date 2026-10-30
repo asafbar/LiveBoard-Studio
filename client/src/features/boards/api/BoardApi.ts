@@ -12,6 +12,13 @@ type ApiResponse<T> = {
     data: T;
 };
 
+type BoardSummary = {
+    id: string;
+    name: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
 type BoardRecord = {
     id: string;
     name: string;
@@ -71,6 +78,29 @@ function getDevelopmentBoard(): Promise<BoardRecord> {
 
     developmentBoardRequest = request;
     return request;
+}
+
+async function listBoardSummaries(): Promise<BoardSummary[]> {
+    if (apiClient.defaults.baseURL === "") {
+        throw new Error("VITE_API_BASE_URL is not configured.");
+    }
+
+    let response: AxiosResponse<ApiResponse<BoardSummary[]>>;
+
+    try {
+        response = await apiClient.get<ApiResponse<BoardSummary[]>>("/api/boards");
+    } catch (error: unknown) {
+        throw new Error(
+            readRequestError(error, "The boards could not be loaded. Check that the API is running, then try again."),
+            { cause: error },
+        );
+    }
+
+    if (!response.data.success || !isBoardSummaryList(response.data.data)) {
+        throw new Error(response.data.message || "The boards could not be loaded.");
+    }
+
+    return response.data.data;
 }
 
 async function getBoard(boardId: string): Promise<BoardRecord> {
@@ -197,6 +227,23 @@ function readRequestError(error: unknown, fallback: string): string {
     return fallback;
 }
 
+function isBoardSummary(value: unknown): value is BoardSummary {
+    if (value === null || typeof value !== "object") {
+        return false;
+    }
+
+    const board = value as BoardSummary;
+
+    return typeof board.id === "string"
+        && typeof board.name === "string"
+        && typeof board.createdAt === "string"
+        && typeof board.updatedAt === "string";
+}
+
+function isBoardSummaryList(value: unknown): value is BoardSummary[] {
+    return Array.isArray(value) && value.every(isBoardSummary);
+}
+
 function isBoardDraft(value: unknown): value is Board {
     if (value === null || typeof value !== "object") {
         return false;
@@ -217,7 +264,12 @@ export {
     getBoard,
     getDevelopmentBoard,
     isBoardId,
+    listBoardSummaries,
     publishBoard,
     reloadDevelopmentBoard,
     saveBoardDraft,
+};
+
+export type {
+    BoardSummary,
 };

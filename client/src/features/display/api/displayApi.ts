@@ -26,6 +26,31 @@ function isDisplayId(value: string | undefined): value is string {
     return typeof value === "string" && displayIdPattern.test(value);
 }
 
+async function listDisplays(): Promise<DisplayRecord[]> {
+    if (apiClient.defaults.baseURL === "") {
+        throw new Error("VITE_API_BASE_URL is not configured.");
+    }
+
+    try {
+        const response = await apiClient.get<ApiResponse<DisplayRecord[]>>("/api/displays");
+
+        if (!response.data.success || !isDisplayList(response.data.data)) {
+            throw new Error(response.data.message || "The displays could not be loaded.");
+        }
+
+        return response.data.data;
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                readRequestError(error, "The displays could not be loaded. Check that the API is running, then try again."),
+                { cause: error },
+            );
+        }
+
+        throw error;
+    }
+}
+
 async function getDisplay(displayId: string): Promise<DisplayRecord> {
     if (!isDisplayId(displayId)) {
         throw new Error("This display address is not valid.");
@@ -81,6 +106,10 @@ function readRequestError(error: unknown, fallback: string): string {
     return fallback;
 }
 
+function isDisplayList(value: unknown): value is DisplayRecord[] {
+    return Array.isArray(value) && value.every(isDisplayRecord);
+}
+
 function isDisplayRecord(value: unknown): value is DisplayRecord {
     if (value === null || typeof value !== "object") {
         return false;
@@ -99,6 +128,7 @@ function isDisplayRecord(value: unknown): value is DisplayRecord {
 export {
     getDisplay,
     isDisplayId,
+    listDisplays,
 };
 
 export type {
