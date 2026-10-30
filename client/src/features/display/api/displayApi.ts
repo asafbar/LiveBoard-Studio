@@ -20,6 +20,31 @@ type DisplayRecord = {
     updatedAt: string;
 };
 
+type CreateDisplayPayload = {
+    name: string;
+    boardId: string | null;
+};
+
+type UpdateDisplayPayload = {
+    name?: string;
+    boardId?: string | null;
+};
+
+type DisplayFieldErrors = {
+    name?: string;
+    boardId?: string;
+};
+
+class DisplayRequestError extends Error {
+    readonly fieldErrors: DisplayFieldErrors;
+
+    constructor(message: string, fieldErrors: DisplayFieldErrors) {
+        super(message);
+        this.name = "DisplayRequestError";
+        this.fieldErrors = fieldErrors;
+    }
+}
+
 const displayIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isDisplayId(value: string | undefined): value is string {
@@ -48,6 +73,84 @@ async function listDisplays(): Promise<DisplayRecord[]> {
         }
 
         throw error;
+    }
+}
+
+async function createDisplay(payload: CreateDisplayPayload): Promise<DisplayRecord> {
+    if (apiClient.defaults.baseURL === "") {
+        throw new DisplayRequestError("VITE_API_BASE_URL is not configured.", {});
+    }
+
+    try {
+        const response = await apiClient.post<ApiResponse<DisplayRecord>>("/api/displays", {
+            name: payload.name,
+            boardId: payload.boardId,
+        });
+
+        if (!response.data.success || !isDisplayRecord(response.data.data)) {
+            throw new DisplayRequestError(
+                response.data.message || "The screen could not be added.",
+                {},
+            );
+        }
+
+        return response.data.data;
+    } catch (error: unknown) {
+        throw asDisplayRequestError(
+            error,
+            "The screen could not be added. Check that the API is running, then try again.",
+        );
+    }
+}
+
+async function updateDisplay(
+    displayId: string,
+    payload: UpdateDisplayPayload,
+): Promise<DisplayRecord> {
+    if (!isDisplayId(displayId)) {
+        throw new DisplayRequestError("This display address is not valid.", {});
+    }
+
+    if (!hasDisplayUpdate(payload)) {
+        throw new DisplayRequestError(
+            "Request must include a display name or board assignment.",
+            {},
+        );
+    }
+
+    if (apiClient.defaults.baseURL === "") {
+        throw new DisplayRequestError("VITE_API_BASE_URL is not configured.", {});
+    }
+
+    const body: UpdateDisplayPayload = {};
+
+    if (payload.name !== undefined) {
+        body.name = payload.name;
+    }
+
+    if (payload.boardId !== undefined) {
+        body.boardId = payload.boardId;
+    }
+
+    try {
+        const response = await apiClient.patch<ApiResponse<DisplayRecord>>(
+            `/api/displays/${displayId}`,
+            body,
+        );
+
+        if (!response.data.success || !isDisplayRecord(response.data.data)) {
+            throw new DisplayRequestError(
+                response.data.message || "The screen could not be updated.",
+                {},
+            );
+        }
+
+        return response.data.data;
+    } catch (error: unknown) {
+        throw asDisplayRequestError(
+            error,
+            "The screen could not be updated. Check that the API is running, then try again.",
+        );
     }
 }
 
@@ -106,6 +209,66 @@ function readRequestError(error: unknown, fallback: string): string {
     return fallback;
 }
 
+function asDisplayRequestError(error: unknown, fallback: string): DisplayRequestError {
+    if (error instanceof DisplayRequestError) {
+        return error;
+    }
+
+    if (!axios.isAxiosError(error)) {
+        if (error instanceof Error && error.message.trim() !== "") {
+            return new DisplayRequestError(error.message, {});
+        }
+
+        return new DisplayRequestError(fallback, {});
+    }
+
+    return new DisplayRequestError(
+        readRequestError(error, fallback),
+        readFieldErrors(error.response?.data),
+    );
+}
+
+function hasDisplayUpdate(payload: UpdateDisplayPayload): boolean {
+    return payload.name !== undefined || payload.boardId !== undefined;
+}
+
+function readFieldErrors(value: unknown): DisplayFieldErrors {
+    if (typeof value !== "object" || value === null || !("errors" in value)) {
+        return {};
+    }
+
+    const errors = value.errors;
+
+    if (!Array.isArray(errors)) {
+        return {};
+    }
+
+    const fieldErrors: DisplayFieldErrors = {};
+
+    for (const item of errors) {
+        if (typeof item !== "object" || item === null) {
+            continue;
+        }
+
+        const pathValue: unknown = "path" in item ? item.path : "";
+        const messageValue: unknown = "message" in item ? item.message : "";
+        const path = typeof pathValue === "string" ? pathValue : "";
+        const message = typeof messageValue === "string" ? messageValue.trim() : "";
+
+        if (message === "") {
+            continue;
+        }
+
+        if (path === "name") {
+            fieldErrors.name = message;
+        } else if (path === "boardId") {
+            fieldErrors.boardId = message;
+        }
+    }
+
+    return fieldErrors;
+}
+
 function isDisplayList(value: unknown): value is DisplayRecord[] {
     return Array.isArray(value) && value.every(isDisplayRecord);
 }
@@ -126,11 +289,17 @@ function isDisplayRecord(value: unknown): value is DisplayRecord {
 }
 
 export {
+    createDisplay,
+    DisplayRequestError,
     getDisplay,
     isDisplayId,
     listDisplays,
+    updateDisplay,
 };
 
 export type {
+    CreateDisplayPayload,
+    DisplayFieldErrors,
     DisplayRecord,
+    UpdateDisplayPayload,
 };

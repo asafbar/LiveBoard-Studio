@@ -16,6 +16,7 @@ type DisplayDirectory = {
     refreshing: boolean;
     refresh: () => void;
     retry: () => void;
+    commitDisplay: (record: DisplayRecord) => void;
 };
 
 const REFRESH_INTERVAL_MS = 10000;
@@ -44,6 +45,7 @@ function useDisplayDirectory(): DisplayDirectory {
     const [refreshing, setRefreshing] = useState(false);
     const hasDataRef = useRef(false);
     const loadRef = useRef<() => void>(() => {});
+    const commitRef = useRef<(record: DisplayRecord) => void>(() => {});
 
     const refresh = useCallback(() => {
         loadRef.current();
@@ -52,6 +54,10 @@ function useDisplayDirectory(): DisplayDirectory {
     const retry = useCallback(() => {
         setLoadError(null);
         loadRef.current();
+    }, []);
+
+    const commitDisplay = useCallback((record: DisplayRecord) => {
+        commitRef.current(record);
     }, []);
 
     useEffect(() => {
@@ -166,11 +172,27 @@ function useDisplayDirectory(): DisplayDirectory {
             startPolling();
         }
 
+        function commitDisplayRecord(record: DisplayRecord) {
+            if (cancelled) {
+                return;
+            }
+
+            // Drop an older poll so it cannot replace the saved record.
+            requestSerial += 1;
+            inFlight = false;
+            hasDataRef.current = true;
+            setDisplays((current) => upsertDisplay(current, record));
+            setLoadError(null);
+            setRefreshError(null);
+            loadDirectory();
+        }
+
         loadRef.current = () => {
             if (!cancelled) {
                 loadDirectory();
             }
         };
+        commitRef.current = commitDisplayRecord;
 
         const kickoff = window.setTimeout(() => {
             if (cancelled) {
@@ -189,6 +211,7 @@ function useDisplayDirectory(): DisplayDirectory {
             window.clearTimeout(kickoff);
             stopPolling();
             loadRef.current = () => {};
+            commitRef.current = () => {};
             document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, []);
@@ -201,7 +224,25 @@ function useDisplayDirectory(): DisplayDirectory {
         refreshing,
         refresh,
         retry,
+        commitDisplay,
     };
+}
+
+function upsertDisplay(
+    current: DisplayRecord[] | null,
+    record: DisplayRecord,
+): DisplayRecord[] {
+    const displays = current ?? [];
+    const index = displays.findIndex((display) => display.id === record.id);
+
+    if (index === -1) {
+        return [...displays, record];
+    }
+
+    const next = displays.slice();
+    next[index] = record;
+
+    return next;
 }
 
 function readLoadError(error: unknown): string {

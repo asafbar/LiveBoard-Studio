@@ -1,7 +1,15 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { BoardSummary } from "../../boards/api/BoardApi.ts";
 import type { DisplayRecord } from "../api/displayApi.ts";
+import DisplayActionNotice from "../components/DisplayActionNotice.tsx";
+import DisplayEditorDialog from "../components/DisplayEditorDialog.tsx";
 import useDisplayDirectory from "../hooks/useDisplayDirectory.ts";
+
+type DisplayEditorState = {
+    mode: "create" | "edit";
+    display: DisplayRecord | null;
+};
 
 type DisplayNoticeProps = {
     title: string;
@@ -19,6 +27,7 @@ type DisplaySummaryProps = {
 type DisplayRowProps = {
     display: DisplayRecord;
     boardName: string;
+    onManage: () => void;
 };
 
 function DisplaysPage() {
@@ -30,7 +39,24 @@ function DisplaysPage() {
         refreshing,
         refresh,
         retry,
+        commitDisplay,
     } = useDisplayDirectory();
+    const [editor, setEditor] = useState<DisplayEditorState | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (notice === null) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            setNotice(null);
+        }, 4000);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [notice]);
 
     const boardNames = buildBoardNames(boards);
     const rows = displays === null
@@ -87,6 +113,12 @@ function DisplaysPage() {
                                 key={row.display.id}
                                 display={row.display}
                                 boardName={row.boardName}
+                                onManage={() => {
+                                    setEditor({
+                                        mode: "edit",
+                                        display: row.display,
+                                    });
+                                }}
                             />
                         ))}
                     </ul>
@@ -109,22 +141,68 @@ function DisplaysPage() {
                         Displays
                     </h1>
                 </div>
-                <button
-                    type="button"
-                    onClick={refresh}
-                    disabled={displays === null || refreshing}
-                    className={
-                        displays === null || refreshing
-                            ? "inline-flex h-9 cursor-not-allowed items-center rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
-                            : "inline-flex h-9 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
-                    }
-                >
-                    {refreshing ? "Refreshing..." : "Refresh"}
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setEditor({
+                                mode: "create",
+                                display: null,
+                            });
+                        }}
+                        disabled={displays === null || boards === null}
+                        className={
+                            displays === null || boards === null
+                                ? "inline-flex h-9 cursor-not-allowed items-center rounded-control bg-accent/40 px-3 text-sm font-medium text-white opacity-60"
+                                : "inline-flex h-9 items-center rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+                        }
+                    >
+                        Add Screen
+                    </button>
+                    <button
+                        type="button"
+                        onClick={refresh}
+                        disabled={displays === null || refreshing}
+                        className={
+                            displays === null || refreshing
+                                ? "inline-flex h-9 cursor-not-allowed items-center rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
+                                : "inline-flex h-9 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                        }
+                    >
+                        {refreshing ? "Refreshing..." : "Refresh"}
+                    </button>
+                </div>
             </header>
             <main className="min-h-0 flex-1 overflow-auto p-6">
                 {content}
             </main>
+            {editor !== null && boards !== null ? (
+                <DisplayEditorDialog
+                    key={editor.display?.id ?? "create"}
+                    mode={editor.mode}
+                    display={editor.display}
+                    boards={boards}
+                    onClose={() => {
+                        setEditor(null);
+                    }}
+                    onSaved={(record) => {
+                        const message = editor.mode === "create"
+                            ? "Screen added."
+                            : "Screen updated.";
+                        setEditor(null);
+                        commitDisplay(record);
+                        setNotice(message);
+                    }}
+                />
+            ) : null}
+            {notice !== null ? (
+                <DisplayActionNotice
+                    message={notice}
+                    onDismiss={() => {
+                        setNotice(null);
+                    }}
+                />
+            ) : null}
         </div>
     );
 }
@@ -138,7 +216,7 @@ function DisplaySummary({ label, value, valueClassName }: DisplaySummaryProps) {
     );
 }
 
-function DisplayRow({ display, boardName }: DisplayRowProps) {
+function DisplayRow({ display, boardName, onManage }: DisplayRowProps) {
     return (
         <li className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-panel sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -155,15 +233,24 @@ function DisplayRow({ display, boardName }: DisplayRowProps) {
                 <p className="mt-2 text-sm text-secondary">{boardName}</p>
                 <p className="mt-1 font-mono text-xs break-all text-muted">{display.id}</p>
             </div>
-            <a
-                href={`/screens/${display.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-9 shrink-0 items-center justify-center rounded-control border border-cyan/40 px-3 text-sm font-medium text-cyan transition-colors duration-150 hover:bg-cyan/10"
-            >
-                Open Screen
-                <span className="sr-only"> (opens in a new tab)</span>
-            </a>
+            <div className="flex shrink-0 items-center gap-2">
+                <button
+                    type="button"
+                    onClick={onManage}
+                    className="inline-flex h-9 items-center justify-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                >
+                    Manage
+                </button>
+                <a
+                    href={`/screens/${display.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-9 items-center justify-center rounded-control border border-cyan/40 px-3 text-sm font-medium text-cyan transition-colors duration-150 hover:bg-cyan/10"
+                >
+                    Open Screen
+                    <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+            </div>
         </li>
     );
 }
