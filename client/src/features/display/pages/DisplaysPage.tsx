@@ -132,10 +132,10 @@ function DisplaysPage() {
             <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-4">
                 <div className="flex min-w-0 items-center gap-3">
                     <Link
-                        to="/"
+                        to="/boards"
                         className="inline-flex h-9 shrink-0 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
                     >
-                        Back to Studio
+                        Back to Boards
                     </Link>
                     <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
                         Displays

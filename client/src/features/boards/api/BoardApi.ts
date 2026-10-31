@@ -2,9 +2,7 @@ import axios, { type AxiosResponse } from "axios";
 import apiClient from "../../../api/apiClient.ts";
 import type { Board } from "../types/boardTypes.ts";
 
-// Temporary local development board. This database UUID is the API id.
-// It is separate from the renderer id stored inside draft.id.
-const developmentBoardId = "7c2a9e14-5b31-4f0a-9d6e-2f8b1c4a0e77";
+// Callers pass the database UUID. It stays separate from the id stored in draft.id.
 
 type ApiResponse<T> = {
     success: boolean;
@@ -18,6 +16,26 @@ type BoardSummary = {
     createdAt: string;
     updatedAt: string;
 };
+
+type BoardWriteResult = BoardSummary & {
+    unpublished: boolean;
+};
+
+type BoardFieldErrors = {
+    name?: string;
+};
+
+class BoardRequestError extends Error {
+    readonly statusCode: number | null;
+    readonly fieldErrors: BoardFieldErrors;
+
+    constructor(message: string, statusCode: number | null, fieldErrors: BoardFieldErrors) {
+        super(message);
+        this.name = "BoardRequestError";
+        this.statusCode = statusCode;
+        this.fieldErrors = fieldErrors;
+    }
+}
 
 type BoardRecord = {
     id: string;
@@ -50,36 +68,6 @@ async function getBoardById(boardId: string): Promise<BoardRecord> {
     return response.data.data;
 }
 
-let cachedDevelopmentBoard: BoardRecord | null = null;
-let developmentBoardRequest: Promise<BoardRecord> | null = null;
-
-function getDevelopmentBoard(): Promise<BoardRecord> {
-    if (cachedDevelopmentBoard) {
-        return Promise.resolve(cachedDevelopmentBoard);
-    }
-
-    if (developmentBoardRequest) {
-        return developmentBoardRequest;
-    }
-
-    const request = getBoardById(developmentBoardId)
-        .then((record) => {
-            if (developmentBoardRequest === request) {
-                cachedDevelopmentBoard = record;
-            }
-
-            return record;
-        })
-        .finally(() => {
-            if (developmentBoardRequest === request) {
-                developmentBoardRequest = null;
-            }
-        });
-
-    developmentBoardRequest = request;
-    return request;
-}
-
 async function listBoardSummaries(): Promise<BoardSummary[]> {
     if (apiClient.defaults.baseURL === "") {
         throw new Error("VITE_API_BASE_URL is not configured.");
@@ -101,6 +89,67 @@ async function listBoardSummaries(): Promise<BoardSummary[]> {
     }
 
     return response.data.data;
+}
+
+async function createBoard(name: string): Promise<BoardWriteResult> {
+    if (apiClient.defaults.baseURL === "") {
+        throw new BoardRequestError("VITE_API_BASE_URL is not configured.", null, {});
+    }
+
+    try {
+        const response = await apiClient.post<ApiResponse<unknown>>("/api/boards", {
+            name,
+        });
+
+        const record = readBoardWriteResult(response.data.data);
+
+        if (!response.data.success || record === null) {
+            throw new BoardRequestError(
+                response.data.message || "The board could not be created.",
+                response.status,
+                {},
+            );
+        }
+
+        return record;
+    } catch (error: unknown) {
+        throw asBoardRequestError(
+            error,
+            "The board could not be created. Check that the API is running, then try again.",
+        );
+    }
+}
+
+async function duplicateBoard(boardId: string): Promise<BoardWriteResult> {
+    if (!isBoardId(boardId)) {
+        throw new BoardRequestError("This board address is not valid.", null, {});
+    }
+
+    if (apiClient.defaults.baseURL === "") {
+        throw new BoardRequestError("VITE_API_BASE_URL is not configured.", null, {});
+    }
+
+    try {
+        const response = await apiClient.post<ApiResponse<unknown>>(
+            `/api/boards/${boardId}/duplicate`,
+        );
+        const record = readBoardWriteResult(response.data.data);
+
+        if (!response.data.success || record === null) {
+            throw new BoardRequestError(
+                response.data.message || "The board could not be duplicated.",
+                response.status,
+                {},
+            );
+        }
+
+        return record;
+    } catch (error: unknown) {
+        throw asBoardRequestError(
+            error,
+            "The board could not be duplicated. Check that the API is running, then try again.",
+        );
+    }
 }
 
 async function getBoard(boardId: string): Promise<BoardRecord> {
@@ -128,13 +177,15 @@ async function getBoard(boardId: string): Promise<BoardRecord> {
     }
 }
 
-function reloadDevelopmentBoard(): Promise<BoardRecord> {
-    cachedDevelopmentBoard = null;
-    developmentBoardRequest = null;
-    return getDevelopmentBoard();
+function boardIdsMatch(left: string, right: string): boolean {
+    return left.toLowerCase() === right.toLowerCase();
 }
 
-async function saveBoardDraft(draft: Board): Promise<void> {
+async function saveBoardDraft(boardId: string, draft: Board): Promise<void> {
+    if (!isBoardId(boardId)) {
+        throw new Error("This board address is not valid.");
+    }
+
     if (apiClient.defaults.baseURL === "") {
         throw new Error("VITE_API_BASE_URL is not configured.");
     }
@@ -143,7 +194,7 @@ async function saveBoardDraft(draft: Board): Promise<void> {
 
     try {
         response = await apiClient.put<ApiResponse<BoardRecord>>(
-            `/api/boards/${developmentBoardId}/draft`,
+            `/api/boards/${boardId}/draft`,
             draft,
         );
     } catch (error: unknown) {
@@ -153,20 +204,18 @@ async function saveBoardDraft(draft: Board): Promise<void> {
         );
     }
 
-    if (!response.data.success) {
-        throw new Error(response.data.message || "The draft could not be saved.");
-    }
+    const savedId = response.data.data?.id;
 
-    // Remember the snapshot that was stored. Studio keeps its own editable copy.
-    if (cachedDevelopmentBoard !== null && developmentBoardRequest === null) {
-        cachedDevelopmentBoard = {
-            ...cachedDevelopmentBoard,
-            draft,
-        };
+    if (!response.data.success || typeof savedId !== "string" || !boardIdsMatch(savedId, boardId)) {
+        throw new Error(response.data.message || "The draft could not be saved.");
     }
 }
 
-async function publishBoard(): Promise<BoardRecord> {
+async function publishBoard(boardId: string): Promise<BoardRecord> {
+    if (!isBoardId(boardId)) {
+        throw new Error("This board address is not valid.");
+    }
+
     if (apiClient.defaults.baseURL === "") {
         throw new Error("VITE_API_BASE_URL is not configured.");
     }
@@ -175,7 +224,7 @@ async function publishBoard(): Promise<BoardRecord> {
 
     try {
         response = await apiClient.post<ApiResponse<BoardRecord>>(
-            `/api/boards/${developmentBoardId}/publish`,
+            `/api/boards/${boardId}/publish`,
         );
     } catch (error: unknown) {
         throw new Error(
@@ -187,17 +236,14 @@ async function publishBoard(): Promise<BoardRecord> {
     const record = response.data.data;
     const published = record?.published;
 
-    if (!response.data.success || record == null || typeof record.id !== "string" || !isBoardDraft(published)) {
+    if (
+        !response.data.success
+        || record == null
+        || typeof record.id !== "string"
+        || !boardIdsMatch(record.id, boardId)
+        || !isBoardDraft(published)
+    ) {
         throw new Error(response.data.message || "The board could not be published.");
-    }
-
-    // Remember the published snapshot only. Studio keeps its editable draft.
-    if (cachedDevelopmentBoard !== null && developmentBoardRequest === null) {
-        cachedDevelopmentBoard = {
-            ...cachedDevelopmentBoard,
-            published,
-            updatedAt: record.updatedAt,
-        };
     }
 
     return record;
@@ -225,6 +271,77 @@ function readRequestError(error: unknown, fallback: string): string {
     }
 
     return fallback;
+}
+
+function asBoardRequestError(error: unknown, fallback: string): BoardRequestError {
+    if (error instanceof BoardRequestError) {
+        return error;
+    }
+
+    if (!axios.isAxiosError(error)) {
+        if (error instanceof Error && error.message.trim() !== "") {
+            return new BoardRequestError(error.message, null, {});
+        }
+
+        return new BoardRequestError(fallback, null, {});
+    }
+
+    return new BoardRequestError(
+        readRequestError(error, fallback),
+        error.response?.status ?? null,
+        readBoardFieldErrors(error.response?.data),
+    );
+}
+
+function readBoardFieldErrors(value: unknown): BoardFieldErrors {
+    if (typeof value !== "object" || value === null || !("errors" in value)) {
+        return {};
+    }
+
+    const errors = value.errors;
+
+    if (!Array.isArray(errors)) {
+        return {};
+    }
+
+    const fieldErrors: BoardFieldErrors = {};
+
+    for (const item of errors) {
+        if (typeof item !== "object" || item === null) {
+            continue;
+        }
+
+        const pathValue: unknown = "path" in item ? item.path : "";
+        const messageValue: unknown = "message" in item ? item.message : "";
+        const path = typeof pathValue === "string" ? pathValue : "";
+        const message = typeof messageValue === "string" ? messageValue.trim() : "";
+
+        if (path === "name" && message !== "") {
+            fieldErrors.name = message;
+        }
+    }
+
+    return fieldErrors;
+}
+
+function readBoardWriteResult(value: unknown): BoardWriteResult | null {
+    if (!isBoardSummary(value) || typeof value !== "object" || value === null || !("published" in value)) {
+        return null;
+    }
+
+    const published: unknown = value.published;
+
+    if (published !== null && (typeof published !== "object" || Array.isArray(published))) {
+        return null;
+    }
+
+    return {
+        id: value.id,
+        name: value.name,
+        createdAt: value.createdAt,
+        updatedAt: value.updatedAt,
+        unpublished: published === null,
+    };
 }
 
 function isBoardSummary(value: unknown): value is BoardSummary {
@@ -261,15 +378,17 @@ function isBoardDraft(value: unknown): value is Board {
 }
 
 export {
+    BoardRequestError,
+    createBoard,
+    duplicateBoard,
     getBoard,
-    getDevelopmentBoard,
     isBoardId,
     listBoardSummaries,
     publishBoard,
-    reloadDevelopmentBoard,
     saveBoardDraft,
 };
 
 export type {
     BoardSummary,
+    BoardWriteResult,
 };

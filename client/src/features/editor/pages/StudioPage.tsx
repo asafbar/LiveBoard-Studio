@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { getDevelopmentBoard, publishBoard, reloadDevelopmentBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useBlocker, useParams, type BlockerFunction } from "react-router-dom";
+import { getBoard, publishBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -29,6 +30,7 @@ import PublishNotice from "../components/PublishNotice.tsx";
 import SavingOverlay from "../components/SavingOverlay.tsx";
 import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
+import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
 import { createWidget } from "../createWidget.ts";
 
 function updateTextSettings(
@@ -486,6 +488,18 @@ type StudioNoticeProps = {
     onAction?: () => void;
 };
 
+function readStudioError(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message.trim() !== "") {
+        return error.message;
+    }
+
+    return fallback;
+}
+
+function boardIdsMatch(left: string, right: string): boolean {
+    return left.toLowerCase() === right.toLowerCase();
+}
+
 function draftSaveStatus(
     boardLoaded: boolean,
     saveState: "idle" | "saving" | "failed",
@@ -527,7 +541,9 @@ function StudioNotice({ title, message, actionLabel, onAction }: StudioNoticePro
 }
 
 function StudioPage() {
+    const { boardId = "" } = useParams();
     const [board, setBoard] = useState<Board | null>(null);
+    const [boardName, setBoardName] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -536,7 +552,7 @@ function StudioPage() {
     const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
-    const [boardRecordId, setBoardRecordId] = useState<string | null>(null);
+    const [loadedBoardId, setLoadedBoardId] = useState<string | null>(null);
     const [publishPhase, setPublishPhase] = useState<"confirm" | "publishing" | "failed" | null>(null);
     const [publishError, setPublishError] = useState<string | null>(null);
     const [publishNoticeVisible, setPublishNoticeVisible] = useState(false);
@@ -546,37 +562,68 @@ function StudioPage() {
     const changeVersionRef = useRef(0);
     const saveInFlightRef = useRef(false);
     const publishInFlightRef = useRef(false);
+    const aliveRef = useRef(true);
+    const loadedBoardIdRef = useRef<string | null>(null);
     const [saveRestoreTarget, setSaveRestoreTarget] = useState<HTMLElement | null>(null);
     const selectedWidget = board?.widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
+    const shouldBlockNavigation = useCallback<BlockerFunction>(
+        ({ currentLocation, nextLocation }) =>
+            hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
+        [hasUnsavedChanges],
+    );
+    const blocker = useBlocker(shouldBlockNavigation);
+    const navigationLocked = blocker.state === "blocked";
+
+    useEffect(() => {
+        aliveRef.current = true;
+
+        return () => {
+            aliveRef.current = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        loadedBoardIdRef.current = loadedBoardId;
+    }, [loadedBoardId]);
 
     useEffect(() => {
         let active = true;
-        const loadBoard = loadAttempt === 0
-            ? getDevelopmentBoard()
-            : reloadDevelopmentBoard();
+        const requestedBoardId = boardId;
 
-        loadBoard
+        getBoard(requestedBoardId)
             .then((record) => {
-                if (!active) {
+                if (!active || !boardIdsMatch(record.id, requestedBoardId)) {
                     return;
                 }
 
-                setBoardRecordId((currentId) => currentId ?? record.id);
-                setBoard((currentBoard) => currentBoard ?? record.draft);
+                setLoadedBoardId(record.id);
+                setBoardName(record.name);
+                setBoard(record.draft);
                 setLoadError(null);
             })
-            .catch(() => {
+            .catch((error: unknown) => {
                 if (!active) {
                     return;
                 }
 
-                setLoadError("The board could not be loaded. Check that the API is running, then try again.");
+                setLoadError(readStudioError(
+                    error,
+                    "The board could not be loaded. Check that the API is running, then try again.",
+                ));
             });
 
         return () => {
             active = false;
         };
-    }, [loadAttempt]);
+    }, [boardId, loadAttempt]);
+
+    function isCurrentBoard(targetBoardId: string): boolean {
+        const currentBoardId = loadedBoardIdRef.current;
+
+        return aliveRef.current
+            && currentBoardId !== null
+            && boardIdsMatch(targetBoardId, currentBoardId);
+    }
 
     function updateBoard(update: (currentBoard: Board) => Board) {
         changeVersionRef.current += 1;
@@ -591,12 +638,13 @@ function StudioPage() {
     }
 
     function handleSave() {
-        if (board === null || !hasUnsavedChanges || saveInFlightRef.current) {
+        if (board === null || loadedBoardId === null || !hasUnsavedChanges || saveInFlightRef.current) {
             return;
         }
 
         const snapshot = board;
         const snapshotVersion = changeVersionRef.current;
+        const targetBoardId = loadedBoardId;
         saveInFlightRef.current = true;
         setSaveRestoreTarget(document.activeElement instanceof HTMLElement
             ? document.activeElement
@@ -604,20 +652,31 @@ function StudioPage() {
         setSaveState("saving");
         setSaveError(null);
 
-        saveBoardDraft(snapshot)
+        saveBoardDraft(targetBoardId, snapshot)
             .then(() => {
+                if (!isCurrentBoard(targetBoardId)) {
+                    return;
+                }
+
                 setHasUnsavedChanges(changeVersionRef.current !== snapshotVersion);
                 setSaveState("idle");
             })
             .catch((error: unknown) => {
+                if (!isCurrentBoard(targetBoardId)) {
+                    return;
+                }
+
                 setHasUnsavedChanges(true);
                 setSaveState("failed");
-                setSaveError(error instanceof Error && error.message.trim() !== ""
-                    ? error.message
-                    : "The draft could not be saved. Check that the API is running, then try again.");
+                setSaveError(readStudioError(
+                    error,
+                    "The draft could not be saved. Check that the API is running, then try again.",
+                ));
             })
             .finally(() => {
-                saveInFlightRef.current = false;
+                if (isCurrentBoard(targetBoardId)) {
+                    saveInFlightRef.current = false;
+                }
             });
     }
 
@@ -632,7 +691,7 @@ function StudioPage() {
     function handleOpenPublish() {
         if (
             board === null
-            || boardRecordId === null
+            || loadedBoardId === null
             || hasUnsavedChanges
             || saveState === "saving"
             || saveInFlightRef.current
@@ -681,6 +740,7 @@ function StudioPage() {
     function handlePublish() {
         if (
             board === null
+            || loadedBoardId === null
             || hasUnsavedChanges
             || saveState === "saving"
             || saveInFlightRef.current
@@ -689,6 +749,7 @@ function StudioPage() {
             return;
         }
 
+        const targetBoardId = loadedBoardId;
         publishInFlightRef.current = true;
         setPublishRestoreTarget(document.activeElement instanceof HTMLElement
             ? document.activeElement
@@ -696,20 +757,30 @@ function StudioPage() {
         setPublishPhase("publishing");
         setPublishError(null);
 
-        publishBoard()
+        publishBoard(targetBoardId)
             .then((record) => {
-                setBoardRecordId(record.id);
+                if (!isCurrentBoard(targetBoardId) || !boardIdsMatch(record.id, targetBoardId)) {
+                    return;
+                }
+
                 setPublishPhase(null);
                 showPublishNotice();
             })
             .catch((error: unknown) => {
+                if (!isCurrentBoard(targetBoardId)) {
+                    return;
+                }
+
                 setPublishPhase("failed");
-                setPublishError(error instanceof Error && error.message.trim() !== ""
-                    ? error.message
-                    : "The board could not be published. Check that the API is running, then try again.");
+                setPublishError(readStudioError(
+                    error,
+                    "The board could not be published. Check that the API is running, then try again.",
+                ));
             })
             .finally(() => {
-                publishInFlightRef.current = false;
+                if (isCurrentBoard(targetBoardId)) {
+                    publishInFlightRef.current = false;
+                }
             });
     }
 
@@ -869,24 +940,48 @@ function StudioPage() {
         document.querySelector<HTMLElement>("[aria-label='Board canvas']")?.focus();
     }, [deleteDialogOpen]);
 
+    const boardTitle = boardName ?? (loadError === null ? "Loading board" : "Board unavailable");
+    const leaveDialog = navigationLocked ? (
+        <UnsavedChangesDialog
+            onStay={() => {
+                blocker.reset();
+            }}
+            onLeave={() => {
+                blocker.proceed();
+            }}
+        />
+    ) : null;
+
     if (previewOpen && board !== null) {
-        return <StudioPreview board={board} onBack={handleClosePreview} />;
+        return (
+            <>
+                <div className="h-dvh" inert={navigationLocked}>
+                    <StudioPreview
+                        board={board}
+                        title={boardTitle}
+                        onBack={handleClosePreview}
+                    />
+                </div>
+                {leaveDialog}
+            </>
+        );
     }
 
     return (
         <>
             <div
                 className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased"
-                inert={deleteDialogOpen || saveState === "saving" || publishPhase !== null}
+                inert={deleteDialogOpen || saveState === "saving" || publishPhase !== null || navigationLocked}
             >
                 <StudioTopBar
+                    boardName={boardTitle}
                     saveStatus={draftSaveStatus(board !== null, saveState, hasUnsavedChanges)}
                     saveError={saveError}
                     saveDisabled={board === null || !hasUnsavedChanges || saveState === "saving" || publishPhase !== null}
                     previewDisabled={board === null || saveState === "saving" || publishPhase !== null}
                     publishDisabled={
                         board === null
-                        || boardRecordId === null
+                        || loadedBoardId === null
                         || hasUnsavedChanges
                         || saveState === "saving"
                         || publishPhase !== null
@@ -897,8 +992,8 @@ function StudioPage() {
                             : null
                     }
                     displayPath={
-                        board !== null && boardRecordId !== null
-                            ? `/display/${boardRecordId}`
+                        board !== null && loadedBoardId !== null
+                            ? `/display/${loadedBoardId}`
                             : null
                     }
                     onSave={handleSave}
@@ -982,6 +1077,7 @@ function StudioPage() {
                     onConfirm={handleConfirmDelete}
                 />
             ) : null}
+            {leaveDialog}
         </>
     );
 }

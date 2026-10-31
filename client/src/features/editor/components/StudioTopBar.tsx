@@ -4,6 +4,7 @@ import StudioIcon from "./StudioIcon.tsx";
 export type DraftSaveStatus = "saved" | "unsaved" | "saving" | "failed";
 
 type StudioTopBarProps = {
+    boardName: string;
     saveStatus: DraftSaveStatus | null;
     saveError: string | null;
     saveDisabled: boolean;
@@ -38,6 +39,7 @@ const saveStatusDotClassName: Record<DraftSaveStatus, string> = {
 };
 
 function StudioTopBar({
+    boardName,
     saveStatus,
     saveError,
     saveDisabled,
@@ -69,11 +71,17 @@ function StudioTopBar({
                 >
                     Displays
                 </Link>
+                <Link
+                    to="/boards"
+                    className="inline-flex h-9 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                >
+                    Boards
+                </Link>
             </div>
 
             <div className="flex min-w-0 flex-1 justify-center">
                 <p className="truncate rounded-control border border-border bg-surface-raised px-4 py-1.5 text-sm font-medium text-foreground">
-                    Tech Summit 2026
+                    {boardName}
                 </p>
             </div>
 
