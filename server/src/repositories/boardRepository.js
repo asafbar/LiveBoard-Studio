@@ -51,6 +51,20 @@ async function insertBoard(name, draft) {
     return result.rows[0];
 }
 
+async function renameBoard(id, name) {
+    // The administrative name is separate from the draft and published documents.
+    const result = await pool.query(
+        `UPDATE boards
+         SET name = $2,
+             updated_at = NOW()
+         WHERE id = $1::uuid
+         RETURNING id, name, draft, published, created_at, updated_at`,
+        [id, name]
+    );
+
+    return result.rows[0] || null;
+}
+
 async function replaceDraft(id, draft) {
     const result = await pool.query(
         `UPDATE boards
@@ -84,5 +98,6 @@ module.exports = {
     findBoardById,
     insertBoard,
     publishDraft,
+    renameBoard,
     replaceDraft
 };

@@ -80,6 +80,21 @@ async function duplicateBoard(req, res, next) {
     }
 }
 
+async function renameBoard(req, res, next) {
+    try {
+        const board = await boardService.renameBoard(req.params.id, req.boardName);
+
+        res.status(200).json(
+            successResponse(
+                "Board renamed successfully.",
+                toBoardDetail(board)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
 async function replaceDraft(req, res, next) {
     try {
         const board = await boardService.replaceDraft(req.params.id, req.draft);
@@ -101,5 +116,6 @@ module.exports = {
     createBoard,
     duplicateBoard,
     publishBoard,
+    renameBoard,
     replaceDraft
 };

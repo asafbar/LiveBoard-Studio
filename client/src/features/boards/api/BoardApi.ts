@@ -122,6 +122,38 @@ async function createBoard(name: string): Promise<BoardWriteResult> {
     }
 }
 
+async function renameBoard(boardId: string, name: string): Promise<BoardWriteResult> {
+    if (!isBoardId(boardId)) {
+        throw new BoardRequestError("This board address is not valid.", null, {});
+    }
+
+    if (apiClient.defaults.baseURL === "") {
+        throw new BoardRequestError("VITE_API_BASE_URL is not configured.", null, {});
+    }
+
+    try {
+        const response = await apiClient.patch<ApiResponse<unknown>>(`/api/boards/${boardId}`, {
+            name,
+        });
+        const record = readBoardWriteResult(response.data.data);
+
+        if (!response.data.success || record === null) {
+            throw new BoardRequestError(
+                response.data.message || "The board could not be renamed.",
+                response.status,
+                {},
+            );
+        }
+
+        return record;
+    } catch (error: unknown) {
+        throw asBoardRequestError(
+            error,
+            "The board could not be renamed. Check that the API is running, then try again.",
+        );
+    }
+}
+
 async function duplicateBoard(boardId: string): Promise<BoardWriteResult> {
     if (!isBoardId(boardId)) {
         throw new BoardRequestError("This board address is not valid.", null, {});
@@ -410,6 +442,7 @@ export {
     BoardRequestError,
     createBoard,
     duplicateBoard,
+    renameBoard,
     getBoard,
     isBoardId,
     listBoardSummaries,

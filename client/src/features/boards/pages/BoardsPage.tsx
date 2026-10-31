@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { BoardWriteResult } from "../api/BoardApi.ts";
 import DisplayActionNotice from "../../display/components/DisplayActionNotice.tsx";
+import BoardActionsMenu from "../components/BoardActionsMenu.tsx";
 import CreateBoardDialog from "../components/CreateBoardDialog.tsx";
 import DuplicateBoardDialog from "../components/DuplicateBoardDialog.tsx";
+import RenameBoardDialog from "../components/RenameBoardDialog.tsx";
 import useBoardDirectory, { type BoardDirectoryItem } from "../hooks/useBoardDirectory.ts";
 
 type BoardNoticeProps = {
@@ -15,8 +17,11 @@ type BoardNoticeProps = {
 
 type BoardRowProps = {
     board: BoardDirectoryItem;
-    duplicating: boolean;
+    actionsDisabled: boolean;
+    menuOpen: boolean;
+    onMenuOpenChange: (open: boolean) => void;
     onDuplicate: () => void;
+    onRename: () => void;
 };
 
 function BoardsPage() {
@@ -31,7 +36,10 @@ function BoardsPage() {
     } = useBoardDirectory();
     const [creating, setCreating] = useState(false);
     const [duplicateTarget, setDuplicateTarget] = useState<BoardDirectoryItem | null>(null);
+    const [renameTarget, setRenameTarget] = useState<BoardDirectoryItem | null>(null);
+    const [menuBoardId, setMenuBoardId] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
+    const dialogOpen = creating || duplicateTarget !== null || renameTarget !== null;
 
     useEffect(() => {
         if (notice === null) {
@@ -91,9 +99,18 @@ function BoardsPage() {
                             <BoardRow
                                 key={board.id}
                                 board={board}
-                                duplicating={duplicateTarget !== null || creating}
+                                actionsDisabled={dialogOpen}
+                                menuOpen={!dialogOpen && menuBoardId === board.id}
+                                onMenuOpenChange={(open) => {
+                                    setMenuBoardId(open ? board.id : null);
+                                }}
                                 onDuplicate={() => {
+                                    setMenuBoardId(null);
                                     setDuplicateTarget(board);
+                                }}
+                                onRename={() => {
+                                    setMenuBoardId(null);
+                                    setRenameTarget(board);
                                 }}
                             />
                         ))}
@@ -115,6 +132,12 @@ function BoardsPage() {
         setNotice(`Board duplicated as ${record.name}.`);
     }
 
+    function handleRenamed(record: BoardWriteResult) {
+        setRenameTarget(null);
+        commitBoard(record);
+        setNotice("Board renamed.");
+    }
+
     return (
         <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background font-sans text-foreground antialiased">
             <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-4">
@@ -129,9 +152,9 @@ function BoardsPage() {
                         onClick={() => {
                             setCreating(true);
                         }}
-                        disabled={boards === null || duplicateTarget !== null}
+                        disabled={boards === null || dialogOpen}
                         className={
-                            boards === null || duplicateTarget !== null
+                            boards === null || dialogOpen
                                 ? "inline-flex h-9 cursor-not-allowed items-center rounded-control bg-accent/40 px-3 text-sm font-medium text-white opacity-60"
                                 : "inline-flex h-9 items-center rounded-control bg-accent px-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
                         }
@@ -141,9 +164,9 @@ function BoardsPage() {
                     <button
                         type="button"
                         onClick={refresh}
-                        disabled={boards === null || refreshing || duplicateTarget !== null}
+                        disabled={boards === null || refreshing || dialogOpen}
                         className={
-                            boards === null || refreshing || duplicateTarget !== null
+                            boards === null || refreshing || dialogOpen
                                 ? "inline-flex h-9 cursor-not-allowed items-center rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
                                 : "inline-flex h-9 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
                         }
@@ -173,6 +196,16 @@ function BoardsPage() {
                     onDuplicated={handleDuplicated}
                 />
             ) : null}
+            {renameTarget !== null ? (
+                <RenameBoardDialog
+                    key={renameTarget.id}
+                    board={renameTarget}
+                    onClose={() => {
+                        setRenameTarget(null);
+                    }}
+                    onRenamed={handleRenamed}
+                />
+            ) : null}
             {notice !== null ? (
                 <DisplayActionNotice
                     message={notice}
@@ -185,12 +218,33 @@ function BoardsPage() {
     );
 }
 
-function BoardRow({ board, duplicating, onDuplicate }: BoardRowProps) {
+function BoardRow({
+    board,
+    actionsDisabled,
+    menuOpen,
+    onMenuOpenChange,
+    onDuplicate,
+    onRename,
+}: BoardRowProps) {
     return (
         <li className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-panel sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold text-foreground">{board.name}</h2>
+            <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2 className="min-w-0 max-w-full text-base font-semibold">
+                        {actionsDisabled ? (
+                            <span className="block truncate text-foreground" title={board.name}>
+                                {board.name}
+                            </span>
+                        ) : (
+                            <Link
+                                to={`/studio/${board.id}`}
+                                title={board.name}
+                                className="block truncate rounded-sm text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/40"
+                            >
+                                {board.name}
+                            </Link>
+                        )}
+                    </h2>
                     <p className={`text-xs font-medium ${board.isPublished ? "text-cyan" : "text-warning"}`}>
                         {board.isPublished ? "Published" : "Unpublished"}
                     </p>
@@ -205,23 +259,12 @@ function BoardRow({ board, duplicating, onDuplicate }: BoardRowProps) {
                     Updated {formatTimestamp(board.updatedAt)}
                 </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-                <button
-                    type="button"
-                    onClick={onDuplicate}
-                    disabled={duplicating}
-                    className={
-                        duplicating
-                            ? "inline-flex h-9 cursor-not-allowed items-center justify-center rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
-                            : "inline-flex h-9 items-center justify-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
-                    }
-                >
-                    Duplicate
-                </button>
-                {duplicating ? (
+            <div className="flex shrink-0 items-center justify-end gap-2">
+                {actionsDisabled ? (
                     <button
                         type="button"
                         disabled
+                        data-board-edit="true"
                         className="inline-flex h-9 cursor-not-allowed items-center justify-center rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
                     >
                         Edit
@@ -229,11 +272,20 @@ function BoardRow({ board, duplicating, onDuplicate }: BoardRowProps) {
                 ) : (
                     <Link
                         to={`/studio/${board.id}`}
-                        className="inline-flex h-9 items-center justify-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                        data-board-edit="true"
+                        className="inline-flex h-9 items-center justify-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover hover:text-foreground focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
                     >
                         Edit
                     </Link>
                 )}
+                <BoardActionsMenu
+                    boardName={board.name}
+                    disabled={actionsDisabled}
+                    open={menuOpen}
+                    onOpenChange={onMenuOpenChange}
+                    onRename={onRename}
+                    onDuplicate={onDuplicate}
+                />
             </div>
         </li>
     );

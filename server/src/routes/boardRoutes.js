@@ -23,6 +23,14 @@ router.get(
     boardController.getBoard
 );
 
+// Renames the board record only. Draft and published documents are not changed.
+router.patch(
+    "/:id",
+    validateBoardId,
+    validateCreateBoard,
+    boardController.renameBoard
+);
+
 router.put(
     "/:id/draft",
     validateBoardId,

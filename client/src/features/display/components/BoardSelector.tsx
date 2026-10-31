@@ -57,6 +57,7 @@ const SEARCH_BLOCK_HEIGHT = 37;
 const POPUP_GAP = 4;
 const VIEWPORT_MARGIN = 8;
 const UNAVAILABLE_LABEL = "Assigned board unavailable";
+const EMPTY_RESULTS_LABEL = "No boards found";
 
 function BoardSelector({
     id,
@@ -419,11 +420,11 @@ function BoardSelector({
                         ))}
                     </ul>
                     {noBoardMatches ? (
-                        <p className="px-3 py-2 text-xs text-muted">No matching boards</p>
+                        <p className="px-3 py-2 text-xs text-muted">{EMPTY_RESULTS_LABEL}</p>
                     ) : null}
                 </div>
                 <p className="sr-only" aria-live="polite">
-                    {noBoardMatches ? "No matching boards" : `${boardMatchCount} ${boardMatchCount === 1 ? "board" : "boards"}`}
+                    {noBoardMatches ? EMPTY_RESULTS_LABEL : `${boardMatchCount} ${boardMatchCount === 1 ? "board" : "boards"}`}
                 </p>
             </div>,
             document.body,
@@ -525,19 +526,36 @@ function SelectorChevron({ open }: SelectorChevronProps) {
 function buildOptions(boards: BoardSummary[], value: string, query: string): BoardSelectorOption[] {
     const normalizedQuery = query.trim().toLowerCase();
     const selected = findBoard(boards, value);
-    const options: BoardSelectorOption[] = [{ kind: "none" }];
+    const options: BoardSelectorOption[] = [];
 
-    if (value !== "" && selected === null) {
-        options.push({ kind: "unavailable", id: value });
+    if (normalizedQuery === "") {
+        options.push({ kind: "none" });
+
+        if (value !== "" && selected === null) {
+            options.push({ kind: "unavailable", id: value });
+        }
     }
 
-    boards.forEach((board) => {
+    boards.slice().sort(compareBoardNames).forEach((board) => {
         if (normalizedQuery === "" || board.name.toLowerCase().includes(normalizedQuery)) {
             options.push({ kind: "board", board });
         }
     });
 
     return options;
+}
+
+function compareBoardNames(left: BoardSummary, right: BoardSummary): number {
+    const byName = left.name.localeCompare(right.name, undefined, {
+        numeric: true,
+        sensitivity: "base",
+    });
+
+    if (byName !== 0) {
+        return byName;
+    }
+
+    return left.id.localeCompare(right.id);
 }
 
 function readSelection(boards: BoardSummary[], value: string): { name: string; published: boolean | null } {

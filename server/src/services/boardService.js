@@ -34,6 +34,31 @@ async function publishBoard(id) {
     return board;
 }
 
+async function renameBoard(id, name) {
+    const current = await boardRepository.findBoardById(id);
+
+    if (current === null) {
+        throw createHttpError(404, "Board not found.");
+    }
+
+    if (current.name !== name) {
+        const identities = await boardRepository.listBoardIdentities();
+        assertBoardNameAvailable(name, identities);
+    }
+
+    try {
+        const board = await boardRepository.renameBoard(id, name);
+
+        if (board === null) {
+            throw createHttpError(404, "Board not found.");
+        }
+
+        return board;
+    } catch (error) {
+        throw mapBoardNameConflict(error);
+    }
+}
+
 async function replaceDraft(id, draft) {
     const board = await boardRepository.replaceDraft(id, draft);
 
@@ -205,5 +230,6 @@ module.exports = {
     publishBoard,
     replaceDraft,
     createBoard,
-    duplicateBoard
+    duplicateBoard,
+    renameBoard
 };
