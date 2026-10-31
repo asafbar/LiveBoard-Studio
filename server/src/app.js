@@ -4,6 +4,7 @@ const env = require("./config/env");
 const healthRoutes = require("./routes/healthRoutes");
 const boardRoutes = require("./routes/boardRoutes");
 const displayRoutes = require("./routes/displayRoutes");
+const mediaRoutes = require("./routes/mediaRoutes");
 const {
     notFoundHandler,
     errorHandler
@@ -29,6 +30,7 @@ app.use(express.json({
 app.use("/api/health", healthRoutes);
 app.use("/api/boards", boardRoutes);
 app.use("/api/displays", displayRoutes);
+app.use("/api/media", mediaRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

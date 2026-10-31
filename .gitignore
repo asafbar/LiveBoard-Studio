@@ -145,5 +145,8 @@ vite.config.ts.timestamp-*
 # Astro generated types
 .astro/
 
+# Runtime media uploads. Keep these on the media volume, not in Git.
+server/storage/
+
 # Turbo Repo
 .turbo

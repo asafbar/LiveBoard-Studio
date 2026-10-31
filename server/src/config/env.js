@@ -1,3 +1,4 @@
+const path = require("path");
 require("dotenv").config({
     quiet: true
 });
@@ -16,6 +17,7 @@ const dbPort = readPort(process.env.DB_PORT, "DB_PORT", DEFAULT_DB_PORT);
 const dbName = readSetting(process.env.DB_NAME, DEFAULT_DB_NAME);
 const dbUser = readRequired("DB_USER");
 const dbPassword = readRequired("DB_PASSWORD");
+const mediaDir = readMediaDir(process.env.MEDIA_DIR);
 
 function readPort(rawPort, name, defaultPort) {
     if (rawPort === undefined || rawPort.trim() === "") {
@@ -45,6 +47,20 @@ function readSetting(rawValue, fallback) {
     return rawValue.trim();
 }
 
+function readMediaDir(rawValue) {
+    if (rawValue === undefined || rawValue.trim() === "") {
+        return path.resolve(__dirname, "../../storage/media");
+    }
+
+    const trimmed = rawValue.trim();
+
+    if (path.isAbsolute(trimmed)) {
+        return path.resolve(trimmed);
+    }
+
+    return path.resolve(__dirname, "../..", trimmed);
+}
+
 function readRequired(name) {
     const value = process.env[name];
 
@@ -69,5 +85,6 @@ module.exports = {
     dbPort,
     dbName,
     dbUser,
-    dbPassword
+    dbPassword,
+    mediaDir
 };
