@@ -72,9 +72,6 @@ function BoardsPage() {
                     <p className="text-xs font-medium text-muted">Total boards</p>
                     <p className="mt-1 text-2xl font-semibold text-foreground tabular-nums">{boards.length}</p>
                 </div>
-                <p className="text-sm leading-5 text-secondary">
-                    The board list does not include publication status. A board created or duplicated here is marked Unpublished.
-                </p>
                 {refreshError !== null ? (
                     <p
                         role="status"
@@ -194,8 +191,11 @@ function BoardRow({ board, duplicating, onDuplicate }: BoardRowProps) {
             <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-base font-semibold text-foreground">{board.name}</h2>
-                    <p className={`text-xs font-medium ${publicationClassName(board.publication)}`}>
-                        {publicationLabel(board.publication)}
+                    <p className={`text-xs font-medium ${board.isPublished ? "text-cyan" : "text-warning"}`}>
+                        {board.isPublished ? "Published" : "Unpublished"}
+                    </p>
+                    <p className="text-xs font-medium text-secondary">
+                        {formatWidgetCount(board.widgetCount)}
                     </p>
                 </div>
                 <p className="mt-2 font-mono text-xs break-all text-muted">{board.id}</p>
@@ -259,28 +259,8 @@ function BoardNotice({ title, message, actionLabel, onAction }: BoardNoticeProps
     );
 }
 
-function publicationLabel(publication: BoardDirectoryItem["publication"]): string {
-    if (publication === "published") {
-        return "Published";
-    }
-
-    if (publication === "unpublished") {
-        return "Unpublished";
-    }
-
-    return "Status unavailable";
-}
-
-function publicationClassName(publication: BoardDirectoryItem["publication"]): string {
-    if (publication === "published") {
-        return "text-cyan";
-    }
-
-    if (publication === "unpublished") {
-        return "text-warning";
-    }
-
-    return "text-muted";
+function formatWidgetCount(count: number): string {
+    return count === 1 ? "1 widget" : `${count} widgets`;
 }
 
 function formatTimestamp(value: string): string {

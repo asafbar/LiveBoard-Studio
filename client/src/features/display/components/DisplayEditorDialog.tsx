@@ -7,6 +7,7 @@ import {
     type DisplayRecord,
     type UpdateDisplayPayload,
 } from "../api/displayApi.ts";
+import BoardSelector from "./BoardSelector.tsx";
 
 type DisplayEditorMode = "create" | "edit";
 
@@ -55,6 +56,10 @@ function DisplayEditorDialog({
 
     function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
         if (event.key === "Escape") {
+            if (event.defaultPrevented || isBoardSelectorPopupTarget(event.target)) {
+                return;
+            }
+
             event.preventDefault();
             event.stopPropagation();
 
@@ -142,8 +147,12 @@ function DisplayEditorDialog({
     const submitLabel = submitting
         ? (mode === "create" ? "Adding..." : "Saving...")
         : (mode === "create" ? "Add Screen" : "Save");
-    const selectedBoardKnown = boardValue === ""
-        || boards.some((board) => board.id.toLowerCase() === boardValue.toLowerCase());
+    const selectedBoard = boards.find((board) => board.id.toLowerCase() === boardValue.toLowerCase()) ?? null;
+    const showUnpublishedHelp = selectedBoard !== null && !selectedBoard.isPublished;
+    const boardDescribedBy = [
+        boardError !== null ? "display-board-error" : null,
+        showUnpublishedHelp ? "display-board-publication" : null,
+    ].filter((id) => id !== null).join(" ");
 
     return (
         <div
@@ -157,7 +166,7 @@ function DisplayEditorDialog({
                 aria-labelledby="display-editor-title"
                 tabIndex={-1}
                 onKeyDown={handleKeyDown}
-                className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-panel outline-none"
+                className="w-full max-w-md overflow-visible rounded-lg border border-border bg-surface p-5 shadow-panel outline-none"
             >
                 <h2 id="display-editor-title" className="text-base font-semibold text-foreground">
                     {title}
@@ -190,31 +199,27 @@ function DisplayEditorDialog({
                         ) : null}
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <label htmlFor="display-board" className="text-xs text-muted">
+                        <label id="display-board-label" htmlFor="display-board" className="text-xs text-muted">
                             Assigned board
                         </label>
-                        <select
+                        <BoardSelector
                             id="display-board"
+                            labelId="display-board-label"
+                            boards={boards}
                             value={boardValue}
                             disabled={submitting}
-                            aria-invalid={boardError !== null}
-                            aria-describedby={boardError !== null ? "display-board-error" : undefined}
-                            onChange={(event) => {
-                                setBoardValue(event.target.value);
+                            invalid={boardError !== null}
+                            describedBy={boardDescribedBy === "" ? undefined : boardDescribedBy}
+                            onChange={(nextValue) => {
+                                setBoardValue(nextValue);
                                 setBoardError(null);
                             }}
-                            className={fieldClassName}
-                        >
-                            <option value="">No board assigned</option>
-                            {boardValue !== "" && !selectedBoardKnown ? (
-                                <option value={boardValue}>Assigned board unavailable</option>
-                            ) : null}
-                            {boards.map((board) => (
-                                <option key={board.id} value={board.id}>
-                                    {board.name}
-                                </option>
-                            ))}
-                        </select>
+                        />
+                        {showUnpublishedHelp ? (
+                            <p id="display-board-publication" className="text-xs leading-4 text-warning">
+                                This board has not been published yet. The screen will show a placeholder until the board is published.
+                            </p>
+                        ) : null}
                         {boardError !== null ? (
                             <p id="display-board-error" role="alert" className="text-sm text-danger">
                                 {boardError}
@@ -285,6 +290,10 @@ async function saveDisplay(
     }
 
     return updateDisplay(display.id, buildDisplayUpdate(display, name, boardValue));
+}
+
+function isBoardSelectorPopupTarget(target: EventTarget): boolean {
+    return target instanceof Element && target.closest("[data-board-selector-popup]") !== null;
 }
 
 function hasDisplayChanges(display: DisplayRecord, name: string, boardValue: string): boolean {

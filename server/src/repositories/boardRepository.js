@@ -1,8 +1,18 @@
 const { pool } = require("../config/db");
 
 async function listBoards() {
+    // Count draft widgets and publication in SQL so the list does not load full documents.
     const result = await pool.query(
-        `SELECT id, name, created_at, updated_at
+        `SELECT id,
+                name,
+                created_at,
+                updated_at,
+                (published IS NOT NULL) AS is_published,
+                CASE
+                    WHEN jsonb_typeof(draft -> 'widgets') = 'array'
+                        THEN jsonb_array_length(draft -> 'widgets')
+                    ELSE 0
+                END AS widget_count
          FROM boards
          ORDER BY created_at ASC, id ASC`
     );

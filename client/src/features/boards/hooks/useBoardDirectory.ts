@@ -5,11 +5,7 @@ import {
     type BoardWriteResult,
 } from "../api/BoardApi.ts";
 
-type BoardPublication = "published" | "unpublished" | "unknown";
-
-type BoardDirectoryItem = BoardSummary & {
-    publication: BoardPublication;
-};
+type BoardDirectoryItem = BoardSummary;
 
 type BoardDirectory = {
     boards: BoardDirectoryItem[] | null;
@@ -73,7 +69,7 @@ function useBoardDirectory(): BoardDirectory {
                     }
 
                     hasDataRef.current = true;
-                    applyBoards(mergeBoards(boardsRef.current, summaries));
+                    applyBoards(summaries);
                     setLoadError(null);
                     setRefreshError(null);
                 })
@@ -151,22 +147,6 @@ function useBoardDirectory(): BoardDirectory {
     };
 }
 
-function mergeBoards(
-    current: BoardDirectoryItem[] | null,
-    summaries: BoardSummary[],
-): BoardDirectoryItem[] {
-    const known = new Map<string, BoardPublication>();
-
-    for (const board of current ?? []) {
-        known.set(board.id, board.publication);
-    }
-
-    return summaries.map((summary) => ({
-        ...summary,
-        publication: known.get(summary.id) ?? "unknown",
-    }));
-}
-
 function upsertBoard(
     current: BoardDirectoryItem[] | null,
     record: BoardWriteResult,
@@ -177,7 +157,8 @@ function upsertBoard(
         name: record.name,
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
-        publication: record.unpublished ? "unpublished" : "published",
+        isPublished: record.isPublished,
+        widgetCount: record.widgetCount,
     };
     const index = boards.findIndex((board) => board.id === record.id);
 

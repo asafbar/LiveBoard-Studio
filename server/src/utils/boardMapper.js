@@ -1,4 +1,4 @@
-function toBoardSummary(row) {
+function toBoardIdentity(row) {
     return {
         id: row.id,
         name: row.name,
@@ -7,12 +7,30 @@ function toBoardSummary(row) {
     };
 }
 
+function toBoardSummary(row) {
+    return {
+        ...toBoardIdentity(row),
+        isPublished: row.is_published === true,
+        widgetCount: readWidgetCount(row.widget_count)
+    };
+}
+
 function toBoardDetail(row) {
     return {
-        ...toBoardSummary(row),
+        ...toBoardIdentity(row),
         draft: row.draft,
         published: row.published
     };
+}
+
+function readWidgetCount(value) {
+    const count = typeof value === "number" ? value : Number(value);
+
+    if (!Number.isInteger(count) || count < 0) {
+        return 0;
+    }
+
+    return count;
 }
 
 function toBoardSummaryList(rows) {

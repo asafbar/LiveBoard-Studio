@@ -42,6 +42,7 @@
     --color-accent: var(--accent);
     --color-accent-hover: var(--accent-hover);
     --color-cyan: var(--cyan);
+    --color-success: var(--success);
     --color-warning: var(--warning);
     --color-danger: var(--danger);
     --color-danger-border: var(--danger-border);

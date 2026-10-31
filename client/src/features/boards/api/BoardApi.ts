@@ -15,6 +15,8 @@ type BoardSummary = {
     name: string;
     createdAt: string;
     updatedAt: string;
+    isPublished: boolean;
+    widgetCount: number;
 };
 
 type BoardWriteResult = BoardSummary & {
@@ -325,13 +327,18 @@ function readBoardFieldErrors(value: unknown): BoardFieldErrors {
 }
 
 function readBoardWriteResult(value: unknown): BoardWriteResult | null {
-    if (!isBoardSummary(value) || typeof value !== "object" || value === null || !("published" in value)) {
+    if (!isBoardIdentity(value) || !("published" in value) || !("draft" in value)) {
         return null;
     }
 
     const published: unknown = value.published;
+    const draft: unknown = value.draft;
 
     if (published !== null && (typeof published !== "object" || Array.isArray(published))) {
+        return null;
+    }
+
+    if (!isBoardDraft(draft)) {
         return null;
     }
 
@@ -340,11 +347,18 @@ function readBoardWriteResult(value: unknown): BoardWriteResult | null {
         name: value.name,
         createdAt: value.createdAt,
         updatedAt: value.updatedAt,
+        isPublished: published !== null,
+        widgetCount: draft.widgets.length,
         unpublished: published === null,
     };
 }
 
-function isBoardSummary(value: unknown): value is BoardSummary {
+function isBoardIdentity(value: unknown): value is {
+    id: string;
+    name: string;
+    createdAt: string;
+    updatedAt: string;
+} {
     if (value === null || typeof value !== "object") {
         return false;
     }
@@ -355,6 +369,21 @@ function isBoardSummary(value: unknown): value is BoardSummary {
         && typeof board.name === "string"
         && typeof board.createdAt === "string"
         && typeof board.updatedAt === "string";
+}
+
+function isWidgetCount(value: unknown): value is number {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isBoardSummary(value: unknown): value is BoardSummary {
+    if (!isBoardIdentity(value)) {
+        return false;
+    }
+
+    const board = value as BoardSummary;
+
+    return typeof board.isPublished === "boolean"
+        && isWidgetCount(board.widgetCount);
 }
 
 function isBoardSummaryList(value: unknown): value is BoardSummary[] {
