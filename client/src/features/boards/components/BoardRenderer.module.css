@@ -57,6 +57,7 @@
     object-fit: contain;
 }
 
+/* Later widgets in the board array paint above earlier ones. */
 .widget {
     position: absolute;
     z-index: 1;
@@ -68,19 +69,18 @@
     user-select: none;
 }
 
+.widgetLocked {
+    cursor: default;
+}
+
 .widgetSelectable:focus {
     outline: none;
 }
 
 .widgetSelectable:focus-visible:not(.widgetSelected) {
-    z-index: 2;
     border-radius: var(--widget-radius, 0);
     outline: 2px solid var(--cyan);
     outline-offset: -2px;
-}
-
-.widgetSelected {
-    z-index: 2;
 }
 
 .widgetSelected::after {

@@ -60,6 +60,9 @@ export type AnnouncementsWidgetSettings = {
 export type Widget = {
     id: string;
     layout: WidgetLayout;
+    layerName?: string;
+    visible?: boolean;
+    locked?: boolean;
 } & (
     | {
         type: "text";

@@ -11,9 +11,11 @@ const MAX_TEXT_LENGTH = 4000;
 const MAX_SHORT_TEXT_LENGTH = 200;
 const MAX_SOURCE_LENGTH = 2000;
 const MAX_ID_LENGTH = 80;
+const MAX_LAYER_NAME_LENGTH = 80;
 const MAX_COLOR_LENGTH = 200;
 
 const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements"];
+const WIDGET_KEYS = ["id", "type", "layout", "settings", "layerName", "visible", "locked"];
 const TEXT_TONES = ["default", "accent"];
 const TEXT_SIZES = ["title", "display"];
 const CLOCK_TIME_ZONES = ["Asia/Jerusalem", "UTC", "America/New_York", "Europe/London"];
@@ -212,23 +214,41 @@ function sanitizeWidget(widget, path, errors) {
         return null;
     }
 
-    rejectUnknownKeys(widget, ["id", "type", "layout", "settings"], path, errors);
+    rejectUnknownKeys(widget, WIDGET_KEYS, path, errors);
 
     const id = readId(widget.id, `${path}.id`, errors);
     const type = readChoice(widget.type, `${path}.type`, WIDGET_TYPES, errors);
     const layout = sanitizeLayout(widget.layout, `${path}.layout`, errors);
     const settings = sanitizeSettings(type, widget.settings, `${path}.settings`, errors);
+    const errorCount = errors.length;
+    const layerName = readOptionalLayerName(widget.layerName, `${path}.layerName`, errors);
+    const visible = readOptionalBoolean(widget.visible, `${path}.visible`, errors);
+    const locked = readOptionalBoolean(widget.locked, `${path}.locked`, errors);
 
-    if (id === null || type === null || layout === null || settings === null) {
+    if (id === null || type === null || layout === null || settings === null || errors.length !== errorCount) {
         return null;
     }
 
-    return {
+    const nextWidget = {
         id,
         type,
         layout,
         settings
     };
+
+    if (layerName !== undefined) {
+        nextWidget.layerName = layerName;
+    }
+
+    if (visible !== undefined) {
+        nextWidget.visible = visible;
+    }
+
+    if (locked !== undefined) {
+        nextWidget.locked = locked;
+    }
+
+    return nextWidget;
 }
 
 function sanitizeLayout(layout, path, errors) {
@@ -527,6 +547,30 @@ function assignOptionalText(target, key, value, path, errors) {
     }
 
     target[key] = readRequiredText(value, path, MAX_TEXT_LENGTH, errors, true);
+}
+
+function readOptionalLayerName(value, path, errors) {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    const name = readRequiredText(value, path, MAX_LAYER_NAME_LENGTH, errors, true);
+
+    if (name === null || name === "") {
+        return undefined;
+    }
+
+    return name;
+}
+
+function readOptionalBoolean(value, path, errors) {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    const booleanValue = readBoolean(value, path, errors);
+
+    return booleanValue === null ? undefined : booleanValue;
 }
 
 function readBoolean(value, path, errors) {

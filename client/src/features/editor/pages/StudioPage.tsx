@@ -22,7 +22,14 @@ import {
     normalizeImageSource,
     radiusIsInRange,
 } from "../imageSettings.ts";
-import ComponentsPanel from "../components/ComponentsPanel.tsx";
+import StudioSidebar from "../components/StudioSidebar.tsx";
+import { applyWidgetLayerChange, type WidgetLayerChange } from "../widgetLayer.ts";
+import {
+    moveWidgetLayer,
+    reorderWidgetLayer,
+    type LayerDropPlacement,
+    type LayerMove,
+} from "../widgetOrder.ts";
 import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
@@ -552,7 +559,17 @@ function StudioPage() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [saveState, setSaveState] = useState<"idle" | "saving" | "failed">("idle");
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+    const [selection, setSelection] = useState<{ boardId: string; widgetId: string | null }>({
+        boardId,
+        widgetId: null,
+    });
+    const [reveal, setReveal] = useState<{ boardId: string; widgetId: string | null }>({
+        boardId,
+        widgetId: null,
+    });
+    const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const selectedWidgetId = selection.boardId === boardId ? selection.widgetId : null;
+    const revealedWidgetId = reveal.boardId === boardId ? reveal.widgetId : null;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
     const [loadedBoardId, setLoadedBoardId] = useState<string | null>(null);
@@ -569,6 +586,15 @@ function StudioPage() {
     const loadedBoardIdRef = useRef<string | null>(null);
     const [saveRestoreTarget, setSaveRestoreTarget] = useState<HTMLElement | null>(null);
     const selectedWidget = board?.widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
+
+    if (
+        board !== null
+        && selectedWidgetId !== null
+        && selectedWidget === null
+        && selection.boardId === boardId
+    ) {
+        setSelection({ boardId, widgetId: null });
+    }
     const shouldBlockNavigation = useCallback<BlockerFunction>(
         ({ currentLocation, nextLocation }) =>
             hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
@@ -582,6 +608,10 @@ function StudioPage() {
 
         return () => {
             aliveRef.current = false;
+
+            if (revealTimerRef.current !== null) {
+                clearTimeout(revealTimerRef.current);
+            }
         };
     }, []);
 
@@ -872,6 +902,67 @@ function StudioPage() {
         updateBoard((currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout));
     }
 
+    function handleMoveWidget(widgetId: string, move: LayerMove) {
+        if (board === null) {
+            return;
+        }
+
+        const nextBoard = moveWidgetLayer(board, widgetId, move);
+
+        if (nextBoard === board) {
+            return;
+        }
+
+        updateBoard(() => nextBoard);
+    }
+
+    function handleReorderWidget(widgetId: string, targetId: string, placement: LayerDropPlacement) {
+        if (board === null) {
+            return;
+        }
+
+        const nextBoard = reorderWidgetLayer(board, widgetId, targetId, placement);
+
+        if (nextBoard === board) {
+            return;
+        }
+
+        updateBoard(() => nextBoard);
+    }
+
+    function handleLayerChange(widgetId: string, change: WidgetLayerChange) {
+        if (board === null) {
+            return;
+        }
+
+        const nextBoard = applyWidgetLayerChange(board, widgetId, change);
+
+        if (nextBoard === board) {
+            return;
+        }
+
+        updateBoard(() => nextBoard);
+    }
+
+    function revealAddedWidget(widgetId: string) {
+        setReveal({ boardId, widgetId });
+
+        if (revealTimerRef.current !== null) {
+            clearTimeout(revealTimerRef.current);
+        }
+
+        revealTimerRef.current = setTimeout(() => {
+            revealTimerRef.current = null;
+            setReveal((current) => {
+                if (current.boardId !== boardId || current.widgetId !== widgetId) {
+                    return current;
+                }
+
+                return { boardId, widgetId: null };
+            });
+        }, 1800);
+    }
+
     function handleAddWidget(type: WidgetType) {
         if (board === null) {
             return;
@@ -880,7 +971,8 @@ function StudioPage() {
         const widget = createWidget(type, board);
 
         updateBoard((currentBoard) => appendWidget(currentBoard, widget));
-        setSelectedWidgetId(widget.id);
+        setSelection({ boardId, widgetId: widget.id });
+        revealAddedWidget(widget.id);
     }
 
     function handleDeleteSelectedWidget() {
@@ -891,7 +983,7 @@ function StudioPage() {
         const widgetId = selectedWidgetId;
 
         updateBoard((currentBoard) => removeWidget(currentBoard, widgetId));
-        setSelectedWidgetId(null);
+        setSelection({ boardId, widgetId: null });
     }
 
     function handleRequestDeleteSelectedWidget() {
@@ -1031,11 +1123,24 @@ function StudioPage() {
                     )
                 ) : (
                     <div className="flex min-h-0 flex-1">
-                        <ComponentsPanel onAddWidget={handleAddWidget} />
+                        <StudioSidebar
+                            widgets={board.widgets}
+                            selectedWidgetId={selectedWidgetId}
+                            revealedWidgetId={revealedWidgetId}
+                            onAddWidget={handleAddWidget}
+                            onSelectWidget={(widgetId) => {
+                                setSelection({ boardId, widgetId });
+                            }}
+                            onMoveWidget={handleMoveWidget}
+                            onReorderWidget={handleReorderWidget}
+                            onLayerChange={handleLayerChange}
+                        />
                         <EditorCanvas
                             board={board}
                             selectedWidgetId={selectedWidgetId}
-                            onSelectWidget={setSelectedWidgetId}
+                            onSelectWidget={(widgetId) => {
+                                setSelection({ boardId, widgetId });
+                            }}
                             onWidgetPositionChange={handleWidgetPositionChange}
                             onWidgetLayoutChange={handleWidgetLayoutChange}
                             onDeleteSelectedWidget={handleRequestDeleteSelectedWidget}

@@ -20,7 +20,15 @@ export type StudioIconName =
     | "boards"
     | "displays"
     | "logout"
-    | "more";
+    | "more"
+    | "move-forward"
+    | "move-backward"
+    | "bring-front"
+    | "send-back"
+    | "chevron-down"
+    | "grip"
+    | "lock"
+    | "unlock";
 
 type StudioIconProps = {
     name: StudioIconName;
@@ -166,6 +174,49 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
             <circle cx="6" cy="12" r="1" fill="currentColor" stroke="none" />
             <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
             <circle cx="18" cy="12" r="1" fill="currentColor" stroke="none" />
+        </>
+    ),
+    "move-forward": (
+        <path d="m6 14 6-6 6 6" />
+    ),
+    "move-backward": (
+        <path d="m6 10 6 6 6-6" />
+    ),
+    "bring-front": (
+        <>
+            <path d="M5 6h14" />
+            <path d="m8 16 4-4 4 4" />
+        </>
+    ),
+    "send-back": (
+        <>
+            <path d="M5 18h14" />
+            <path d="m8 8 4 4 4-4" />
+        </>
+    ),
+    "chevron-down": (
+        <path d="m6 9 6 6 6-6" />
+    ),
+    grip: (
+        <>
+            <circle cx="9" cy="8" r="1" fill="currentColor" stroke="none" />
+            <circle cx="15" cy="8" r="1" fill="currentColor" stroke="none" />
+            <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+            <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+            <circle cx="9" cy="16" r="1" fill="currentColor" stroke="none" />
+            <circle cx="15" cy="16" r="1" fill="currentColor" stroke="none" />
+        </>
+    ),
+    lock: (
+        <>
+            <rect x="6" y="11" width="12" height="8" rx="1.5" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+        </>
+    ),
+    unlock: (
+        <>
+            <rect x="6" y="11" width="12" height="8" rx="1.5" />
+            <path d="M8 11V8a4 4 0 0 1 7.2-2" />
         </>
     ),
 };

@@ -351,11 +351,13 @@ function WidgetView({
     const frameRef = useRef<HTMLDivElement>(null);
     const dragSessionRef = useRef<DragSession | null>(null);
     const resizeSessionRef = useRef<ResizeSession | null>(null);
-    const draggable = interactive && onWidgetPositionChange !== undefined;
+    const geometryLocked = widget.locked === true;
+    const draggable = interactive && onWidgetPositionChange !== undefined && !geometryLocked;
     const content = renderWidget(widget);
     const className = [
         styles.widget,
         interactive ? styles.widgetSelectable : "",
+        geometryLocked ? styles.widgetLocked : "",
         selected ? styles.widgetSelected : "",
     ].filter((name) => name.length > 0).join(" ");
     const radius = selectionRadius(widget);
@@ -400,7 +402,7 @@ function WidgetView({
     }, []);
 
     useEffect(() => {
-        if (selected) {
+        if (selected && widget.locked !== true) {
             return;
         }
 
@@ -414,7 +416,7 @@ function WidgetView({
         ) {
             resizeSession.handle.releasePointerCapture(resizeSession.pointerId);
         }
-    }, [selected]);
+    }, [selected, widget.locked]);
 
     function finishDrag(element: HTMLDivElement, pointerId: number) {
         const session = dragSessionRef.current;
@@ -450,11 +452,17 @@ function WidgetView({
     }
 
     function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-        if (event.button !== 0 || onWidgetPositionChange === undefined) {
+        if (event.button !== 0) {
             return;
         }
 
         event.stopPropagation();
+        onSelectWidget?.(widget.id);
+
+        if (widget.locked === true || onWidgetPositionChange === undefined) {
+            return;
+        }
+
         dragSessionRef.current = {
             pointerId: event.pointerId,
             originClientX: event.clientX,
@@ -469,14 +477,17 @@ function WidgetView({
         } catch {
             // Capture requires an active pointer. The gesture still ends on pointerup.
         }
-
-        onSelectWidget?.(widget.id);
     }
 
     function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
         const session = dragSessionRef.current;
 
-        if (session === null || session.pointerId !== event.pointerId || onWidgetPositionChange === undefined) {
+        if (
+            session === null
+            || session.pointerId !== event.pointerId
+            || widget.locked === true
+            || onWidgetPositionChange === undefined
+        ) {
             return;
         }
 
@@ -554,7 +565,7 @@ function WidgetView({
     }
 
     function handleResizePointerDown(corner: ResizeCorner, event: PointerEvent<HTMLDivElement>) {
-        if (event.button !== 0 || onWidgetLayoutChange === undefined) {
+        if (event.button !== 0 || widget.locked === true || onWidgetLayoutChange === undefined) {
             return;
         }
 
@@ -678,14 +689,14 @@ function WidgetView({
             onClick={interactive ? handleClick : undefined}
             onKeyDown={interactive ? handleKeyDown : undefined}
             onDragStart={draggable ? handleDragStart : undefined}
-            onPointerDown={draggable ? handlePointerDown : undefined}
+            onPointerDown={interactive ? handlePointerDown : undefined}
             onPointerMove={draggable ? handlePointerMove : undefined}
             onPointerUp={draggable ? handlePointerUp : undefined}
             onPointerCancel={draggable ? handlePointerCancel : undefined}
             onLostPointerCapture={draggable ? handleLostPointerCapture : undefined}
         >
             {content}
-            {selected && onWidgetLayoutChange !== undefined ? resizeCorners.map((corner) => (
+            {selected && !geometryLocked && onWidgetLayoutChange !== undefined ? resizeCorners.map((corner) => (
                 <ResizeHandle
                     key={corner}
                     corner={corner}
@@ -743,7 +754,8 @@ function BoardRenderer({
                     onClick={interactive ? handleStageClick : undefined}
                 >
                     <BoardBackgroundLayer background={board.background} />
-                    {board.widgets.map((widget) => (
+                    {/* Hidden widgets remain in the draft and are omitted from every surface. */}
+                    {board.widgets.filter((widget) => widget.visible !== false).map((widget) => (
                         <WidgetView
                             key={widget.id}
                             widget={widget}

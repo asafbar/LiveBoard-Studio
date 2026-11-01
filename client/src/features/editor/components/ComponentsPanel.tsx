@@ -37,12 +37,7 @@ function ComponentsPanel({ onAddWidget }: ComponentsPanelProps) {
     }
 
     return (
-        <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-surface">
-            <div className="border-b border-border px-4 py-3">
-                <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
-                    Components
-                </h2>
-            </div>
+        <div className="flex min-h-0 flex-1 flex-col">
             <div className="grid flex-1 grid-cols-2 content-start gap-2 overflow-y-auto p-3">
                 {libraryItems.map((item) => {
                     const available = item.type !== null;
@@ -93,7 +88,7 @@ function ComponentsPanel({ onAddWidget }: ComponentsPanelProps) {
                     Add Widget
                 </button>
             </div>
-        </aside>
+        </div>
     );
 }
 
