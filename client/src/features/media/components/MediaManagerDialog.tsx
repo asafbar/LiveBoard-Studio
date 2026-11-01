@@ -1,15 +1,18 @@
 import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import MediaManager, { type MediaManagerMode } from "./MediaManager.tsx";
-import type { MediaAsset } from "../api/mediaApi.ts";
+import { mediaAssetIdFromSource, type MediaAsset } from "../api/mediaApi.ts";
 
 type MediaManagerDialogProps = {
     mode?: MediaManagerMode;
+    selectedSource?: string;
     onClose: () => void;
     onSelectAsset?: (asset: MediaAsset) => void;
 };
 
 function MediaManagerDialog({
     mode = "manage",
+    selectedSource = "",
     onClose,
     onSelectAsset,
 }: MediaManagerDialogProps) {
@@ -74,7 +77,7 @@ function MediaManagerDialog({
         }
     }
 
-    return (
+    return createPortal(
         <div
             className="fixed inset-0 z-[65] flex items-end justify-center bg-background/80 sm:items-center sm:p-4"
             onMouseDown={handleBackdropClick}
@@ -102,10 +105,15 @@ function MediaManagerDialog({
                     </button>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
-                    <MediaManager mode={mode} onSelectAsset={onSelectAsset} />
+                    <MediaManager
+                        mode={mode}
+                        selectedAssetId={mediaAssetIdFromSource(selectedSource)}
+                        onSelectAsset={onSelectAsset}
+                    />
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
 

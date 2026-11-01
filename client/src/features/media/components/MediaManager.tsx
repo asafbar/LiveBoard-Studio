@@ -19,6 +19,7 @@ type MediaSort = "newest" | "oldest" | "name-asc" | "name-desc" | "largest";
 type MediaManagerProps = {
     mode?: MediaManagerMode;
     onSelectAsset?: (asset: MediaAsset) => void;
+    selectedAssetId?: string | null;
 };
 
 type MediaNoticeProps = {
@@ -32,7 +33,11 @@ const fieldClassName = "h-9 rounded-control border border-border bg-surface-rais
 
 const secondaryButtonClassName = "inline-flex h-9 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent/40";
 
-function MediaManager({ mode = "manage", onSelectAsset }: MediaManagerProps) {
+function MediaManager({
+    mode = "manage",
+    onSelectAsset,
+    selectedAssetId = null,
+}: MediaManagerProps) {
     const [assets, setAssets] = useState<MediaAsset[] | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -198,6 +203,15 @@ function MediaManager({ mode = "manage", onSelectAsset }: MediaManagerProps) {
         }
     }
 
+    function selectAsset(asset: MediaAsset) {
+        if (onSelectAsset === undefined) {
+            return;
+        }
+
+        onSelectAsset(asset);
+        setPreview(null);
+    }
+
     async function copyAssetUrl(asset: MediaAsset) {
         const imageUrl = toPublicMediaFileUrl(asset.fileUrl);
 
@@ -260,6 +274,7 @@ function MediaManager({ mode = "manage", onSelectAsset }: MediaManagerProps) {
                             asset={asset}
                             menuOpen={openMenuId === asset.id}
                             selectionEnabled={selectionEnabled}
+                            selected={selectedAssetId !== null && asset.id.toLowerCase() === selectedAssetId}
                             onOpenMenu={(open) => {
                                 setOpenMenuId(open ? asset.id : null);
                             }}
@@ -269,9 +284,9 @@ function MediaManager({ mode = "manage", onSelectAsset }: MediaManagerProps) {
                             onCopyUrl={() => {
                                 void copyAssetUrl(asset);
                             }}
-                            onSelect={selectionEnabled && onSelectAsset !== undefined
+                            onSelect={selectionEnabled
                                 ? () => {
-                                    onSelectAsset(asset);
+                                    selectAsset(asset);
                                 }
                                 : undefined}
                         />
@@ -416,6 +431,11 @@ function MediaManager({ mode = "manage", onSelectAsset }: MediaManagerProps) {
                     onClose={() => {
                         setPreview(null);
                     }}
+                    onUseImage={selectionEnabled
+                        ? () => {
+                            selectAsset(preview);
+                        }
+                        : undefined}
                 />
             ) : null}
         </div>
@@ -426,6 +446,7 @@ type MediaAssetRowProps = {
     asset: MediaAsset;
     menuOpen: boolean;
     selectionEnabled: boolean;
+    selected: boolean;
     onOpenMenu: (open: boolean) => void;
     onPreview: () => void;
     onCopyUrl: () => void;
@@ -436,6 +457,7 @@ function MediaAssetRow({
     asset,
     menuOpen,
     selectionEnabled,
+    selected,
     onOpenMenu,
     onPreview,
     onCopyUrl,
@@ -445,7 +467,12 @@ function MediaAssetRow({
     const imageUrl = toPublicMediaFileUrl(asset.fileUrl);
 
     return (
-        <li className="border-b border-border last:border-b-0">
+        <li
+            className={selected
+                ? "border-b border-accent/40 bg-accent/10 last:border-b-0"
+                : "border-b border-border last:border-b-0"}
+            aria-selected={selected}
+        >
             <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 sm:grid-cols-[72px_minmax(0,1fr)_9rem_5rem_10rem_auto]">
                 <button
                     type="button"
@@ -475,6 +502,9 @@ function MediaAssetRow({
                     >
                         {asset.originalFilename}
                     </button>
+                    {selected ? (
+                        <p className="mt-1 text-xs font-medium text-cyan">Selected</p>
+                    ) : null}
                     <p className="mt-1 truncate text-xs text-secondary sm:hidden">
                         {asset.mimeType}
                         {" · "}
@@ -493,7 +523,7 @@ function MediaAssetRow({
                             onClick={onSelect}
                             className={secondaryButtonClassName}
                         >
-                            Use image
+                            Use Image
                         </button>
                     ) : null}
                     <MediaAssetMenu

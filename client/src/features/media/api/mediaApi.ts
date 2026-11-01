@@ -102,6 +102,32 @@ function toPublicMediaFileUrl(fileUrl: string): string {
     return new URL(fileUrl, `${origin}/`).toString();
 }
 
+function resolveBoardImageSource(source: string): string {
+    if (!mediaFilePathPattern.test(source)) {
+        return source;
+    }
+
+    return toPublicMediaFileUrl(source);
+}
+
+function mediaAssetIdFromSource(source: string): string | null {
+    const trimmed = source.trim();
+    const match = /\/api\/media\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/file$/i.exec(trimmed);
+
+    if (match === null || match[1] === undefined) {
+        return null;
+    }
+
+    const assetId = match[1].toLowerCase();
+    const assetPath = `/api/media/${assetId}/file`;
+
+    if (trimmed.toLowerCase() !== assetPath && !trimmed.toLowerCase().endsWith(assetPath)) {
+        return null;
+    }
+
+    return assetId;
+}
+
 function describeMediaError(error: MediaRequestError, action: "load" | "upload"): string {
     if (error.statusCode === null) {
         return action === "load"
@@ -306,6 +332,8 @@ export {
     clientFileProblem,
     describeMediaError,
     listMediaAssets,
+    mediaAssetIdFromSource,
+    resolveBoardImageSource,
     toPublicMediaFileUrl,
     uploadMediaAsset,
 };

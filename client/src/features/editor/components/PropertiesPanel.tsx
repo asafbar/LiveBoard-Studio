@@ -1,4 +1,11 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
+import {
+    listMediaAssets,
+    mediaAssetIdFromSource,
+    resolveBoardImageSource,
+    type MediaAsset,
+} from "../../media/api/mediaApi.ts";
+import MediaManagerDialog from "../../media/components/MediaManagerDialog.tsx";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -453,6 +460,57 @@ function ImageContentFields({
     onImageSettingsChange,
 }: ImageContentFieldsProps) {
     const [sourceDraft, setSourceDraft] = useState(source);
+    const [libraryOpen, setLibraryOpen] = useState(false);
+    const [externalOpen, setExternalOpen] = useState(false);
+    const [previewFailed, setPreviewFailed] = useState(false);
+    const [previewSource, setPreviewSource] = useState(source);
+    const [libraryName, setLibraryName] = useState<{ assetId: string; filename: string | null } | null>(null);
+    const resolvedSource = resolveBoardImageSource(source);
+    const assetId = mediaAssetIdFromSource(source);
+    const visibleLibraryName = libraryName !== null && libraryName.assetId === assetId
+        ? libraryName.filename
+        : null;
+
+    if (source !== previewSource) {
+        setPreviewSource(source);
+        setSourceDraft(source);
+        setPreviewFailed(false);
+    }
+
+    useEffect(() => {
+        if (assetId === null) {
+            return;
+        }
+
+        let active = true;
+
+        listMediaAssets()
+            .then((assets) => {
+                if (!active) {
+                    return;
+                }
+
+                const match = assets.find((asset) => asset.id.toLowerCase() === assetId);
+                setLibraryName({
+                    assetId,
+                    filename: match === undefined ? null : match.originalFilename,
+                });
+            })
+            .catch(() => {
+                if (!active) {
+                    return;
+                }
+
+                setLibraryName({
+                    assetId,
+                    filename: null,
+                });
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [assetId]);
 
     function handleSourceChange(event: ChangeEvent<HTMLInputElement>) {
         const nextDraft = event.target.value;
@@ -490,19 +548,71 @@ function ImageContentFields({
         }
     }
 
+    function handleLibrarySelect(asset: MediaAsset) {
+        if (mediaAssetIdFromSource(source) !== asset.id.toLowerCase()) {
+            onImageSettingsChange({ src: asset.fileUrl });
+        }
+
+        setLibraryOpen(false);
+    }
+
     return (
         <>
-            <label className="flex flex-col gap-1.5">
-                <span className="text-xs text-muted">Image source</span>
-                <input
-                    value={sourceDraft}
-                    spellCheck={false}
-                    autoComplete="off"
-                    onChange={handleSourceChange}
-                    onBlur={handleSourceBlur}
-                    className={inspectorFieldClassName}
-                />
-            </label>
+            <div className="overflow-hidden rounded-control border border-border bg-canvas">
+                {source.trim() === "" ? (
+                    <p className="px-3 py-6 text-center text-xs text-muted">No image selected</p>
+                ) : previewFailed ? (
+                    <p className="px-3 py-6 text-center text-xs text-muted">Image unavailable</p>
+                ) : (
+                    <img
+                        src={resolvedSource}
+                        alt={alt.trim() === "" ? "Selected image" : alt}
+                        onError={() => {
+                            setPreviewFailed(true);
+                        }}
+                        className="h-28 w-full object-contain"
+                    />
+                )}
+                {visibleLibraryName !== null ? (
+                    <p className="truncate px-3 pb-3 text-center text-xs text-secondary" title={visibleLibraryName}>
+                        {visibleLibraryName}
+                    </p>
+                ) : null}
+            </div>
+            <button
+                type="button"
+                onClick={() => {
+                    setLibraryOpen(true);
+                }}
+                className="inline-flex h-9 items-center justify-center rounded-control bg-accent px-3 text-sm font-medium text-white outline-none transition-colors duration-150 hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+                Change Image
+            </button>
+            <div className="flex flex-col gap-2">
+                <button
+                    type="button"
+                    aria-expanded={externalOpen}
+                    onClick={() => {
+                        setExternalOpen((open) => !open);
+                    }}
+                    className="self-start text-sm font-medium text-secondary underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-accent/40"
+                >
+                    Use external URL
+                </button>
+                {externalOpen ? (
+                    <label className="flex flex-col gap-1.5">
+                        <span className="text-xs text-muted">Image URL</span>
+                        <input
+                            value={sourceDraft}
+                            spellCheck={false}
+                            autoComplete="off"
+                            onChange={handleSourceChange}
+                            onBlur={handleSourceBlur}
+                            className={inspectorFieldClassName}
+                        />
+                    </label>
+                ) : null}
+            </div>
             <label className="flex flex-col gap-1.5">
                 <span className="text-xs text-muted">Alternative text</span>
                 <input
@@ -513,6 +623,16 @@ function ImageContentFields({
                     className={inspectorFieldClassName}
                 />
             </label>
+            {libraryOpen ? (
+                <MediaManagerDialog
+                    mode="select"
+                    selectedSource={source}
+                    onClose={() => {
+                        setLibraryOpen(false);
+                    }}
+                    onSelectAsset={handleLibrarySelect}
+                />
+            ) : null}
         </>
     );
 }

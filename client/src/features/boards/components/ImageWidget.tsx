@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { resolveBoardImageSource } from "../../media/api/mediaApi.ts";
 import type { ImageWidgetSettings } from "../types/boardTypes.ts";
 import styles from "./ImageWidget.module.css";
 
@@ -16,6 +17,7 @@ function ImageWidget({ settings }: ImageWidgetProps) {
         src: settings.src,
         failed: false,
     });
+    const imageSource = resolveBoardImageSource(settings.src);
     const failed = loadFailure.src === settings.src && loadFailure.failed;
     const showImage = settings.src.length > 0 && !failed;
 
@@ -30,7 +32,7 @@ function ImageWidget({ settings }: ImageWidgetProps) {
             {showImage ? (
                 <img
                     className={settings.objectFit === "cover" ? styles.cover : styles.contain}
-                    src={settings.src}
+                    src={imageSource}
                     alt={settings.alt}
                     onError={() => {
                         setLoadFailure({
