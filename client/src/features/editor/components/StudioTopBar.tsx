@@ -78,6 +78,12 @@ function StudioTopBar({
                 >
                     Boards
                 </Link>
+                <Link
+                    to="/media"
+                    className="inline-flex h-9 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                >
+                    Media Library
+                </Link>
                 <LogoutButton />
             </div>
 

@@ -15,7 +15,7 @@ function errorHandler(err, req, res, next) {
     const statusCode = getStatusCode(err);
 
     if (statusCode >= 500) {
-        console.error(`Request failed: ${err.message}`);
+        console.error(`Request failed: ${err.message}${formatDiagnostic(err)}`);
     }
 
     res.status(statusCode).json(
@@ -42,6 +42,24 @@ function getStatusCode(err) {
     }
 
     return 500;
+}
+
+function formatDiagnostic(err) {
+    const details = [];
+
+    if (typeof err.code === "string" && /^[A-Za-z0-9_]{1,32}$/.test(err.code)) {
+        details.push(`code=${err.code}`);
+    }
+
+    if (typeof err.constraint === "string" && /^[A-Za-z0-9_]{1,80}$/.test(err.constraint)) {
+        details.push(`constraint=${err.constraint}`);
+    }
+
+    if (details.length === 0) {
+        return "";
+    }
+
+    return ` (${details.join(", ")})`;
 }
 
 function getPublicMessage(err, statusCode) {

@@ -7,6 +7,7 @@ import DisplayPage from "./features/display/pages/DisplayPage.tsx";
 import DisplaysPage from "./features/display/pages/DisplaysPage.tsx";
 import ScreenPage from "./features/display/pages/ScreenPage.tsx";
 import StudioPage from "./features/editor/pages/StudioPage.tsx";
+import MediaLibraryPage from "./features/media/pages/MediaLibraryPage.tsx";
 
 function StudioRoute() {
     const { boardId = "" } = useParams();
@@ -37,6 +38,10 @@ const router = createBrowserRouter([
             {
                 path: "/displays",
                 element: <DisplaysPage />,
+            },
+            {
+                path: "/media",
+                element: <MediaLibraryPage />,
             },
         ],
     },

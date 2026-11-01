@@ -138,6 +138,12 @@ function DisplaysPage() {
                     >
                         Back to Boards
                     </Link>
+                    <Link
+                        to="/media"
+                        className="inline-flex h-9 shrink-0 items-center rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                    >
+                        Media Library
+                    </Link>
                     <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
                         Displays
                     </h1>

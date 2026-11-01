@@ -1,4 +1,5 @@
 const mediaRepository = require("../repositories/mediaRepository");
+const { sanitizeDisplayFilename } = require("./mediaFilename");
 const { processUploadedImage } = require("./mediaImageProcessor");
 const {
     MIME_EXTENSIONS,
@@ -22,21 +23,31 @@ async function createMediaAsset(upload) {
         storageKey = createStorageKey(processed.mimeType);
         await writeNewFile(storageKey, processed.buffer);
 
+        const displayName = sanitizeDisplayFilename(
+            upload.originalFilename,
+            processed.mimeType
+        );
+
         try {
-            return await mediaRepository.insertMediaAsset({
-                originalFilename: sanitizeDisplayFilename(
-                    upload.originalFilename,
-                    processed.mimeType
-                ),
-                storageKey,
-                mimeType: processed.mimeType,
-                sizeBytes: processed.buffer.length
-            });
+            return await insertMediaRecord(storageKey, displayName, processed);
         } catch (insertError) {
-            await removeStoredFile(storageKey).catch(() => {
-                console.error("Stored media cleanup failed.");
-            });
-            throw insertError;
+            if (!isFilenameConstraintError(insertError)) {
+                await removeStoredMedia(storageKey);
+                throw insertError;
+            }
+
+            console.error("Media filename did not satisfy the filename constraint. A generic display name was stored.");
+
+            try {
+                return await insertMediaRecord(
+                    storageKey,
+                    sanitizeDisplayFilename("", processed.mimeType),
+                    processed
+                );
+            } catch (retryError) {
+                await removeStoredMedia(storageKey);
+                throw retryError;
+            }
         }
     } finally {
         await removeTempUpload(upload.tempPath).catch(() => {
@@ -45,32 +56,26 @@ async function createMediaAsset(upload) {
     }
 }
 
-function sanitizeDisplayFilename(rawName, mimeType) {
-    const extension = MIME_EXTENSIONS[mimeType];
-    const fallback = `image.${extension}`;
+function insertMediaRecord(storageKey, originalFilename, processed) {
+    return mediaRepository.insertMediaAsset({
+        originalFilename,
+        storageKey,
+        mimeType: processed.mimeType,
+        sizeBytes: processed.buffer.length
+    });
+}
 
-    if (typeof rawName !== "string" || rawName.length === 0 || rawName.length > 1024) {
-        return fallback;
-    }
+function isFilenameConstraintError(error) {
+    return error !== null
+        && typeof error === "object"
+        && error.code === "23514"
+        && error.constraint === "media_assets_original_filename_safe";
+}
 
-    const baseName = rawName.replaceAll("\\", "/").split("/").pop();
-    const withoutControls = baseName.replace(/[\u0000-\u001F\u007F]/g, "").trim();
-
-    if (withoutControls === "" || withoutControls === "." || withoutControls === "..") {
-        return fallback;
-    }
-
-    if (withoutControls.length <= 255) {
-        return withoutControls;
-    }
-
-    const shortened = withoutControls.slice(0, 255).trim();
-
-    if (shortened === "") {
-        return fallback;
-    }
-
-    return shortened;
+async function removeStoredMedia(storageKey) {
+    await removeStoredFile(storageKey).catch(() => {
+        console.error("Stored media cleanup failed.");
+    });
 }
 
 async function listMediaAssets() {
