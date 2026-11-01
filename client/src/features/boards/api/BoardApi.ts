@@ -186,6 +186,46 @@ async function duplicateBoard(boardId: string): Promise<BoardWriteResult> {
     }
 }
 
+type PublishedBoardResult = {
+    id: string;
+    published: Board | null;
+};
+
+async function getPublishedBoard(boardId: string): Promise<PublishedBoardResult> {
+    if (!isBoardId(boardId)) {
+        throw new Error("This board address is not valid.");
+    }
+
+    if (apiClient.defaults.baseURL === "") {
+        throw new Error("VITE_API_BASE_URL is not configured.");
+    }
+
+    try {
+        const response = await apiClient.get<ApiResponse<PublishedBoardResult>>(
+            `/api/boards/${boardId}/published`,
+        );
+        const record = response.data.data;
+
+        if (!response.data.success || !isPublishedBoardResult(record)) {
+            throw new Error(response.data.message || "The board could not be loaded.");
+        }
+
+        return {
+            id: record.id,
+            published: record.published,
+        };
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+            throw new Error(
+                readRequestError(error, "The board could not be loaded. Check that the API is running, then try again."),
+                { cause: error },
+            );
+        }
+
+        throw error;
+    }
+}
+
 async function getBoard(boardId: string): Promise<BoardRecord> {
     if (!isBoardId(boardId)) {
         throw new Error("This board address is not valid.");
@@ -422,6 +462,21 @@ function isBoardSummaryList(value: unknown): value is BoardSummary[] {
     return Array.isArray(value) && value.every(isBoardSummary);
 }
 
+function isPublishedBoardResult(value: unknown): value is PublishedBoardResult {
+    if (value === null || typeof value !== "object" || !("id" in value) || !("published" in value)) {
+        return false;
+    }
+
+    if ("draft" in value) {
+        return false;
+    }
+
+    const record = value as PublishedBoardResult;
+
+    return typeof record.id === "string"
+        && (record.published === null || isBoardDraft(record.published));
+}
+
 function isBoardDraft(value: unknown): value is Board {
     if (value === null || typeof value !== "object") {
         return false;
@@ -444,6 +499,7 @@ export {
     duplicateBoard,
     renameBoard,
     getBoard,
+    getPublishedBoard,
     isBoardId,
     listBoardSummaries,
     publishBoard,

@@ -15,6 +15,14 @@ function toDisplayList(rows) {
     return rows.map(toDisplay);
 }
 
+function toPublicDisplay(row) {
+    return {
+        id: row.id,
+        name: row.name,
+        boardId: row.board_id
+    };
+}
+
 function toIsoString(value) {
     if (value instanceof Date) {
         return value.toISOString();
@@ -25,5 +33,6 @@ function toIsoString(value) {
 
 module.exports = {
     toDisplay,
-    toDisplayList
+    toDisplayList,
+    toPublicDisplay
 };

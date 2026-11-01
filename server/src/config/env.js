@@ -18,6 +18,7 @@ const dbName = readSetting(process.env.DB_NAME, DEFAULT_DB_NAME);
 const dbUser = readRequired("DB_USER");
 const dbPassword = readRequired("DB_PASSWORD");
 const mediaDir = readMediaDir(process.env.MEDIA_DIR);
+const cookieSecure = readCookieSecure(process.env.COOKIE_SECURE, nodeEnv);
 
 function readPort(rawPort, name, defaultPort) {
     if (rawPort === undefined || rawPort.trim() === "") {
@@ -61,6 +62,25 @@ function readMediaDir(rawValue) {
     return path.resolve(__dirname, "../..", trimmed);
 }
 
+function readCookieSecure(rawValue, environment) {
+    if (rawValue === undefined || rawValue.trim() === "") {
+        return environment === "production";
+    }
+
+    const normalized = rawValue.trim().toLowerCase();
+
+    if (normalized === "true") {
+        return true;
+    }
+
+    if (normalized === "false") {
+        return false;
+    }
+
+    console.error("COOKIE_SECURE must be true or false.");
+    process.exit(1);
+}
+
 function readRequired(name) {
     const value = process.env[name];
 
@@ -86,5 +106,6 @@ module.exports = {
     dbName,
     dbUser,
     dbPassword,
-    mediaDir
+    mediaDir,
+    cookieSecure
 };

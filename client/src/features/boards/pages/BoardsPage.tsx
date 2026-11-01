@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import LogoutButton from "../../auth/components/LogoutButton.tsx";
 import type { BoardWriteResult } from "../api/BoardApi.ts";
 import DisplayActionNotice from "../../display/components/DisplayActionNotice.tsx";
 import BoardActionsMenu from "../components/BoardActionsMenu.tsx";
@@ -161,6 +162,7 @@ function BoardsPage() {
                     >
                         New Board
                     </button>
+                    <LogoutButton />
                     <button
                         type="button"
                         onClick={refresh}

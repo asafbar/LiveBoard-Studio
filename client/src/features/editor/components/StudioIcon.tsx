@@ -11,6 +11,8 @@ export type StudioIconName =
     | "countdown"
     | "qr"
     | "preview"
+    | "eye"
+    | "eye-off"
     | "publish"
     | "open-display";
 
@@ -87,6 +89,20 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
         <>
             <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" />
             <circle cx="12" cy="12" r="2.5" />
+        </>
+    ),
+    eye: (
+        <>
+            <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" />
+            <circle cx="12" cy="12" r="2.5" />
+        </>
+    ),
+    "eye-off": (
+        <>
+            <path d="M3.5 4.5 20.5 19.5" />
+            <path d="M9.9 5.6A10 10 0 0 1 12 5.2c6 0 9.5 5.5 9.5 5.5a17 17 0 0 1-3.1 3.5" />
+            <path d="M6.5 7.1C4.1 8.8 2.5 12 2.5 12S6 17.5 12 17.5c1.4 0 2.6-.3 3.7-.9" />
+            <path d="M9.9 10a2.5 2.5 0 0 0 3.3 3.3" />
         </>
     ),
     publish: (

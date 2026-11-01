@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import LogoutButton from "../../auth/components/LogoutButton.tsx";
 import StudioIcon from "./StudioIcon.tsx";
 
 export type DraftSaveStatus = "saved" | "unsaved" | "saving" | "failed";
@@ -77,6 +78,7 @@ function StudioTopBar({
                 >
                     Boards
                 </Link>
+                <LogoutButton />
             </div>
 
             <div className="flex min-w-0 flex-1 justify-center">

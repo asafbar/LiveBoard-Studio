@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
-import { getBoard, isBoardId } from "../../boards/api/BoardApi.ts";
+import { getPublishedBoard, isBoardId } from "../../boards/api/BoardApi.ts";
 import BoardRenderer from "../../boards/components/BoardRenderer.tsx";
 import type { Board } from "../../boards/types/boardTypes.ts";
 import {
@@ -42,7 +42,7 @@ function PublishedDisplay({ boardId, renderConnectionStatus }: PublishedDisplayP
     const refreshPublished = useCallback(() => {
         const serial = ++serialRef.current;
 
-        getBoard(boardId)
+        getPublishedBoard(boardId)
             .then((record) => {
                 if (serial !== serialRef.current) {
                     return;
@@ -123,9 +123,11 @@ function PublishedDisplay({ boardId, renderConnectionStatus }: PublishedDisplayP
             />
         );
     } else if (phase === "error") {
+        const notFound = loadError === "Board not found.";
+
         content = (
             <DisplayStatus
-                title="Board unavailable"
+                title={notFound ? "Board not found" : "Board unavailable"}
                 message={loadError ?? "The board could not be loaded. Check that the API is running, then try again."}
                 actionLabel="Retry"
                 onAction={handleRetry}

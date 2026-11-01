@@ -1,6 +1,10 @@
 const express = require("express");
 const displayController = require("../controllers/displayController");
 const {
+    requireAdmin,
+    requireCsrf
+} = require("../middleware/authMiddleware");
+const {
     validateCreateDisplay,
     validateDisplayId,
     validateUpdateDisplay
@@ -8,25 +12,33 @@ const {
 
 const router = express.Router();
 
-// Local development administration only.
-// A display id does not prove device identity or authorization.
-// Online status is untrusted presence until device authentication exists.
-router.get("/", displayController.listDisplays);
-
+// A display id does not prove device identity.
+// Any client that knows the id can read this assignment and register
+// as that screen. Registration does not grant board or display edits.
 router.get(
     "/:id",
     validateDisplayId,
     displayController.getDisplay
 );
 
+router.get(
+    "/",
+    requireAdmin,
+    displayController.listDisplays
+);
+
 router.post(
     "/",
+    requireAdmin,
+    requireCsrf,
     validateCreateDisplay,
     displayController.createDisplay
 );
 
 router.patch(
     "/:id",
+    requireAdmin,
+    requireCsrf,
     validateDisplayId,
     validateUpdateDisplay,
     displayController.updateDisplay

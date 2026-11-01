@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import LogoutButton from "../../auth/components/LogoutButton.tsx";
 import type { BoardSummary } from "../../boards/api/BoardApi.ts";
 import type { DisplayRecord } from "../api/displayApi.ts";
 import DisplayActionNotice from "../components/DisplayActionNotice.tsx";
@@ -159,6 +160,7 @@ function DisplaysPage() {
                     >
                         Add Screen
                     </button>
+                    <LogoutButton />
                     <button
                         type="button"
                         onClick={refresh}

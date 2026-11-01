@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlocker, useParams, type BlockerFunction } from "react-router-dom";
+import { useAuthSession } from "../../auth/session/authSessionContext.ts";
 import { getBoard, publishBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
 import type {
     AnnouncementIconName,
@@ -542,6 +543,8 @@ function StudioNotice({ title, message, actionLabel, onAction }: StudioNoticePro
 
 function StudioPage() {
     const { boardId = "" } = useParams();
+    const { status: authStatus } = useAuthSession();
+    const authStatusRef = useRef(authStatus);
     const [board, setBoard] = useState<Board | null>(null);
     const [boardName, setBoardName] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
@@ -616,6 +619,18 @@ function StudioPage() {
             active = false;
         };
     }, [boardId, loadAttempt]);
+
+    useEffect(() => {
+        const previousStatus = authStatusRef.current;
+        authStatusRef.current = authStatus;
+
+        if (previousStatus !== "expired" || authStatus !== "authenticated" || board !== null || loadError === null) {
+            return;
+        }
+
+        setLoadError(null);
+        setLoadAttempt((currentAttempt) => currentAttempt + 1);
+    }, [authStatus, board, loadError]);
 
     function isCurrentBoard(targetBoardId: string): boolean {
         const currentBoardId = loadedBoardIdRef.current;

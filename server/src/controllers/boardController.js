@@ -2,7 +2,8 @@ const boardService = require("../services/boardService");
 const { successResponse } = require("../utils/apiResponse");
 const {
     toBoardDetail,
-    toBoardSummaryList
+    toBoardSummaryList,
+    toPublicPublishedBoard
 } = require("../utils/boardMapper");
 
 async function listBoards(req, res, next) {
@@ -13,6 +14,24 @@ async function listBoards(req, res, next) {
             successResponse(
                 "Boards loaded successfully.",
                 toBoardSummaryList(boards)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
+async function getPublishedBoard(req, res, next) {
+    try {
+        const board = await boardService.getPublishedBoard(req.params.id);
+        const unpublished = board.published === null;
+
+        res.status(200).json(
+            successResponse(
+                unpublished
+                    ? "Board is not published."
+                    : "Published board loaded successfully.",
+                toPublicPublishedBoard(board)
             )
         );
     } catch (error) {
@@ -113,6 +132,7 @@ async function replaceDraft(req, res, next) {
 module.exports = {
     listBoards,
     getBoard,
+    getPublishedBoard,
     createBoard,
     duplicateBoard,
     publishBoard,

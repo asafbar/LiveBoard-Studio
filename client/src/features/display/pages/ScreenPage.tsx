@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import {
     getDisplay,
     isDisplayId,
-    type DisplayRecord,
+    type PublicDisplayRecord,
 } from "../api/displayApi.ts";
 import {
     DisplayStatus,
@@ -20,7 +20,7 @@ type ScreenSessionProps = {
 };
 
 type RegisteredScreenProps = {
-    display: DisplayRecord;
+    display: PublicDisplayRecord;
     registration: ReturnType<typeof useDisplayRegistration>;
 };
 
@@ -40,11 +40,11 @@ function ScreenPage() {
 }
 
 function ScreenSession({ displayId }: ScreenSessionProps) {
-    const [display, setDisplay] = useState<DisplayRecord | null>(null);
+    const [display, setDisplay] = useState<PublicDisplayRecord | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const serialRef = useRef(0);
-    const displayRef = useRef<DisplayRecord | null>(null);
+    const displayRef = useRef<PublicDisplayRecord | null>(null);
     const refreshAssignment = useCallback(() => {
         const serial = ++serialRef.current;
 

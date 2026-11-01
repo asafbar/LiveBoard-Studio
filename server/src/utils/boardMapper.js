@@ -23,6 +23,13 @@ function toBoardDetail(row) {
     };
 }
 
+function toPublicPublishedBoard(row) {
+    return {
+        id: row.id,
+        published: row.published
+    };
+}
+
 function readWidgetCount(value) {
     const count = typeof value === "number" ? value : Number(value);
 
@@ -48,5 +55,6 @@ function toIsoString(value) {
 module.exports = {
     toBoardSummary,
     toBoardDetail,
-    toBoardSummaryList
+    toBoardSummaryList,
+    toPublicPublishedBoard
 };

@@ -2,7 +2,8 @@ const displayService = require("../services/displayService");
 const { successResponse } = require("../utils/apiResponse");
 const {
     toDisplay,
-    toDisplayList
+    toDisplayList,
+    toPublicDisplay
 } = require("../utils/displayMapper");
 
 async function listDisplays(req, res, next) {
@@ -27,7 +28,7 @@ async function getDisplay(req, res, next) {
         res.status(200).json(
             successResponse(
                 "Display loaded successfully.",
-                toDisplay(display)
+                toPublicDisplay(display)
             )
         );
     } catch (error) {

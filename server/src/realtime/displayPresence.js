@@ -1,9 +1,10 @@
 const displayRepository = require("../repositories/displayRepository");
 
-// Presence is ephemeral process memory for local development.
-// Registration is not authentication. A display id does not prove
-// which device connected, and this API must not be exposed publicly
-// until device authentication exists.
+// Presence is ephemeral process memory.
+// Registration is not authentication. Any client that knows a display
+// UUID can register as that screen and appear online. That does not
+// grant permission to edit boards or displays. Device pairing is not
+// implemented.
 
 const REGISTER_DISPLAY_EVENT = "registerDisplay";
 const UNREGISTER_DISPLAY_EVENT = "unregisterDisplay";

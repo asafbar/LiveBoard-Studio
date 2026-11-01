@@ -5,6 +5,7 @@ const healthRoutes = require("./routes/healthRoutes");
 const boardRoutes = require("./routes/boardRoutes");
 const displayRoutes = require("./routes/displayRoutes");
 const mediaRoutes = require("./routes/mediaRoutes");
+const authRoutes = require("./routes/authRoutes");
 const {
     notFoundHandler,
     errorHandler
@@ -13,6 +14,8 @@ const {
 const app = express();
 
 app.use(cors({
+    credentials: true,
+    allowedHeaders: ["Accept", "Content-Type", "X-LiveBoard-Request"],
     origin(origin, callback) {
         if (!origin || origin === env.clientUrl) {
             callback(null, true);
@@ -28,6 +31,7 @@ app.use(express.json({
 }));
 
 app.use("/api/health", healthRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/boards", boardRoutes);
 app.use("/api/displays", displayRoutes);
 app.use("/api/media", mediaRoutes);

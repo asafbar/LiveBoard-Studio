@@ -20,6 +20,12 @@ type DisplayRecord = {
     updatedAt: string;
 };
 
+type PublicDisplayRecord = {
+    id: string;
+    name: string;
+    boardId: string | null;
+};
+
 type CreateDisplayPayload = {
     name: string;
     boardId: string | null;
@@ -154,7 +160,7 @@ async function updateDisplay(
     }
 }
 
-async function getDisplay(displayId: string): Promise<DisplayRecord> {
+async function getDisplay(displayId: string): Promise<PublicDisplayRecord> {
     if (!isDisplayId(displayId)) {
         throw new Error("This display address is not valid.");
     }
@@ -164,11 +170,11 @@ async function getDisplay(displayId: string): Promise<DisplayRecord> {
     }
 
     try {
-        const response = await apiClient.get<ApiResponse<DisplayRecord>>(
+        const response = await apiClient.get<ApiResponse<PublicDisplayRecord>>(
             `/api/displays/${displayId}`,
         );
 
-        if (!response.data.success || !isDisplayRecord(response.data.data)) {
+        if (!response.data.success || !isPublicDisplayRecord(response.data.data)) {
             throw new Error(response.data.message || "The display could not be loaded.");
         }
 
@@ -273,6 +279,18 @@ function isDisplayList(value: unknown): value is DisplayRecord[] {
     return Array.isArray(value) && value.every(isDisplayRecord);
 }
 
+function isPublicDisplayRecord(value: unknown): value is PublicDisplayRecord {
+    if (value === null || typeof value !== "object") {
+        return false;
+    }
+
+    const display = value as PublicDisplayRecord;
+
+    return typeof display.id === "string"
+        && typeof display.name === "string"
+        && (display.boardId === null || typeof display.boardId === "string");
+}
+
 function isDisplayRecord(value: unknown): value is DisplayRecord {
     if (value === null || typeof value !== "object") {
         return false;
@@ -301,5 +319,6 @@ export type {
     CreateDisplayPayload,
     DisplayFieldErrors,
     DisplayRecord,
+    PublicDisplayRecord,
     UpdateDisplayPayload,
 };

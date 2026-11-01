@@ -29,6 +29,17 @@ async function listBoardIdentities() {
     return result.rows;
 }
 
+async function findPublishedBoardById(id) {
+    const result = await pool.query(
+        `SELECT id, published
+         FROM boards
+         WHERE id = $1::uuid`,
+        [id]
+    );
+
+    return result.rows[0] || null;
+}
+
 async function findBoardById(id) {
     const result = await pool.query(
         `SELECT id, name, draft, published, created_at, updated_at
@@ -96,6 +107,7 @@ module.exports = {
     listBoards,
     listBoardIdentities,
     findBoardById,
+    findPublishedBoardById,
     insertBoard,
     publishDraft,
     renameBoard,

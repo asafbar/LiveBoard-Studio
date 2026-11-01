@@ -1,4 +1,7 @@
 import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
+import RequireAdmin from "./features/auth/components/RequireAdmin.tsx";
+import LoginPage from "./features/auth/pages/LoginPage.tsx";
+import AuthSessionProvider from "./features/auth/session/AuthSessionProvider.tsx";
 import BoardsPage from "./features/boards/pages/BoardsPage.tsx";
 import DisplayPage from "./features/display/pages/DisplayPage.tsx";
 import DisplaysPage from "./features/display/pages/DisplaysPage.tsx";
@@ -17,16 +20,25 @@ const router = createBrowserRouter([
         element: <Navigate to="/boards" replace />,
     },
     {
-        path: "/studio/:boardId",
-        element: <StudioRoute />,
+        path: "/login",
+        element: <LoginPage />,
     },
     {
-        path: "/boards",
-        element: <BoardsPage />,
-    },
-    {
-        path: "/displays",
-        element: <DisplaysPage />,
+        element: <RequireAdmin />,
+        children: [
+            {
+                path: "/studio/:boardId",
+                element: <StudioRoute />,
+            },
+            {
+                path: "/boards",
+                element: <BoardsPage />,
+            },
+            {
+                path: "/displays",
+                element: <DisplaysPage />,
+            },
+        ],
     },
     {
         path: "/display/:boardId",
@@ -39,7 +51,11 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
-    return <RouterProvider router={router} />;
+    return (
+        <AuthSessionProvider>
+            <RouterProvider router={router} />
+        </AuthSessionProvider>
+    );
 }
 
 export default App;
