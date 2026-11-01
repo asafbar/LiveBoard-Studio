@@ -6,6 +6,7 @@ import ImageWidget from "./ImageWidget.tsx";
 import InformationCardWidget from "./InformationCardWidget.tsx";
 import styles from "./BoardRenderer.module.css";
 import TextWidget from "./TextWidget.tsx";
+import TickerWidget from "./TickerWidget.tsx";
 
 type WidgetPosition = {
     x: number;
@@ -156,6 +157,8 @@ function widgetAccessibleName(widget: Widget): string {
             return widget.settings.title;
         case "announcements":
             return widget.settings.title;
+        case "ticker":
+            return widget.settings.messages.find((message) => message.text.trim().length > 0)?.text ?? "Ticker";
     }
 }
 
@@ -171,6 +174,8 @@ function renderWidget(widget: Widget) {
             return <InformationCardWidget settings={widget.settings} />;
         case "announcements":
             return <AnnouncementsWidget settings={widget.settings} />;
+        case "ticker":
+            return <TickerWidget settings={widget.settings} />;
     }
 }
 
@@ -191,6 +196,7 @@ function selectionRadius(widget: Widget): string | undefined {
         case "image":
         case "information-card":
         case "announcements":
+        case "ticker":
             return `${widget.settings.borderRadius}px`;
         case "text":
         case "clock":

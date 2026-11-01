@@ -7,6 +7,7 @@ export type StudioIconName =
     | "information-card"
     | "video"
     | "announcements"
+    | "ticker"
     | "gallery"
     | "countdown"
     | "qr"
@@ -77,6 +78,13 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
         <>
             <path d="M5 10v4h3l8 4V6L8 10H5Z" />
             <path d="M8 14.5V17a2 2 0 0 0 2 2" />
+        </>
+    ),
+    ticker: (
+        <>
+            <rect x="3" y="8" width="18" height="8" rx="2" />
+            <path d="M7 12h5" />
+            <path d="m10.5 10 2 2-2 2" />
         </>
     ),
     gallery: (
@@ -230,14 +238,14 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
     ),
     undo: (
         <>
-            <path d="M8 8H5v3" />
-            <path d="M5 8a7 7 0 1 1-1 5" />
+            <path d="M9 14 4 9l5-5" />
+            <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H12" />
         </>
     ),
     redo: (
         <>
-            <path d="M16 8h3v3" />
-            <path d="M19 8a7 7 0 1 0 1 5" />
+            <path d="m15 14 5-5-5-5" />
+            <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H12" />
         </>
     ),
 };

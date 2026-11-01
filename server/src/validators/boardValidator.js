@@ -6,6 +6,11 @@ const MIN_WIDGET_WIDTH = 100;
 const MIN_WIDGET_HEIGHT = 60;
 const MAX_WIDGETS = 100;
 const MAX_ANNOUNCEMENT_ITEMS = 30;
+const MAX_TICKER_MESSAGES = 30;
+const MIN_TICKER_SPEED = 20;
+const MAX_TICKER_SPEED = 400;
+const MIN_TICKER_FONT_SIZE = 12;
+const MAX_TICKER_FONT_SIZE = 160;
 const MAX_BORDER_RADIUS = 240;
 const MAX_TEXT_LENGTH = 4000;
 const MAX_SHORT_TEXT_LENGTH = 200;
@@ -14,7 +19,7 @@ const MAX_ID_LENGTH = 80;
 const MAX_LAYER_NAME_LENGTH = 80;
 const MAX_COLOR_LENGTH = 200;
 
-const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements"];
+const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker"];
 const WIDGET_KEYS = ["id", "type", "layout", "settings", "layerName", "visible", "locked"];
 const TEXT_TONES = ["default", "accent"];
 const TEXT_SIZES = ["title", "display"];
@@ -22,6 +27,9 @@ const CLOCK_TIME_ZONES = ["Asia/Jerusalem", "UTC", "America/New_York", "Europe/L
 const CLOCK_ALIGNMENTS = ["left", "right"];
 const OBJECT_FITS = ["cover", "contain"];
 const ANNOUNCEMENT_ICONS = ["food", "people", "music", "info"];
+const TICKER_DIRECTIONS = ["rtl", "ltr"];
+const TICKER_FONT_FAMILIES = ["sans", "serif", "mono"];
+const TICKER_FONT_WEIGHTS = [400, 500, 600, 700];
 const IMAGE_SOURCE_SCHEMES = ["http", "https", "javascript", "data", "blob", "file", "vbscript"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -324,6 +332,10 @@ function sanitizeSettings(type, settings, path, errors) {
         return sanitizeAnnouncementsSettings(settings, path, errors);
     }
 
+    if (type === "ticker") {
+        return sanitizeTickerSettings(settings, path, errors);
+    }
+
     return null;
 }
 
@@ -467,6 +479,142 @@ function sanitizeAnnouncementItems(items, path, errors) {
 
         return nextItem;
     });
+}
+
+function sanitizeTickerSettings(settings, path, errors) {
+    rejectUnknownKeys(
+        settings,
+        [
+            "messages",
+            "direction",
+            "speed",
+            "backgroundColor",
+            "textColor",
+            "accentColor",
+            "borderRadius",
+            "fontFamily",
+            "fontSize",
+            "fontWeight"
+        ],
+        path,
+        errors
+    );
+
+    const nextSettings = {
+        messages: sanitizeTickerMessages(settings.messages, `${path}.messages`, errors),
+        direction: readChoice(settings.direction, `${path}.direction`, TICKER_DIRECTIONS, errors),
+        speed: readIntegerInRange(settings.speed, `${path}.speed`, MIN_TICKER_SPEED, MAX_TICKER_SPEED, errors),
+        backgroundColor: readColor(settings.backgroundColor, `${path}.backgroundColor`, errors),
+        textColor: readColor(settings.textColor, `${path}.textColor`, errors),
+        accentColor: readColor(settings.accentColor, `${path}.accentColor`, errors),
+        borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
+    };
+
+    if (settings.fontFamily !== undefined) {
+        nextSettings.fontFamily = readChoice(
+            settings.fontFamily,
+            `${path}.fontFamily`,
+            TICKER_FONT_FAMILIES,
+            errors
+        );
+    }
+
+    if (settings.fontSize !== undefined) {
+        nextSettings.fontSize = readIntegerInRange(
+            settings.fontSize,
+            `${path}.fontSize`,
+            MIN_TICKER_FONT_SIZE,
+            MAX_TICKER_FONT_SIZE,
+            errors
+        );
+    }
+
+    if (settings.fontWeight !== undefined) {
+        const weight = readInteger(settings.fontWeight, `${path}.fontWeight`, errors);
+
+        if (weight !== null && !TICKER_FONT_WEIGHTS.includes(weight)) {
+            errors.push({
+                path: `${path}.fontWeight`,
+                message: "Value is not supported."
+            });
+        }
+
+        if (weight !== null) {
+            nextSettings.fontWeight = weight;
+        }
+    }
+
+    return nextSettings;
+}
+
+function sanitizeTickerMessages(messages, path, errors) {
+    if (!Array.isArray(messages)) {
+        errors.push({
+            path,
+            message: "Ticker messages must be an array."
+        });
+        return [];
+    }
+
+    if (messages.length > MAX_TICKER_MESSAGES) {
+        errors.push({
+            path,
+            message: `A ticker can contain at most ${MAX_TICKER_MESSAGES} messages.`
+        });
+        return [];
+    }
+
+    const ids = new Set();
+
+    return messages.map((message, index) => {
+        const messagePath = `${path}.${index}`;
+
+        if (!isPlainObject(message)) {
+            errors.push({
+                path: messagePath,
+                message: "Ticker message must be an object."
+            });
+            return null;
+        }
+
+        rejectUnknownKeys(message, ["id", "text"], messagePath, errors);
+
+        const id = readId(message.id, `${messagePath}.id`, errors);
+
+        if (id !== null && ids.has(id)) {
+            errors.push({
+                path: `${messagePath}.id`,
+                message: "Ticker message ids must be unique."
+            });
+        }
+
+        if (id !== null) {
+            ids.add(id);
+        }
+
+        return {
+            id,
+            text: readRequiredText(message.text, `${messagePath}.text`, MAX_SHORT_TEXT_LENGTH, errors, true)
+        };
+    });
+}
+
+function readIntegerInRange(value, path, minimum, maximum, errors) {
+    const integer = readInteger(value, path, errors);
+
+    if (integer === null) {
+        return null;
+    }
+
+    if (integer < minimum || integer > maximum) {
+        errors.push({
+            path,
+            message: `Value must be an integer from ${minimum} to ${maximum}.`
+        });
+        return null;
+    }
+
+    return integer;
 }
 
 function readRequestBody(body, errors) {

@@ -31,6 +31,8 @@ function defaultWidgetSize(type: WidgetType): WidgetSize {
             return { width: 520, height: 260 };
         case "announcements":
             return { width: 520, height: 280 };
+        case "ticker":
+            return { width: 1440, height: 88 };
     }
 }
 
@@ -177,6 +179,34 @@ function createWidget(type: WidgetType, board: Board): Widget {
                             description: "",
                             icon: "info",
                         },
+                    ],
+                },
+            };
+        }
+        case "ticker": {
+            const messageIds = new Set(existingIds);
+            messageIds.add(id);
+            const firstMessageId = createWidgetId(messageIds);
+            messageIds.add(firstMessageId);
+            const secondMessageId = createWidgetId(messageIds);
+            messageIds.add(secondMessageId);
+            const thirdMessageId = createWidgetId(messageIds);
+
+            return {
+                id,
+                type,
+                layout,
+                settings: {
+                    direction: "rtl",
+                    speed: 80,
+                    backgroundColor: "color-mix(in srgb, var(--canvas-board) 86%, var(--foreground))",
+                    textColor: "var(--foreground)",
+                    accentColor: "var(--cyan)",
+                    borderRadius: 16,
+                    messages: [
+                        { id: firstMessageId, text: "ברוכים הבאים" },
+                        { id: secondMessageId, text: "Welcome" },
+                        { id: thirdMessageId, text: "האירוע מתחיל בקרוב" },
                     ],
                 },
             };

@@ -11,6 +11,7 @@ import type {
     ImageWidgetSettings,
     InformationCardWidgetSettings,
     TextWidgetSettings,
+    TickerWidgetSettings,
     Widget,
     WidgetLayout,
     WidgetType,
@@ -42,6 +43,14 @@ import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
 import { createWidget } from "../createWidget.ts";
+import {
+    isTickerDirection,
+    isTickerFontFamily,
+    isTickerFontWeight,
+    normalizeTickerMessages,
+    tickerFontSizeIsInRange,
+    tickerSpeedIsInRange,
+} from "../tickerSettings.ts";
 import {
     boardsEqual,
     createDraftHistory,
@@ -349,6 +358,89 @@ function updateAnnouncementsSettings(
                 && radiusIsInRange(settings.borderRadius)
             ) {
                 nextSettings.borderRadius = settings.borderRadius;
+            }
+
+            return {
+                ...widget,
+                settings: nextSettings,
+            };
+        }),
+    };
+}
+
+function updateTickerSettings(
+    board: Board,
+    widgetId: string,
+    settings: Partial<TickerWidgetSettings>,
+): Board {
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId || widget.type !== "ticker") {
+                return widget;
+            }
+
+            const nextSettings: TickerWidgetSettings = {
+                ...widget.settings,
+            };
+
+            if (settings.messages !== undefined) {
+                const messages = normalizeTickerMessages(settings.messages);
+
+                if (messages !== null) {
+                    nextSettings.messages = messages;
+                }
+            }
+
+            if (settings.direction !== undefined && isTickerDirection(settings.direction)) {
+                nextSettings.direction = settings.direction;
+            }
+
+            if (typeof settings.speed === "number" && tickerSpeedIsInRange(settings.speed)) {
+                nextSettings.speed = settings.speed;
+            }
+
+            if (typeof settings.backgroundColor === "string") {
+                const color = normalizeCssColor(settings.backgroundColor);
+
+                if (color !== null) {
+                    nextSettings.backgroundColor = color;
+                }
+            }
+
+            if (typeof settings.textColor === "string") {
+                const color = normalizeCssColor(settings.textColor);
+
+                if (color !== null) {
+                    nextSettings.textColor = color;
+                }
+            }
+
+            if (typeof settings.accentColor === "string") {
+                const color = normalizeCssColor(settings.accentColor);
+
+                if (color !== null) {
+                    nextSettings.accentColor = color;
+                }
+            }
+
+            if (
+                typeof settings.borderRadius === "number"
+                && radiusIsInRange(settings.borderRadius)
+            ) {
+                nextSettings.borderRadius = settings.borderRadius;
+            }
+
+            if (settings.fontFamily !== undefined && isTickerFontFamily(settings.fontFamily)) {
+                nextSettings.fontFamily = settings.fontFamily;
+            }
+
+            if (typeof settings.fontSize === "number" && tickerFontSizeIsInRange(settings.fontSize)) {
+                nextSettings.fontSize = settings.fontSize;
+            }
+
+            if (typeof settings.fontWeight === "number" && isTickerFontWeight(settings.fontWeight)) {
+                nextSettings.fontWeight = settings.fontWeight;
             }
 
             return {
@@ -1219,6 +1311,14 @@ function StudioPage() {
         updateBoard((currentBoard) => updateAnnouncementsSettings(currentBoard, selectedWidgetId, settings));
     }
 
+    function handleTickerSettingsChange(settings: Partial<TickerWidgetSettings>) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        updateBoard((currentBoard) => updateTickerSettings(currentBoard, selectedWidgetId, settings));
+    }
+
     function handleWidgetPositionChange(widgetId: string, position: { x: number; y: number }) {
         applyDocumentUpdate(
             (currentBoard) => updateWidgetPosition(currentBoard, widgetId, position.x, position.y),
@@ -1574,6 +1674,7 @@ function StudioPage() {
                             onImageSettingsChange={handleImageSettingsChange}
                             onInformationCardSettingsChange={handleInformationCardSettingsChange}
                             onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
+                            onTickerSettingsChange={handleTickerSettingsChange}
                             onDeleteWidget={handleRequestDeleteSelectedWidget}
                         />
                     </div>
@@ -1583,7 +1684,7 @@ function StudioPage() {
                     <p>Zoom 100%</p>
                     <p className="inline-flex items-center gap-2">
                         <span className="size-1.5 rounded-full bg-cyan" aria-hidden="true" />
-                        Draft
+                        Editing Draft
                     </p>
                 </footer>
             </div>

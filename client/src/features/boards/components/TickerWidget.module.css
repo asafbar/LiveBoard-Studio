@@ -1,0 +1,118 @@
+.panel {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+    pointer-events: none;
+    border: 1px solid color-mix(in srgb, var(--ticker-accent) 42%, transparent);
+}
+
+.viewport {
+    container-type: size;
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.sample {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    width: max-content;
+    visibility: hidden;
+}
+
+.track {
+    display: flex;
+    width: max-content;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.trackRtl {
+    animation-name: tickerRtl;
+}
+
+.trackLtr {
+    animation-name: tickerLtr;
+}
+
+.half,
+.sequence,
+.item {
+    display: flex;
+    flex: none;
+    align-items: center;
+}
+
+.sequence {
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.sequenceLtr {
+    flex-direction: row-reverse;
+}
+
+.message {
+    font-size: 1em;
+    line-height: 1;
+    unicode-bidi: isolate;
+    white-space: nowrap;
+}
+
+.separator {
+    flex: none;
+    width: 0.38em;
+    height: 0.38em;
+    margin-inline: 0.8em;
+    background-color: var(--ticker-accent);
+    transform: rotate(45deg);
+}
+
+.empty {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding-inline: 1.25rem;
+    color: color-mix(in srgb, currentColor 68%, transparent);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+@keyframes tickerRtl {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+@keyframes tickerLtr {
+    from {
+        transform: translate3d(-50%, 0, 0);
+    }
+
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sequenceLtr {
+        flex-direction: row;
+    }
+
+    .track {
+        animation: none;
+        transform: none;
+    }
+}

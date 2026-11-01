@@ -14,10 +14,15 @@ import type {
     ImageWidgetSettings,
     InformationCardWidgetSettings,
     TextWidgetSettings,
+    TickerDirection,
+    TickerFontFamily,
+    TickerFontWeight,
+    TickerMessage,
+    TickerWidgetSettings,
     Widget,
 } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
-import { hexColorInputValue, normalizeCssColor } from "../cssColor.ts";
+import ColorField from "./ColorField.tsx";
 import {
     imageObjectFitOptions,
     maximumImageBorderRadius,
@@ -25,6 +30,24 @@ import {
     normalizeImageSource,
     parseImageBorderRadius,
 } from "../imageSettings.ts";
+import {
+    defaultTickerFontFamily,
+    defaultTickerFontSize,
+    defaultTickerFontWeight,
+    isTickerDirection,
+    isTickerFontFamily,
+    isTickerFontWeight,
+    maximumTickerFontSize,
+    maximumTickerMessageLength,
+    maximumTickerMessages,
+    maximumTickerSpeed,
+    minimumTickerFontSize,
+    minimumTickerSpeed,
+    tickerFontFamilies,
+    tickerFontSizeIsInRange,
+    tickerFontWeights,
+    tickerSpeedIsInRange,
+} from "../tickerSettings.ts";
 
 type PropertiesPanelProps = {
     selectedWidget: Widget | null;
@@ -35,6 +58,7 @@ type PropertiesPanelProps = {
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
     onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
     onAnnouncementsSettingsChange: (settings: Partial<AnnouncementsWidgetSettings>) => void;
+    onTickerSettingsChange: (settings: Partial<TickerWidgetSettings>) => void;
     onDeleteWidget: () => void;
 };
 
@@ -96,12 +120,6 @@ type InformationCardStyleFieldsProps = {
     onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
 };
 
-type CardColorFieldProps = {
-    label: string;
-    value: string;
-    onColorChange: (color: string) => void;
-};
-
 type CardTextFieldProps = {
     label: string;
     value: string;
@@ -131,6 +149,34 @@ type AnnouncementItemFieldsProps = {
     item: AnnouncementItem;
     onItemChange: (itemId: string, item: AnnouncementItem) => void;
     onRemove: (itemId: string) => void;
+};
+
+type TickerContentFieldsProps = {
+    messages: TickerMessage[];
+    direction: TickerDirection;
+    speed: number;
+    onTickerSettingsChange: (settings: Partial<TickerWidgetSettings>) => void;
+};
+
+type TickerMessageFieldsProps = {
+    index: number;
+    message: TickerMessage;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    onTextChange: (messageId: string, text: string) => void;
+    onMove: (index: number, offset: -1 | 1) => void;
+    onRemove: (messageId: string) => void;
+};
+
+type TickerStyleFieldsProps = {
+    backgroundColor: string;
+    textColor: string;
+    accentColor: string;
+    borderRadius: number;
+    fontFamily: TickerFontFamily;
+    fontSize: number;
+    fontWeight: TickerFontWeight;
+    onTickerSettingsChange: (settings: Partial<TickerWidgetSettings>) => void;
 };
 
 const inspectorFieldClassName = "h-9 w-full rounded-control border border-border bg-surface-raised px-3 text-sm text-foreground outline-none";
@@ -181,6 +227,8 @@ function widgetTypeLabel(type: Widget["type"]): string {
             return "Information Card";
         case "announcements":
             return "Announcements";
+        case "ticker":
+            return "Ticker";
     }
 }
 
@@ -223,6 +271,8 @@ function contentProperties(widget: Widget): Property[] {
                     value: item.title,
                 })),
             ];
+        case "ticker":
+            return [];
     }
 }
 
@@ -244,6 +294,7 @@ function styleProperties(widget: Widget): Property[] {
             ];
         case "information-card":
         case "announcements":
+        case "ticker":
             return [];
     }
 }
@@ -833,74 +884,6 @@ function InformationCardContentFields({
     );
 }
 
-function CardColorField({ label, value, onColorChange }: CardColorFieldProps) {
-    const [draft, setDraft] = useState(value);
-
-    function handleDraftChange(event: ChangeEvent<HTMLInputElement>) {
-        const nextDraft = event.target.value;
-        setDraft(nextDraft);
-
-        if (nextDraft !== nextDraft.trim() && nextDraft.trim().length > 0) {
-            return;
-        }
-
-        const color = normalizeCssColor(nextDraft);
-
-        if (color === null || color === value) {
-            return;
-        }
-
-        onColorChange(color);
-
-        if (color !== nextDraft) {
-            setDraft(color);
-        }
-    }
-
-    function handleDraftBlur() {
-        if (normalizeCssColor(draft) === null) {
-            setDraft(value);
-        }
-    }
-
-    function handlePickerChange(event: ChangeEvent<HTMLInputElement>) {
-        const color = normalizeCssColor(event.target.value);
-
-        if (color === null) {
-            return;
-        }
-
-        setDraft(color);
-
-        if (color !== value) {
-            onColorChange(color);
-        }
-    }
-
-    return (
-        <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-muted">{label}</span>
-            <div className="flex items-center gap-2">
-                <input
-                    type="color"
-                    aria-label={`${label} picker`}
-                    value={hexColorInputValue(value)}
-                    onChange={handlePickerChange}
-                    className="h-9 w-9 shrink-0 cursor-pointer rounded-control border border-border bg-surface-raised p-1"
-                />
-                <input
-                    aria-label={label}
-                    value={draft}
-                    spellCheck={false}
-                    onChange={handleDraftChange}
-                    onBlur={handleDraftBlur}
-                    className={`${inspectorFieldClassName} min-w-0 flex-1`}
-                />
-            </div>
-        </div>
-    );
-}
-
 function InformationCardStyleFields({
     backgroundColor,
     textColor,
@@ -933,14 +916,14 @@ function InformationCardStyleFields({
 
     return (
         <>
-            <CardColorField
+            <ColorField
                 label="Background color"
                 value={backgroundColor}
                 onColorChange={(color) => {
                     onInformationCardSettingsChange({ backgroundColor: color });
                 }}
             />
-            <CardColorField
+            <ColorField
                 label="Text color"
                 value={textColor}
                 onColorChange={(color) => {
@@ -1173,14 +1156,14 @@ function AnnouncementsStyleFields({
 
     return (
         <>
-            <CardColorField
+            <ColorField
                 label="Background color"
                 value={backgroundColor}
                 onColorChange={(color) => {
                     onAnnouncementsSettingsChange({ backgroundColor: color });
                 }}
             />
-            <CardColorField
+            <ColorField
                 label="Text color"
                 value={textColor}
                 onColorChange={(color) => {
@@ -1199,6 +1182,456 @@ function AnnouncementsStyleFields({
                     value={radiusDraft}
                     onChange={handleRadiusChange}
                     onBlur={handleRadiusBlur}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+        </>
+    );
+}
+
+const tickerDirectionOptions: { value: TickerDirection; label: string }[] = [
+    { value: "rtl", label: "Right to left" },
+    { value: "ltr", label: "Left to right" },
+];
+
+const tickerOrderButtonClassName = "text-xs font-medium text-secondary";
+const tickerOrderButtonDisabledClassName = "cursor-not-allowed text-xs font-medium text-muted opacity-50";
+
+function nextTickerMessageId(): string {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
+
+    return `ticker-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createTickerMessageId(existingIds: ReadonlySet<string>): string {
+    const id = nextTickerMessageId();
+
+    if (existingIds.has(id)) {
+        return createTickerMessageId(existingIds);
+    }
+
+    return id;
+}
+
+function parseTickerSpeed(value: string): number | null {
+    if (!/^\d+$/.test(value.trim())) {
+        return null;
+    }
+
+    const speed = Number(value);
+
+    if (!tickerSpeedIsInRange(speed)) {
+        return null;
+    }
+
+    return speed;
+}
+
+function moveTickerMessage(messages: TickerMessage[], index: number, offset: -1 | 1): TickerMessage[] {
+    const nextIndex = index + offset;
+
+    if (nextIndex < 0 || nextIndex >= messages.length) {
+        return messages;
+    }
+
+    const nextMessages = messages.slice();
+    const [message] = nextMessages.splice(index, 1);
+
+    if (message === undefined) {
+        return messages;
+    }
+
+    nextMessages.splice(nextIndex, 0, message);
+
+    return nextMessages;
+}
+
+function TickerMessageFields({
+    index,
+    message,
+    canMoveUp,
+    canMoveDown,
+    onTextChange,
+    onMove,
+    onRemove,
+}: TickerMessageFieldsProps) {
+    const messageNumber = index + 1;
+
+    return (
+        <div className="flex flex-col gap-3 border-t border-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-secondary">
+                    {`Message ${messageNumber}`}
+                </span>
+                <span className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        aria-label={`Move message ${messageNumber} up`}
+                        disabled={!canMoveUp}
+                        onClick={() => {
+                            onMove(index, -1);
+                        }}
+                        className={canMoveUp ? tickerOrderButtonClassName : tickerOrderButtonDisabledClassName}
+                    >
+                        Up
+                    </button>
+                    <button
+                        type="button"
+                        aria-label={`Move message ${messageNumber} down`}
+                        disabled={!canMoveDown}
+                        onClick={() => {
+                            onMove(index, 1);
+                        }}
+                        className={canMoveDown ? tickerOrderButtonClassName : tickerOrderButtonDisabledClassName}
+                    >
+                        Down
+                    </button>
+                    <button
+                        type="button"
+                        aria-label={`Remove message ${messageNumber}`}
+                        onClick={() => {
+                            onRemove(message.id);
+                        }}
+                        className="text-xs font-medium text-muted"
+                    >
+                        Remove
+                    </button>
+                </span>
+            </div>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Text</span>
+                <input
+                    dir="auto"
+                    maxLength={maximumTickerMessageLength}
+                    aria-label={`Text for message ${messageNumber}`}
+                    placeholder="New message"
+                    value={message.text}
+                    onChange={(event) => {
+                        onTextChange(message.id, event.target.value);
+                    }}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+        </div>
+    );
+}
+
+function TickerContentFields({
+    messages,
+    direction,
+    speed,
+    onTickerSettingsChange,
+}: TickerContentFieldsProps) {
+    const [invalidSpeed, setInvalidSpeed] = useState<string | null>(null);
+    const canAddMessage = messages.length < maximumTickerMessages;
+
+    function handleTextChange(messageId: string, text: string) {
+        const current = messages.find((message) => message.id === messageId);
+
+        if (current === undefined || current.text === text) {
+            return;
+        }
+
+        onTickerSettingsChange({
+            messages: messages.map((message) => message.id === messageId ? { ...message, text } : message),
+        });
+    }
+
+    function handleRemove(messageId: string) {
+        onTickerSettingsChange({
+            messages: messages.filter((message) => message.id !== messageId),
+        });
+    }
+
+    function handleMove(index: number, offset: -1 | 1) {
+        const nextMessages = moveTickerMessage(messages, index, offset);
+
+        if (nextMessages === messages) {
+            return;
+        }
+
+        onTickerSettingsChange({ messages: nextMessages });
+    }
+
+    function handleAdd() {
+        if (!canAddMessage) {
+            return;
+        }
+
+        const existingIds = new Set(messages.map((message) => message.id));
+
+        onTickerSettingsChange({
+            messages: [
+                ...messages,
+                {
+                    id: createTickerMessageId(existingIds),
+                    text: "",
+                },
+            ],
+        });
+    }
+
+    function handleDirectionChange(event: ChangeEvent<HTMLSelectElement>) {
+        if (!isTickerDirection(event.target.value) || event.target.value === direction) {
+            return;
+        }
+
+        onTickerSettingsChange({ direction: event.target.value });
+    }
+
+    function handleSpeedChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        const nextSpeed = parseTickerSpeed(nextDraft);
+
+        if (nextSpeed === null) {
+            setInvalidSpeed(nextDraft);
+            return;
+        }
+
+        setInvalidSpeed(null);
+
+        if (nextSpeed !== speed) {
+            onTickerSettingsChange({ speed: nextSpeed });
+        }
+    }
+
+    return (
+        <>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Direction</span>
+                <span className="relative">
+                    <select
+                        aria-label="Ticker direction"
+                        value={direction}
+                        onChange={handleDirectionChange}
+                        className={inspectorSelectClassName}
+                    >
+                        {tickerDirectionOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Speed (px/s)</span>
+                <input
+                    type="number"
+                    inputMode="numeric"
+                    min={minimumTickerSpeed}
+                    max={maximumTickerSpeed}
+                    step={1}
+                    aria-label="Ticker speed in pixels per second"
+                    value={invalidSpeed ?? String(speed)}
+                    onChange={handleSpeedChange}
+                    onBlur={() => {
+                        setInvalidSpeed(null);
+                    }}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+            {messages.length === 0 ? (
+                <p className="text-sm text-muted">No messages.</p>
+            ) : (
+                messages.map((message, index) => (
+                    <TickerMessageFields
+                        key={message.id}
+                        index={index}
+                        message={message}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < messages.length - 1}
+                        onTextChange={handleTextChange}
+                        onMove={handleMove}
+                        onRemove={handleRemove}
+                    />
+                ))
+            )}
+            <button
+                type="button"
+                disabled={!canAddMessage}
+                onClick={handleAdd}
+                className={
+                    canAddMessage
+                        ? "h-9 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-foreground"
+                        : "h-9 cursor-not-allowed rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-muted opacity-60"
+                }
+            >
+                Add message
+            </button>
+        </>
+    );
+}
+
+const tickerFontFamilyLabels: Record<TickerFontFamily, string> = {
+    sans: "Sans",
+    serif: "Serif",
+    mono: "Mono",
+};
+
+const tickerFontWeightLabels: Record<TickerFontWeight, string> = {
+    400: "Regular",
+    500: "Medium",
+    600: "Semibold",
+    700: "Bold",
+};
+
+function TickerStyleFields({
+    backgroundColor,
+    textColor,
+    accentColor,
+    borderRadius,
+    fontFamily,
+    fontSize,
+    fontWeight,
+    onTickerSettingsChange,
+}: TickerStyleFieldsProps) {
+    const [invalidRadius, setInvalidRadius] = useState<string | null>(null);
+    const [invalidFontSize, setInvalidFontSize] = useState<string | null>(null);
+
+    function handleRadiusChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        const radius = parseImageBorderRadius(nextDraft);
+
+        if (radius === null) {
+            setInvalidRadius(nextDraft);
+            return;
+        }
+
+        setInvalidRadius(null);
+
+        if (radius !== borderRadius) {
+            onTickerSettingsChange({ borderRadius: radius });
+        }
+    }
+
+    function handleFontFamilyChange(event: ChangeEvent<HTMLSelectElement>) {
+        if (!isTickerFontFamily(event.target.value) || event.target.value === fontFamily) {
+            return;
+        }
+
+        onTickerSettingsChange({ fontFamily: event.target.value });
+    }
+
+    function handleFontWeightChange(event: ChangeEvent<HTMLSelectElement>) {
+        const weight = Number(event.target.value);
+
+        if (!isTickerFontWeight(weight) || weight === fontWeight) {
+            return;
+        }
+
+        onTickerSettingsChange({ fontWeight: weight });
+    }
+
+    function handleFontSizeChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+
+        if (!/^\d+$/.test(nextDraft.trim())) {
+            setInvalidFontSize(nextDraft);
+            return;
+        }
+
+        const size = Number(nextDraft);
+
+        if (!tickerFontSizeIsInRange(size)) {
+            setInvalidFontSize(nextDraft);
+            return;
+        }
+
+        setInvalidFontSize(null);
+
+        if (size !== fontSize) {
+            onTickerSettingsChange({ fontSize: size });
+        }
+    }
+
+    return (
+        <>
+            <ColorField
+                label="Background color"
+                value={backgroundColor}
+                onColorChange={(color) => {
+                    onTickerSettingsChange({ backgroundColor: color });
+                }}
+            />
+            <ColorField
+                label="Text color"
+                value={textColor}
+                onColorChange={(color) => {
+                    onTickerSettingsChange({ textColor: color });
+                }}
+            />
+            <ColorField
+                label="Accent color"
+                value={accentColor}
+                onColorChange={(color) => {
+                    onTickerSettingsChange({ accentColor: color });
+                }}
+            />
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Font</span>
+                <span className="relative">
+                    <select
+                        aria-label="Ticker font"
+                        value={fontFamily}
+                        onChange={handleFontFamilyChange}
+                        className={inspectorSelectClassName}
+                    >
+                        {tickerFontFamilies.map((family) => (
+                            <option key={family} value={family}>{tickerFontFamilyLabels[family]}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Font size</span>
+                <input
+                    type="number"
+                    inputMode="numeric"
+                    min={minimumTickerFontSize}
+                    max={maximumTickerFontSize}
+                    step={1}
+                    aria-label="Ticker font size"
+                    value={invalidFontSize ?? String(fontSize)}
+                    onChange={handleFontSizeChange}
+                    onBlur={() => {
+                        setInvalidFontSize(null);
+                    }}
+                    className={inspectorFieldClassName}
+                />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Font weight</span>
+                <span className="relative">
+                    <select
+                        aria-label="Ticker font weight"
+                        value={String(fontWeight)}
+                        onChange={handleFontWeightChange}
+                        className={inspectorSelectClassName}
+                    >
+                        {tickerFontWeights.map((weight) => (
+                            <option key={weight} value={weight}>{tickerFontWeightLabels[weight]}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Border radius</span>
+                <input
+                    type="number"
+                    inputMode="decimal"
+                    min={minimumImageBorderRadius}
+                    max={maximumImageBorderRadius}
+                    step="any"
+                    aria-label="Border radius"
+                    value={invalidRadius ?? String(borderRadius)}
+                    onChange={handleRadiusChange}
+                    onBlur={() => {
+                        setInvalidRadius(null);
+                    }}
                     className={inspectorFieldClassName}
                 />
             </label>
@@ -1275,6 +1708,7 @@ function PropertiesPanel({
     onImageSettingsChange,
     onInformationCardSettingsChange,
     onAnnouncementsSettingsChange,
+    onTickerSettingsChange,
     onDeleteWidget,
 }: PropertiesPanelProps) {
     const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
@@ -1289,6 +1723,8 @@ function PropertiesPanel({
     const editingInformationCardStyle = selectedWidget?.type === "information-card" && activeTab === "Style";
     const editingAnnouncements = selectedWidget?.type === "announcements" && activeTab === "Content";
     const editingAnnouncementsStyle = selectedWidget?.type === "announcements" && activeTab === "Style";
+    const editingTicker = selectedWidget?.type === "ticker" && activeTab === "Content";
+    const editingTickerStyle = selectedWidget?.type === "ticker" && activeTab === "Style";
     const showingReadOnlyProperties = !editingText
         && !editingTextStyle
         && !editingClock
@@ -1299,6 +1735,8 @@ function PropertiesPanel({
         && !editingInformationCardStyle
         && !editingAnnouncements
         && !editingAnnouncementsStyle
+        && !editingTicker
+        && !editingTickerStyle
         && properties.length > 0;
 
     return (
@@ -1427,7 +1865,29 @@ function PropertiesPanel({
                             onAnnouncementsSettingsChange={onAnnouncementsSettingsChange}
                         />
                     ) : null}
-                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && !editingInformationCardStyle && !editingAnnouncementsStyle && activeTab === "Style" && properties.length === 0 ? (
+                    {editingTicker && selectedWidget.type === "ticker" ? (
+                        <TickerContentFields
+                            key={selectedWidget.id}
+                            messages={selectedWidget.settings.messages}
+                            direction={selectedWidget.settings.direction}
+                            speed={selectedWidget.settings.speed}
+                            onTickerSettingsChange={onTickerSettingsChange}
+                        />
+                    ) : null}
+                    {editingTickerStyle && selectedWidget.type === "ticker" ? (
+                        <TickerStyleFields
+                            key={selectedWidget.id}
+                            backgroundColor={selectedWidget.settings.backgroundColor}
+                            textColor={selectedWidget.settings.textColor}
+                            accentColor={selectedWidget.settings.accentColor}
+                            borderRadius={selectedWidget.settings.borderRadius}
+                            fontFamily={selectedWidget.settings.fontFamily ?? defaultTickerFontFamily}
+                            fontSize={selectedWidget.settings.fontSize ?? defaultTickerFontSize}
+                            fontWeight={selectedWidget.settings.fontWeight ?? defaultTickerFontWeight}
+                            onTickerSettingsChange={onTickerSettingsChange}
+                        />
+                    ) : null}
+                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && !editingInformationCardStyle && !editingAnnouncementsStyle && !editingTickerStyle && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
                     ) : null}
                     {showingReadOnlyProperties ? (

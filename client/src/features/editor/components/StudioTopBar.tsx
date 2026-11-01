@@ -65,8 +65,8 @@ type MenuPlacement = {
 const saveStatusLabel: Record<DraftSaveStatus, string> = {
     saved: "Saved",
     unsaved: "Unsaved changes",
-    saving: "Saving...",
-    failed: "Save failed",
+    saving: "Saving",
+    failed: "Error",
 };
 
 const saveStatusClassName: Record<DraftSaveStatus, string> = {
@@ -100,8 +100,8 @@ function readHistoryShortcutLabels(): { undo: string; redo: string } {
 
     if (apple) {
         return {
-            undo: "Undo (⌘Z)",
-            redo: "Redo (⇧⌘Z)",
+            undo: "Undo (Cmd+Z)",
+            redo: "Redo (Cmd+Shift+Z)",
         };
     }
 
