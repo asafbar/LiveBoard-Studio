@@ -4,7 +4,9 @@ const { randomUUID } = require("crypto");
 const env = require("../config/env");
 
 const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
+const TEMP_UPLOAD_MAX_AGE_MS = 60 * 1000;
 const STORAGE_KEY_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/;
+const TEMP_FILE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.part$/;
 
 const MIME_EXTENSIONS = {
     "image/jpeg": "jpg",
@@ -166,6 +168,122 @@ function isDirectFileInside(root, candidate) {
         && !relative.includes("\\");
 }
 
+async function ensureTempDirectory() {
+    const root = await ensureRoot();
+    const tempDir = path.join(root, "tmp");
+
+    await fs.promises.mkdir(tempDir, {
+        recursive: true,
+        mode: 0o700
+    });
+
+    const realTemp = await fs.promises.realpath(tempDir);
+
+    if (!isStrictlyInside(root, realTemp)) {
+        throw MediaStorageError("invalid-temp", "Temporary upload directory is unsafe.");
+    }
+
+    await fs.promises.chmod(realTemp, 0o700);
+    await removeStaleTempFiles(realTemp, Date.now());
+
+    return realTemp;
+}
+
+async function removeTempUpload(filePath) {
+    if (typeof filePath !== "string" || filePath.length === 0) {
+        return;
+    }
+
+    const baseName = path.basename(filePath);
+
+    if (!TEMP_FILE_PATTERN.test(baseName)) {
+        return;
+    }
+
+    const tempDir = await ensureTempDirectory();
+    const candidate = path.join(tempDir, baseName);
+
+    try {
+        const stat = await fs.promises.lstat(candidate);
+
+        if (!stat.isFile()) {
+            return;
+        }
+
+        await fs.promises.unlink(candidate);
+    } catch (error) {
+        if (error.code !== "ENOENT") {
+            throw error;
+        }
+    }
+}
+
+async function removeStoredFile(storageKey) {
+    assertSafeStorageKey(storageKey);
+
+    const root = await fs.promises.realpath(mediaRoot);
+    const filePath = resolveInsideRoot(root, storageKey);
+
+    try {
+        const stat = await fs.promises.lstat(filePath);
+
+        if (!stat.isFile()) {
+            throw MediaStorageError("not-found", "Media file not found.");
+        }
+
+        await fs.promises.unlink(filePath);
+    } catch (error) {
+        if (error.code === "ENOENT") {
+            return;
+        }
+
+        if (error.code === "ELOOP" || error.code === "ENOTDIR") {
+            throw MediaStorageError("not-found", "Media file not found.");
+        }
+
+        throw error;
+    }
+}
+
+async function sweepStaleTempUploads() {
+    await ensureTempDirectory();
+}
+
+async function removeStaleTempFiles(directory, now) {
+    const names = await fs.promises.readdir(directory);
+
+    await Promise.all(names.map(async (name) => {
+        if (!TEMP_FILE_PATTERN.test(name)) {
+            return;
+        }
+
+        const candidate = path.join(directory, name);
+
+        try {
+            const stat = await fs.promises.lstat(candidate);
+
+            if (!stat.isFile() || now - stat.mtimeMs < TEMP_UPLOAD_MAX_AGE_MS) {
+                return;
+            }
+
+            await fs.promises.unlink(candidate);
+        } catch (error) {
+            if (error.code !== "ENOENT") {
+                console.error("Temporary upload cleanup failed.");
+            }
+        }
+    }));
+}
+
+function isStrictlyInside(parent, candidate) {
+    const relative = path.relative(parent, candidate);
+
+    return relative !== ""
+        && relative !== ".."
+        && !relative.startsWith(`..${path.sep}`)
+        && !path.isAbsolute(relative);
+}
+
 function isSameOrInside(parent, candidate) {
     const resolvedParent = path.resolve(parent);
     const resolvedCandidate = path.resolve(candidate);
@@ -205,5 +323,9 @@ module.exports = {
     createStorageKey,
     writeNewFile,
     openFile,
-    assertSafeStorageKey
+    assertSafeStorageKey,
+    ensureTempDirectory,
+    removeTempUpload,
+    removeStoredFile,
+    sweepStaleTempUploads
 };

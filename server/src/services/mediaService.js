@@ -1,9 +1,77 @@
 const mediaRepository = require("../repositories/mediaRepository");
+const { processUploadedImage } = require("./mediaImageProcessor");
 const {
     MIME_EXTENSIONS,
-    openFile
+    createStorageKey,
+    openFile,
+    removeStoredFile,
+    removeTempUpload,
+    writeNewFile
 } = require("../storage/mediaStorage");
 const { createHttpError } = require("../utils/httpError");
+
+async function createMediaAsset(upload) {
+    let storageKey = null;
+
+    try {
+        const processed = await processUploadedImage(upload.tempPath);
+
+        // The processed file is written before the metadata insert. PostgreSQL
+        // cannot roll back that filesystem write. A crash between the two can
+        // leave a file with no row. A failed insert deletes the file just written.
+        storageKey = createStorageKey(processed.mimeType);
+        await writeNewFile(storageKey, processed.buffer);
+
+        try {
+            return await mediaRepository.insertMediaAsset({
+                originalFilename: sanitizeDisplayFilename(
+                    upload.originalFilename,
+                    processed.mimeType
+                ),
+                storageKey,
+                mimeType: processed.mimeType,
+                sizeBytes: processed.buffer.length
+            });
+        } catch (insertError) {
+            await removeStoredFile(storageKey).catch(() => {
+                console.error("Stored media cleanup failed.");
+            });
+            throw insertError;
+        }
+    } finally {
+        await removeTempUpload(upload.tempPath).catch(() => {
+            console.error("Temporary upload cleanup failed.");
+        });
+    }
+}
+
+function sanitizeDisplayFilename(rawName, mimeType) {
+    const extension = MIME_EXTENSIONS[mimeType];
+    const fallback = `image.${extension}`;
+
+    if (typeof rawName !== "string" || rawName.length === 0 || rawName.length > 1024) {
+        return fallback;
+    }
+
+    const baseName = rawName.replaceAll("\\", "/").split("/").pop();
+    const withoutControls = baseName.replace(/[\u0000-\u001F\u007F]/g, "").trim();
+
+    if (withoutControls === "" || withoutControls === "." || withoutControls === "..") {
+        return fallback;
+    }
+
+    if (withoutControls.length <= 255) {
+        return withoutControls;
+    }
+
+    const shortened = withoutControls.slice(0, 255).trim();
+
+    if (shortened === "") {
+        return fallback;
+    }
+
+    return shortened;
+}
 
 async function listMediaAssets() {
     return mediaRepository.listMediaAssets();
@@ -67,6 +135,7 @@ function toSizeBytes(value) {
 }
 
 module.exports = {
+    createMediaAsset,
     listMediaAssets,
     getMediaAsset,
     openMediaFile

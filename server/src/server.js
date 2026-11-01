@@ -5,6 +5,7 @@ const {
     verifyDatabaseConnection,
     closeDatabase
 } = require("./config/db");
+const { sweepStaleTempUploads } = require("./storage/mediaStorage");
 const {
     attachBoardRealtime,
     closeBoardRealtime
@@ -48,6 +49,12 @@ async function startServer() {
     }
 
     console.log("Database connection verified.");
+
+    try {
+        await sweepStaleTempUploads();
+    } catch (error) {
+        console.error("Temporary upload cleanup failed.");
+    }
 
     const server = http.createServer(app);
     attachBoardRealtime(server);

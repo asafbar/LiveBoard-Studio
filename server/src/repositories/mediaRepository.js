@@ -31,7 +31,34 @@ async function findMediaAssetById(id) {
     return result.rows[0] || null;
 }
 
+async function insertMediaAsset(asset) {
+    const result = await pool.query(
+        `INSERT INTO media_assets (
+             original_filename,
+             storage_key,
+             mime_type,
+             size_bytes
+         )
+         VALUES ($1, $2, $3, $4)
+         RETURNING id,
+                   original_filename,
+                   storage_key,
+                   mime_type,
+                   size_bytes,
+                   created_at`,
+        [
+            asset.originalFilename,
+            asset.storageKey,
+            asset.mimeType,
+            asset.sizeBytes
+        ]
+    );
+
+    return result.rows[0];
+}
+
 module.exports = {
     listMediaAssets,
-    findMediaAssetById
+    findMediaAssetById,
+    insertMediaAsset
 };

@@ -13,7 +13,7 @@ Image bytes are stored as files. PostgreSQL keeps metadata only, in `media_asset
 
 The existing Tech Summit images in `client/public/media/tech-summit/` stay static assets.
 
-`GET /api/media`, `GET /api/media/:id`, and `GET /api/media/:id/file` are read-only. Upload and deletion are not implemented. When they are added, they must require an administrator session.
+`GET /api/media`, `GET /api/media/:id`, and `GET /api/media/:id/file` stay public. `POST /api/media` accepts one JPEG, PNG, or WebP image from an administrator session and requires `X-LiveBoard-Request: 1`. The server decodes the upload, rejects animated or oversized images, re-encodes it in the same format, and stores only those processed bytes. Deletion is not implemented. A crash after the file is written and before the metadata insert can leave an unreferenced file, because the filesystem write is not part of the database transaction. A failed insert removes the file it just wrote.
 
 ## Administrator account
 
@@ -27,12 +27,12 @@ State-changing requests must send `X-LiveBoard-Request: 1`. A browser `Origin` t
 
 Any client that knows a display UUID can register as that screen and appear online. That presence check is not device authentication, and it does not allow board or display edits. Device pairing is not implemented.
 
-Planned upload rules, to be enforced on the server when a protected upload endpoint is added:
+Upload rules enforced by `POST /api/media`:
 
-- Allow only JPEG, PNG, and WebP.
-- Reject files larger than 10 MB.
-- Verify the bytes (file signature), not the browser-supplied type or filename.
+- Allow only JPEG, PNG, and WebP after a full decode, then store a re-encoded image of that same format.
+- Reject files larger than 10 MB, including the processed output.
+- Do not trust the browser-supplied type or filename. The filename is display metadata only.
 - Generate a random storage key on the server. Never use a client path.
 - Reject path traversal, symlinks that leave the storage root, and non-image content.
-- Enforce a configurable storage quota with `SUM(size_bytes)` before writing.
+- A storage quota is not enforced yet.
 - Treat stored metadata as a label, not as proof that the bytes are safe.

@@ -8,6 +8,24 @@ const {
 
 const FILE_CACHE_CONTROL = "private, no-cache";
 
+async function uploadMedia(req, res, next) {
+    try {
+        const asset = await mediaService.createMediaAsset({
+            tempPath: req.file.path,
+            originalFilename: req.file.originalname
+        });
+
+        res.status(201).json(
+            successResponse(
+                "Media asset uploaded successfully.",
+                toMediaAsset(asset)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
 async function listMedia(req, res, next) {
     try {
         const assets = await mediaService.listMediaAssets();
@@ -65,6 +83,7 @@ async function getMediaFile(req, res, next) {
 }
 
 module.exports = {
+    uploadMedia,
     listMedia,
     getMedia,
     getMediaFile
