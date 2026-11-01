@@ -14,10 +14,17 @@ export type StudioIconName =
     | "eye"
     | "eye-off"
     | "publish"
-    | "open-display";
+    | "save"
+    | "open-display"
+    | "menu"
+    | "boards"
+    | "displays"
+    | "logout"
+    | "more";
 
 type StudioIconProps = {
     name: StudioIconName;
+    className?: string;
 };
 
 const iconPaths: Record<StudioIconName, ReactNode> = {
@@ -112,6 +119,13 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
             <path d="M5 19h14" />
         </>
     ),
+    save: (
+        <>
+            <path d="M6 4h9l3 3v13H6V4Z" />
+            <path d="M8 4v5h7" />
+            <path d="M8 16h8" />
+        </>
+    ),
     "open-display": (
         <>
             <path d="M14 5h5v5" />
@@ -119,9 +133,44 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
             <path d="M17 13.5V18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4.5" />
         </>
     ),
+    menu: (
+        <>
+            <path d="M4 7h16" />
+            <path d="M4 12h16" />
+            <path d="M4 17h16" />
+        </>
+    ),
+    boards: (
+        <>
+            <rect x="4" y="5" width="16" height="14" rx="2" />
+            <path d="M8 9h8" />
+            <path d="M8 13h5" />
+        </>
+    ),
+    displays: (
+        <>
+            <rect x="3" y="4" width="18" height="12" rx="2" />
+            <path d="M8 20h8" />
+            <path d="M12 16v4" />
+        </>
+    ),
+    logout: (
+        <>
+            <path d="M10 7V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-2" />
+            <path d="M4 12h10" />
+            <path d="m11 9 3 3-3 3" />
+        </>
+    ),
+    more: (
+        <>
+            <circle cx="6" cy="12" r="1" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+            <circle cx="18" cy="12" r="1" fill="currentColor" stroke="none" />
+        </>
+    ),
 };
 
-function StudioIcon({ name }: StudioIconProps) {
+function StudioIcon({ name, className = "size-5" }: StudioIconProps) {
     return (
         <svg
             viewBox="0 0 24 24"
@@ -131,7 +180,7 @@ function StudioIcon({ name }: StudioIconProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
-            className="size-5"
+            className={className}
         >
             {iconPaths[name]}
         </svg>
