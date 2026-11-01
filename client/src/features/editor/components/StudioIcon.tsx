@@ -28,7 +28,8 @@ export type StudioIconName =
     | "chevron-down"
     | "grip"
     | "lock"
-    | "unlock";
+    | "unlock"
+    | "revert";
 
 type StudioIconProps = {
     name: StudioIconName;
@@ -217,6 +218,12 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
         <>
             <rect x="6" y="11" width="12" height="8" rx="1.5" />
             <path d="M8 11V8a4 4 0 0 1 7.2-2" />
+        </>
+    ),
+    revert: (
+        <>
+            <path d="M4 9h9a4 4 0 1 1 0 8H9" />
+            <path d="M7 6 4 9l3 3" />
         </>
     ),
 };

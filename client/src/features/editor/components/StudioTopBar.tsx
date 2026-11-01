@@ -23,9 +23,11 @@ type StudioTopBarProps = {
     publishDisabled: boolean;
     publishGuidance: string | null;
     displayPath: string | null;
+    revertDisabled: boolean;
     onSave: () => void;
     onPreview: () => void;
     onPublish: () => void;
+    onRevert: () => void;
 };
 
 type HeaderAction = {
@@ -96,9 +98,11 @@ function StudioTopBar({
     publishDisabled,
     publishGuidance,
     displayPath,
+    revertDisabled,
     onSave,
     onPreview,
     onPublish,
+    onRevert,
 }: StudioTopBarProps) {
     const navigate = useNavigate();
     const [openPanel, setOpenPanel] = useState<"navigation" | "actions" | null>(null);
@@ -120,6 +124,13 @@ function StudioTopBar({
     ];
 
     const moreActions: HeaderAction[] = [
+        {
+            key: "revert",
+            label: "Revert to Saved",
+            icon: "revert",
+            disabled: revertDisabled,
+            onSelect: onRevert,
+        },
         ...(!saveNeedsAttention
             ? [{
                 key: "save",

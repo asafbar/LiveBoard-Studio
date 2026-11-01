@@ -34,6 +34,8 @@ import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
 import EditorCanvas from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
 import PublishBoardDialog from "../components/PublishBoardDialog.tsx";
+import RevertDraftDialog from "../components/RevertDraftDialog.tsx";
+import type { RevertDraftPhase } from "../components/RevertDraftDialog.tsx";
 import PublishNotice from "../components/PublishNotice.tsx";
 import SavingOverlay from "../components/SavingOverlay.tsx";
 import StudioPreview from "../components/StudioPreview.tsx";
@@ -496,6 +498,22 @@ type StudioNoticeProps = {
     onAction?: () => void;
 };
 
+function isUnauthorizedError(error: unknown): boolean {
+    if (typeof error !== "object" || error === null) {
+        return false;
+    }
+
+    if ("response" in error && typeof error.response === "object" && error.response !== null && "status" in error.response) {
+        return error.response.status === 401;
+    }
+
+    if (error instanceof Error) {
+        return isUnauthorizedError(error.cause);
+    }
+
+    return false;
+}
+
 function readStudioError(error: unknown, fallback: string): string {
     if (error instanceof Error && error.message.trim() !== "") {
         return error.message;
@@ -582,6 +600,10 @@ function StudioPage() {
     const changeVersionRef = useRef(0);
     const saveInFlightRef = useRef(false);
     const publishInFlightRef = useRef(false);
+    const revertInFlightRef = useRef(false);
+    const revertGenerationRef = useRef(0);
+    const [revertPhase, setRevertPhase] = useState<RevertDraftPhase | null>(null);
+    const [revertError, setRevertError] = useState<string | null>(null);
     const aliveRef = useRef(true);
     const loadedBoardIdRef = useRef<string | null>(null);
     const [saveRestoreTarget, setSaveRestoreTarget] = useState<HTMLElement | null>(null);
@@ -683,7 +705,13 @@ function StudioPage() {
     }
 
     function handleSave() {
-        if (board === null || loadedBoardId === null || !hasUnsavedChanges || saveInFlightRef.current) {
+        if (
+            board === null
+            || loadedBoardId === null
+            || !hasUnsavedChanges
+            || saveInFlightRef.current
+            || revertInFlightRef.current
+        ) {
             return;
         }
 
@@ -741,7 +769,9 @@ function StudioPage() {
             || saveState === "saving"
             || saveInFlightRef.current
             || publishInFlightRef.current
+            || revertInFlightRef.current
             || publishPhase !== null
+            || revertPhase !== null
         ) {
             return;
         }
@@ -790,6 +820,7 @@ function StudioPage() {
             || saveState === "saving"
             || saveInFlightRef.current
             || publishInFlightRef.current
+            || revertInFlightRef.current
         ) {
             return;
         }
@@ -831,6 +862,102 @@ function StudioPage() {
 
     function handleClosePreview() {
         setPreviewOpen(false);
+    }
+
+    function handleOpenRevert() {
+        if (
+            board === null
+            || loadedBoardId === null
+            || !hasUnsavedChanges
+            || saveState === "saving"
+            || saveInFlightRef.current
+            || publishInFlightRef.current
+            || revertInFlightRef.current
+            || publishPhase !== null
+            || revertPhase !== null
+        ) {
+            return;
+        }
+
+        setRevertError(null);
+        setRevertPhase("confirm");
+    }
+
+    function handleCancelRevert() {
+        revertGenerationRef.current += 1;
+        revertInFlightRef.current = false;
+        setRevertPhase(null);
+        setRevertError(null);
+    }
+
+    function handleConfirmRevert() {
+        if (
+            board === null
+            || loadedBoardId === null
+            || !hasUnsavedChanges
+            || saveInFlightRef.current
+            || publishInFlightRef.current
+            || revertInFlightRef.current
+        ) {
+            return;
+        }
+
+        const targetBoardId = loadedBoardId;
+        const snapshotVersion = changeVersionRef.current;
+        const requestGeneration = revertGenerationRef.current + 1;
+        revertGenerationRef.current = requestGeneration;
+        revertInFlightRef.current = true;
+        setRevertPhase("reverting");
+        setRevertError(null);
+
+        getBoard(targetBoardId)
+            .then((record) => {
+                if (revertGenerationRef.current !== requestGeneration || !isCurrentBoard(targetBoardId)) {
+                    return;
+                }
+
+                if (!boardIdsMatch(record.id, targetBoardId)) {
+                    setRevertError("The saved draft could not be restored. Your unsaved edits are still here.");
+                    setRevertPhase("failed");
+                    return;
+                }
+
+                if (changeVersionRef.current !== snapshotVersion) {
+                    setRevertPhase(null);
+                    setRevertError(null);
+                    return;
+                }
+
+                setBoard(record.draft);
+                setReveal({ boardId, widgetId: null });
+                setHasUnsavedChanges(false);
+                setSaveState("idle");
+                setSaveError(null);
+                setRevertPhase(null);
+                setRevertError(null);
+            })
+            .catch((error: unknown) => {
+                if (revertGenerationRef.current !== requestGeneration || !isCurrentBoard(targetBoardId)) {
+                    return;
+                }
+
+                if (isUnauthorizedError(error)) {
+                    setRevertPhase(null);
+                    setRevertError(null);
+                    return;
+                }
+
+                setRevertError(readStudioError(
+                    error,
+                    "The saved draft could not be restored. Your unsaved edits are still here.",
+                ));
+                setRevertPhase("failed");
+            })
+            .finally(() => {
+                if (revertGenerationRef.current === requestGeneration) {
+                    revertInFlightRef.current = false;
+                }
+            });
     }
 
     function handleRetry() {
@@ -1078,20 +1205,41 @@ function StudioPage() {
         <>
             <div
                 className="flex h-screen flex-col overflow-hidden bg-background font-sans text-foreground antialiased"
-                inert={deleteDialogOpen || saveState === "saving" || publishPhase !== null || navigationLocked}
+                inert={
+                    deleteDialogOpen
+                    || saveState === "saving"
+                    || publishPhase !== null
+                    || revertPhase !== null
+                    || navigationLocked
+                }
             >
                 <StudioTopBar
                     boardName={boardTitle}
                     saveStatus={draftSaveStatus(board !== null, saveState, hasUnsavedChanges)}
                     saveError={saveError}
-                    saveDisabled={board === null || !hasUnsavedChanges || saveState === "saving" || publishPhase !== null}
-                    previewDisabled={board === null || saveState === "saving" || publishPhase !== null}
+                    saveDisabled={
+                        board === null
+                        || !hasUnsavedChanges
+                        || saveState === "saving"
+                        || publishPhase !== null
+                        || revertPhase !== null
+                    }
+                    previewDisabled={board === null || saveState === "saving" || publishPhase !== null || revertPhase !== null}
                     publishDisabled={
                         board === null
                         || loadedBoardId === null
                         || hasUnsavedChanges
                         || saveState === "saving"
                         || publishPhase !== null
+                        || revertPhase !== null
+                    }
+                    revertDisabled={
+                        board === null
+                        || loadedBoardId === null
+                        || !hasUnsavedChanges
+                        || saveState === "saving"
+                        || publishPhase !== null
+                        || revertPhase !== null
                     }
                     publishGuidance={
                         board !== null && hasUnsavedChanges && saveState !== "saving" && publishPhase === null
@@ -1106,6 +1254,7 @@ function StudioPage() {
                     onSave={handleSave}
                     onPreview={handleOpenPreview}
                     onPublish={handleOpenPublish}
+                    onRevert={handleOpenRevert}
                 />
                 {board === null ? (
                     loadError === null ? (
@@ -1190,6 +1339,14 @@ function StudioPage() {
             ) : null}
             {publishNoticeVisible ? (
                 <PublishNotice onDismiss={dismissPublishNotice} />
+            ) : null}
+            {revertPhase !== null ? (
+                <RevertDraftDialog
+                    phase={revertPhase}
+                    errorMessage={revertError}
+                    onCancel={handleCancelRevert}
+                    onConfirm={handleConfirmRevert}
+                />
             ) : null}
             {deleteDialogOpen ? (
                 <DeleteWidgetDialog
