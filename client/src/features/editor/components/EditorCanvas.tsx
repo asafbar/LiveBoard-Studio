@@ -9,6 +9,7 @@ type EditorCanvasProps = {
     onSelectWidget: (widgetId: string | null) => void;
     onWidgetPositionChange: (widgetId: string, position: { x: number; y: number }) => void;
     onWidgetLayoutChange: (widgetId: string, layout: WidgetLayout) => void;
+    onGestureEnd: () => void;
     onDeleteSelectedWidget: () => void;
 };
 
@@ -30,6 +31,7 @@ function EditorCanvas({
     onSelectWidget,
     onWidgetPositionChange,
     onWidgetLayoutChange,
+    onGestureEnd,
     onDeleteSelectedWidget,
 }: EditorCanvasProps) {
     function handleCanvasKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -59,6 +61,7 @@ function EditorCanvas({
                     onSelectWidget={onSelectWidget}
                     onWidgetPositionChange={onWidgetPositionChange}
                     onWidgetLayoutChange={onWidgetLayoutChange}
+                    onGestureEnd={onGestureEnd}
                 />
             </div>
         </section>

@@ -24,10 +24,14 @@ type StudioTopBarProps = {
     publishGuidance: string | null;
     displayPath: string | null;
     revertDisabled: boolean;
+    undoDisabled: boolean;
+    redoDisabled: boolean;
     onSave: () => void;
     onPreview: () => void;
     onPublish: () => void;
     onRevert: () => void;
+    onUndo: () => void;
+    onRedo: () => void;
 };
 
 type HeaderAction = {
@@ -80,11 +84,32 @@ const saveStatusDotClassName: Record<DraftSaveStatus, string> = {
 };
 
 const quietButtonClassName = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control border border-border bg-surface-raised px-2.5 text-sm font-medium text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent/40 lg:gap-2 lg:px-3";
+const iconButtonClassName = "inline-flex size-9 shrink-0 items-center justify-center rounded-control border border-border bg-surface-raised text-secondary outline-none transition-colors duration-150 hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent/40";
+const iconButtonDisabledClassName = "inline-flex size-9 shrink-0 cursor-not-allowed items-center justify-center rounded-control border border-border bg-surface-raised/40 text-muted opacity-60";
 const quietDisabledClassName = "inline-flex h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-control border border-border bg-surface-raised/40 px-2.5 text-sm font-medium text-muted opacity-60 lg:gap-2 lg:px-3";
 const accentButtonClassName = "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-accent px-2.5 text-sm font-medium text-white outline-none transition-colors duration-150 hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-accent/40 lg:gap-2 lg:px-3";
 const accentDisabledClassName = "inline-flex h-9 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-control bg-accent/40 px-2.5 text-sm font-medium text-white opacity-60 lg:gap-2 lg:px-3";
 const menuItemClassName = "flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-medium text-secondary outline-none hover:bg-surface-hover hover:text-foreground focus-visible:bg-surface-hover focus-visible:text-foreground";
 const menuItemDisabledClassName = "flex h-10 w-full cursor-not-allowed items-center gap-2 px-3 text-left text-sm font-medium text-muted opacity-60";
+
+const historyShortcutLabels = readHistoryShortcutLabels();
+
+function readHistoryShortcutLabels(): { undo: string; redo: string } {
+    const apple = typeof navigator !== "undefined"
+        && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+
+    if (apple) {
+        return {
+            undo: "Undo (⌘Z)",
+            redo: "Redo (⇧⌘Z)",
+        };
+    }
+
+    return {
+        undo: "Undo (Ctrl+Z)",
+        redo: "Redo (Ctrl+Shift+Z or Ctrl+Y)",
+    };
+}
 
 const MENU_GAP = 6;
 const VIEWPORT_MARGIN = 8;
@@ -99,10 +124,14 @@ function StudioTopBar({
     publishGuidance,
     displayPath,
     revertDisabled,
+    undoDisabled,
+    redoDisabled,
     onSave,
     onPreview,
     onPublish,
     onRevert,
+    onUndo,
+    onRedo,
 }: StudioTopBarProps) {
     const navigate = useNavigate();
     const [openPanel, setOpenPanel] = useState<"navigation" | "actions" | null>(null);
@@ -200,6 +229,30 @@ function StudioTopBar({
                         Save Draft
                     </button>
                 ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+                <button
+                    type="button"
+                    onClick={onUndo}
+                    disabled={undoDisabled}
+                    aria-label={historyShortcutLabels.undo}
+                    aria-keyshortcuts="Meta+Z Control+Z"
+                    title={historyShortcutLabels.undo}
+                    className={undoDisabled ? iconButtonDisabledClassName : iconButtonClassName}
+                >
+                    <StudioIcon name="undo" className="size-4" />
+                </button>
+                <button
+                    type="button"
+                    onClick={onRedo}
+                    disabled={redoDisabled}
+                    aria-label={historyShortcutLabels.redo}
+                    aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Control+Y"
+                    title={historyShortcutLabels.redo}
+                    className={redoDisabled ? iconButtonDisabledClassName : iconButtonClassName}
+                >
+                    <StudioIcon name="redo" className="size-4" />
+                </button>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 lg:gap-2">
                 <button

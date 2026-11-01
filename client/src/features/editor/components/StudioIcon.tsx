@@ -29,7 +29,9 @@ export type StudioIconName =
     | "grip"
     | "lock"
     | "unlock"
-    | "revert";
+    | "revert"
+    | "undo"
+    | "redo";
 
 type StudioIconProps = {
     name: StudioIconName;
@@ -224,6 +226,18 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
         <>
             <path d="M4 9h9a4 4 0 1 1 0 8H9" />
             <path d="M7 6 4 9l3 3" />
+        </>
+    ),
+    undo: (
+        <>
+            <path d="M8 8H5v3" />
+            <path d="M5 8a7 7 0 1 1-1 5" />
+        </>
+    ),
+    redo: (
+        <>
+            <path d="M16 8h3v3" />
+            <path d="M19 8a7 7 0 1 0 1 5" />
         </>
     ),
 };

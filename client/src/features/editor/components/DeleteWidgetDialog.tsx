@@ -70,7 +70,7 @@ function DeleteWidgetDialog({ onCancel, onConfirm }: DeleteWidgetDialogProps) {
                 </h2>
                 <p id="delete-widget-message" className="mt-2 text-sm leading-5 text-secondary">
                     Are you sure you want to delete this widget?
-                    This action cannot be undone.
+                    You can undo this until the editing history is cleared.
                 </p>
                 <div className="mt-5 flex justify-end gap-2">
                     <button

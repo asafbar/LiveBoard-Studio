@@ -42,6 +42,14 @@ import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
 import { createWidget } from "../createWidget.ts";
+import {
+    boardsEqual,
+    createDraftHistory,
+    recordDraftChange,
+    redoDraft,
+    undoDraft,
+    type DraftHistory,
+} from "../draftHistory.ts";
 
 function updateTextSettings(
     board: Board,
@@ -491,6 +499,11 @@ function removeWidget(board: Board, widgetId: string): Board {
     };
 }
 
+type OpenGesture = {
+    kind: "position" | "layout";
+    before: Board;
+};
+
 type StudioNoticeProps = {
     title: string;
     message: string;
@@ -512,6 +525,20 @@ function isUnauthorizedError(error: unknown): boolean {
     }
 
     return false;
+}
+
+function isHistoryTypingTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+        return false;
+    }
+
+    if (target.isContentEditable) {
+        return true;
+    }
+
+    const tagName = target.tagName;
+
+    return tagName === "INPUT" || tagName === "TEXTAREA";
 }
 
 function readStudioError(error: unknown, fallback: string): string {
@@ -571,6 +598,17 @@ function StudioPage() {
     const { status: authStatus } = useAuthSession();
     const authStatusRef = useRef(authStatus);
     const [board, setBoard] = useState<Board | null>(null);
+    const boardRef = useRef<Board | null>(null);
+    const savedDraftRef = useRef<Board | null>(null);
+    const historyRef = useRef<DraftHistory>(createDraftHistory());
+    const gestureRef = useRef<OpenGesture | null>(null);
+    const historyLockRef = useRef(false);
+    const undoRef = useRef<() => void>(() => {});
+    const redoRef = useRef<() => void>(() => {});
+    const [historyAvailability, setHistoryAvailability] = useState({
+        canUndo: false,
+        canRedo: false,
+    });
     const [boardName, setBoardName] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -624,6 +662,14 @@ function StudioPage() {
     );
     const blocker = useBlocker(shouldBlockNavigation);
     const navigationLocked = blocker.state === "blocked";
+    historyLockRef.current = deleteDialogOpen
+        || saveState === "saving"
+        || saveInFlightRef.current
+        || publishPhase !== null
+        || publishInFlightRef.current
+        || revertPhase !== null
+        || revertInFlightRef.current
+        || navigationLocked;
 
     useEffect(() => {
         aliveRef.current = true;
@@ -653,7 +699,7 @@ function StudioPage() {
 
                 setLoadedBoardId(record.id);
                 setBoardName(record.name);
-                setBoard(record.draft);
+                resetDocument(record.draft);
                 setLoadError(null);
             })
             .catch((error: unknown) => {
@@ -692,16 +738,159 @@ function StudioPage() {
             && boardIdsMatch(targetBoardId, currentBoardId);
     }
 
-    function updateBoard(update: (currentBoard: Board) => Board) {
-        changeVersionRef.current += 1;
-        setHasUnsavedChanges(true);
-        setBoard((currentBoard) => {
-            if (currentBoard === null) {
-                return currentBoard;
+    function publishHistoryAvailability() {
+        const canUndo = historyRef.current.past.length > 0;
+        const canRedo = historyRef.current.future.length > 0;
+        setHistoryAvailability((current) => {
+            if (current.canUndo === canUndo && current.canRedo === canRedo) {
+                return current;
             }
 
-            return update(currentBoard);
+            return { canUndo, canRedo };
         });
+    }
+
+    function syncDirty(next: Board) {
+        const saved = savedDraftRef.current;
+        setHasUnsavedChanges(saved === null || !boardsEqual(next, saved));
+    }
+
+    function closeGesture() {
+        const gesture = gestureRef.current;
+        gestureRef.current = null;
+        const present = boardRef.current;
+
+        if (gesture === null || present === null || !boardsEqual(present, gesture.before)) {
+            return;
+        }
+
+        const past = historyRef.current.past;
+        const top = past[past.length - 1];
+
+        if (top !== undefined && boardsEqual(top, gesture.before)) {
+            historyRef.current = {
+                past: past.slice(0, -1),
+                future: historyRef.current.future,
+            };
+            syncDirty(present);
+            publishHistoryAvailability();
+        }
+    }
+
+    function rememberEdit(previous: Board) {
+        historyRef.current = recordDraftChange(historyRef.current, previous);
+        changeVersionRef.current += 1;
+    }
+
+    function commitDocument(next: Board) {
+        boardRef.current = next;
+        setBoard(next);
+        syncDirty(next);
+        publishHistoryAvailability();
+    }
+
+    function resetDocument(next: Board) {
+        gestureRef.current = null;
+        historyRef.current = createDraftHistory();
+        savedDraftRef.current = next;
+        boardRef.current = next;
+        changeVersionRef.current += 1;
+        setBoard(next);
+        setHasUnsavedChanges(false);
+        setHistoryAvailability({
+            canUndo: false,
+            canRedo: false,
+        });
+    }
+
+    function applyDocumentUpdate(
+        update: (currentBoard: Board) => Board,
+        gestureKind: OpenGesture["kind"] | null,
+    ) {
+        const current = boardRef.current;
+
+        if (current === null) {
+            return;
+        }
+
+        const next = update(current);
+
+        if (boardsEqual(current, next)) {
+            return;
+        }
+
+        if (gestureKind === null) {
+            closeGesture();
+            rememberEdit(boardRef.current ?? current);
+        } else if (gestureRef.current === null || gestureRef.current.kind !== gestureKind) {
+            closeGesture();
+            const before = boardRef.current ?? current;
+            gestureRef.current = { kind: gestureKind, before };
+            rememberEdit(before);
+        }
+
+        commitDocument(next);
+    }
+
+    function updateBoard(update: (currentBoard: Board) => Board) {
+        applyDocumentUpdate(update, null);
+    }
+
+    function handleGestureEnd() {
+        closeGesture();
+    }
+
+    function historyIsLocked(): boolean {
+        return boardRef.current === null
+            || historyLockRef.current
+            || gestureRef.current !== null
+            || saveInFlightRef.current
+            || publishInFlightRef.current
+            || revertInFlightRef.current;
+    }
+
+    function handleUndo() {
+        if (historyIsLocked()) {
+            return;
+        }
+
+        const present = boardRef.current;
+
+        if (present === null) {
+            return;
+        }
+
+        const step = undoDraft(historyRef.current, present);
+
+        if (step === null) {
+            return;
+        }
+
+        historyRef.current = step.history;
+        changeVersionRef.current += 1;
+        commitDocument(step.present);
+    }
+
+    function handleRedo() {
+        if (historyIsLocked()) {
+            return;
+        }
+
+        const present = boardRef.current;
+
+        if (present === null) {
+            return;
+        }
+
+        const step = redoDraft(historyRef.current, present);
+
+        if (step === null) {
+            return;
+        }
+
+        historyRef.current = step.history;
+        changeVersionRef.current += 1;
+        commitDocument(step.present);
     }
 
     function handleSave() {
@@ -715,8 +904,12 @@ function StudioPage() {
             return;
         }
 
-        const snapshot = board;
-        const snapshotVersion = changeVersionRef.current;
+        const snapshot = boardRef.current;
+
+        if (snapshot === null) {
+            return;
+        }
+
         const targetBoardId = loadedBoardId;
         saveInFlightRef.current = true;
         setSaveRestoreTarget(document.activeElement instanceof HTMLElement
@@ -731,7 +924,9 @@ function StudioPage() {
                     return;
                 }
 
-                setHasUnsavedChanges(changeVersionRef.current !== snapshotVersion);
+                savedDraftRef.current = snapshot;
+                const current = boardRef.current;
+                setHasUnsavedChanges(current === null || !boardsEqual(current, snapshot));
                 setSaveState("idle");
             })
             .catch((error: unknown) => {
@@ -739,7 +934,9 @@ function StudioPage() {
                     return;
                 }
 
-                setHasUnsavedChanges(true);
+                const current = boardRef.current;
+                const saved = savedDraftRef.current;
+                setHasUnsavedChanges(current === null || saved === null || !boardsEqual(current, saved));
                 setSaveState("failed");
                 setSaveError(readStudioError(
                     error,
@@ -776,6 +973,7 @@ function StudioPage() {
             return;
         }
 
+        historyLockRef.current = true;
         setPublishError(null);
         setPublishPhase("confirm");
     }
@@ -879,6 +1077,7 @@ function StudioPage() {
             return;
         }
 
+        historyLockRef.current = true;
         setRevertError(null);
         setRevertPhase("confirm");
     }
@@ -928,9 +1127,8 @@ function StudioPage() {
                     return;
                 }
 
-                setBoard(record.draft);
+                resetDocument(record.draft);
                 setReveal({ boardId, widgetId: null });
-                setHasUnsavedChanges(false);
                 setSaveState("idle");
                 setSaveError(null);
                 setRevertPhase(null);
@@ -1022,11 +1220,17 @@ function StudioPage() {
     }
 
     function handleWidgetPositionChange(widgetId: string, position: { x: number; y: number }) {
-        updateBoard((currentBoard) => updateWidgetPosition(currentBoard, widgetId, position.x, position.y));
+        applyDocumentUpdate(
+            (currentBoard) => updateWidgetPosition(currentBoard, widgetId, position.x, position.y),
+            "position",
+        );
     }
 
     function handleWidgetLayoutChange(widgetId: string, layout: WidgetLayout) {
-        updateBoard((currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout));
+        applyDocumentUpdate(
+            (currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout),
+            "layout",
+        );
     }
 
     function handleMoveWidget(widgetId: string, move: LayerMove) {
@@ -1121,6 +1325,7 @@ function StudioPage() {
         restoreFocusRef.current = document.activeElement instanceof HTMLElement
             ? document.activeElement
             : null;
+        historyLockRef.current = true;
         setDeleteDialogOpen(true);
     }
 
@@ -1132,6 +1337,51 @@ function StudioPage() {
         handleDeleteSelectedWidget();
         setDeleteDialogOpen(false);
     }
+
+    undoRef.current = handleUndo;
+    redoRef.current = handleRedo;
+
+    useEffect(() => {
+        function handleHistoryKeyDown(event: KeyboardEvent) {
+            if (event.isComposing || event.key === "Process") {
+                return;
+            }
+
+            if (isHistoryTypingTarget(event.target)) {
+                return;
+            }
+
+            const primaryModifier = event.metaKey || event.ctrlKey;
+
+            if (!primaryModifier || event.altKey) {
+                return;
+            }
+
+            const key = event.key.toLowerCase();
+            const redoShortcut = (key === "z" && event.shiftKey)
+                || (key === "y" && event.ctrlKey && !event.metaKey && !event.shiftKey);
+            const undoShortcut = key === "z" && !event.shiftKey;
+
+            if (!undoShortcut && !redoShortcut) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (redoShortcut) {
+                redoRef.current();
+                return;
+            }
+
+            undoRef.current();
+        }
+
+        window.addEventListener("keydown", handleHistoryKeyDown);
+
+        return () => {
+            window.removeEventListener("keydown", handleHistoryKeyDown);
+        };
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -1255,6 +1505,26 @@ function StudioPage() {
                     onPreview={handleOpenPreview}
                     onPublish={handleOpenPublish}
                     onRevert={handleOpenRevert}
+                    undoDisabled={
+                        board === null
+                        || !historyAvailability.canUndo
+                        || deleteDialogOpen
+                        || saveState === "saving"
+                        || publishPhase !== null
+                        || revertPhase !== null
+                        || navigationLocked
+                    }
+                    redoDisabled={
+                        board === null
+                        || !historyAvailability.canRedo
+                        || deleteDialogOpen
+                        || saveState === "saving"
+                        || publishPhase !== null
+                        || revertPhase !== null
+                        || navigationLocked
+                    }
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
                 />
                 {board === null ? (
                     loadError === null ? (
@@ -1292,6 +1562,7 @@ function StudioPage() {
                             }}
                             onWidgetPositionChange={handleWidgetPositionChange}
                             onWidgetLayoutChange={handleWidgetLayoutChange}
+                            onGestureEnd={handleGestureEnd}
                             onDeleteSelectedWidget={handleRequestDeleteSelectedWidget}
                         />
                         <PropertiesPanel

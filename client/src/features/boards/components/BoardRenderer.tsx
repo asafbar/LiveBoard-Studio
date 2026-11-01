@@ -19,6 +19,7 @@ type BoardRendererProps = {
     onSelectWidget?: (widgetId: string | null) => void;
     onWidgetPositionChange?: (widgetId: string, position: WidgetPosition) => void;
     onWidgetLayoutChange?: (widgetId: string, layout: WidgetLayout) => void;
+    onGestureEnd?: () => void;
 };
 
 type WidgetViewProps = {
@@ -31,6 +32,7 @@ type WidgetViewProps = {
     onWidgetPositionChange?: (widgetId: string, position: WidgetPosition) => void;
     onWidgetLayoutChange?: (widgetId: string, layout: WidgetLayout) => void;
     onDragRelease?: () => void;
+    onGestureEnd?: () => void;
 };
 
 type DragSession = {
@@ -347,6 +349,7 @@ function WidgetView({
     onWidgetPositionChange,
     onWidgetLayoutChange,
     onDragRelease,
+    onGestureEnd,
 }: WidgetViewProps) {
     const frameRef = useRef<HTMLDivElement>(null);
     const dragSessionRef = useRef<DragSession | null>(null);
@@ -425,7 +428,12 @@ function WidgetView({
             return;
         }
 
+        const moved = session.dragging;
         dragSessionRef.current = null;
+
+        if (moved) {
+            onGestureEnd?.();
+        }
 
         if (element.hasPointerCapture(pointerId)) {
             element.releasePointerCapture(pointerId);
@@ -557,7 +565,12 @@ function WidgetView({
             return;
         }
 
+        const resized = session.resizing;
         resizeSessionRef.current = null;
+
+        if (resized) {
+            onGestureEnd?.();
+        }
 
         if (element.hasPointerCapture(pointerId)) {
             element.releasePointerCapture(pointerId);
@@ -718,6 +731,7 @@ function BoardRenderer({
     onSelectWidget,
     onWidgetPositionChange,
     onWidgetLayoutChange,
+    onGestureEnd,
 }: BoardRendererProps) {
     const interactive = onSelectWidget !== undefined;
     const suppressStageClickRef = useRef(false);
@@ -767,6 +781,7 @@ function BoardRenderer({
                             onWidgetPositionChange={onWidgetPositionChange}
                             onWidgetLayoutChange={onWidgetLayoutChange}
                             onDragRelease={handleDragRelease}
+                            onGestureEnd={onGestureEnd}
                         />
                     ))}
                 </div>
