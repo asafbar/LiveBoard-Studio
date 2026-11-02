@@ -5,11 +5,17 @@ Visual digital signage editor with realtime display management
 
 Image bytes are stored as files. PostgreSQL keeps metadata only, in `media_assets`. The default directory is `server/storage/media`, which Git ignores. Set `MEDIA_DIR` in `server/.env` to move it. The directory must stay outside `client/public`.
 
-`compose.yaml` is unchanged. When the API is containerized, add a volume that is separate from the PostgreSQL data volume:
+`compose.yaml` remains the development PostgreSQL file. `compose.prod.yaml` is a separate production definition and is not started as part of development. It publishes only web on `127.0.0.1`, keeps the API and PostgreSQL on the Compose network, and reuses the external volume `liveboard-studio_liveboard_studio_db` at `/var/lib/postgresql`. Do not start that file while `liveboard-studio-db-1` is running. Do not run `docker compose down -v`.
 
-- Volume name: `liveboard_studio_media`
-- Container path: `/app/storage/media`
-- Environment: `MEDIA_DIR=/app/storage/media`
+The production API mounts a different named volume, `liveboard-studio_liveboard_studio_media`, at `/app/storage/media` and sets `MEDIA_DIR=/app/storage/media`. That volume stays empty until the three files in `server/storage/media` are copied into it. The copy has not been run. Do not overwrite a destination file, and leave the host files in place. The reviewed checksums are:
+
+- `c849ee75-6331-42be-86db-44896dc00e74.jpg`, 542628 bytes, SHA-256 `5aaac7525b10caceedb5583580061c2c8c27647c3de52fc75fc5c3c02ec60324`
+- `e87d4ee0-f699-4409-937b-46467dbf20ef.jpg`, 152043 bytes, SHA-256 `ab06b3437a54d1a3b5e74fd51f640f49793ba0599be6914ed50598b15c2503fa`
+- `fce15274-8f44-4636-acc6-6730329bbaf7.jpg`, 94497 bytes, SHA-256 `2907f7d2a8739c10a9fd49125e299ee13a248f4758e342100782e86062e97b2c`
+
+Use a one-off container with the host directory mounted read-only and the named volume mounted read-write. Override the image entrypoint so PostgreSQL does not start, and do not mount the database volume. Copy each file only when that filename is absent. If it is present and the checksum differs, stop. After a matching copy, change ownership to uid 1000, gid 1000, so the API user can read and write.
+
+After the production database is the only PostgreSQL process attached to the existing volume, apply migrations once with `node src/db/migrate.js`. Do not run that command on API startup. Do not run `src/db/seed.js` or `src/db/bootstrapAdmin.js`.
 
 The existing Tech Summit images in `client/public/media/tech-summit/` stay static assets.
 
