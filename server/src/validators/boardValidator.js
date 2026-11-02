@@ -11,6 +11,18 @@ const MIN_TICKER_SPEED = 20;
 const MAX_TICKER_SPEED = 400;
 const MIN_TICKER_FONT_SIZE = 12;
 const MAX_TICKER_FONT_SIZE = 160;
+const MAX_VERTICAL_ANNOUNCEMENTS = 40;
+const MIN_VERTICAL_SPEED = 20;
+const MAX_VERTICAL_SPEED = 400;
+const MIN_VERTICAL_PAUSE_SECONDS = 0;
+const MAX_VERTICAL_PAUSE_SECONDS = 30;
+const MIN_VERTICAL_TITLE_FONT_SIZE = 12;
+const MAX_VERTICAL_TITLE_FONT_SIZE = 120;
+const MIN_VERTICAL_DESCRIPTION_FONT_SIZE = 12;
+const MAX_VERTICAL_DESCRIPTION_FONT_SIZE = 96;
+const MAX_VERTICAL_TITLE_LENGTH = 200;
+const MAX_VERTICAL_DESCRIPTION_LENGTH = 500;
+const MAX_VERTICAL_LABEL_LENGTH = 80;
 const MAX_BORDER_RADIUS = 240;
 const MAX_TEXT_LENGTH = 4000;
 const MAX_SHORT_TEXT_LENGTH = 200;
@@ -19,7 +31,7 @@ const MAX_ID_LENGTH = 80;
 const MAX_LAYER_NAME_LENGTH = 80;
 const MAX_COLOR_LENGTH = 200;
 
-const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker"];
+const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker", "vertical-announcements"];
 const WIDGET_KEYS = ["id", "type", "layout", "settings", "layerName", "visible", "locked"];
 const TEXT_TONES = ["default", "accent"];
 const TEXT_SIZES = ["title", "display"];
@@ -336,6 +348,10 @@ function sanitizeSettings(type, settings, path, errors) {
         return sanitizeTickerSettings(settings, path, errors);
     }
 
+    if (type === "vertical-announcements") {
+        return sanitizeVerticalAnnouncementsSettings(settings, path, errors);
+    }
+
     return null;
 }
 
@@ -547,6 +563,167 @@ function sanitizeTickerSettings(settings, path, errors) {
     return nextSettings;
 }
 
+function sanitizeVerticalAnnouncementsSettings(settings, path, errors) {
+    rejectUnknownKeys(
+        settings,
+        [
+            "items",
+            "speed",
+            "backgroundColor",
+            "textColor",
+            "accentColor",
+            "borderRadius",
+            "pauseSeconds",
+            "fontFamily",
+            "titleFontSize",
+            "descriptionFontSize",
+            "fontWeight"
+        ],
+        path,
+        errors
+    );
+
+    const nextSettings = {
+        items: sanitizeVerticalAnnouncementItems(settings.items, `${path}.items`, errors),
+        speed: readIntegerInRange(settings.speed, `${path}.speed`, MIN_VERTICAL_SPEED, MAX_VERTICAL_SPEED, errors),
+        backgroundColor: readColor(settings.backgroundColor, `${path}.backgroundColor`, errors),
+        textColor: readColor(settings.textColor, `${path}.textColor`, errors),
+        accentColor: readColor(settings.accentColor, `${path}.accentColor`, errors),
+        borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
+    };
+
+    if (settings.pauseSeconds !== undefined) {
+        nextSettings.pauseSeconds = readIntegerInRange(
+            settings.pauseSeconds,
+            `${path}.pauseSeconds`,
+            MIN_VERTICAL_PAUSE_SECONDS,
+            MAX_VERTICAL_PAUSE_SECONDS,
+            errors
+        );
+    }
+
+    if (settings.fontFamily !== undefined) {
+        nextSettings.fontFamily = readChoice(
+            settings.fontFamily,
+            `${path}.fontFamily`,
+            TICKER_FONT_FAMILIES,
+            errors
+        );
+    }
+
+    if (settings.titleFontSize !== undefined) {
+        nextSettings.titleFontSize = readIntegerInRange(
+            settings.titleFontSize,
+            `${path}.titleFontSize`,
+            MIN_VERTICAL_TITLE_FONT_SIZE,
+            MAX_VERTICAL_TITLE_FONT_SIZE,
+            errors
+        );
+    }
+
+    if (settings.descriptionFontSize !== undefined) {
+        nextSettings.descriptionFontSize = readIntegerInRange(
+            settings.descriptionFontSize,
+            `${path}.descriptionFontSize`,
+            MIN_VERTICAL_DESCRIPTION_FONT_SIZE,
+            MAX_VERTICAL_DESCRIPTION_FONT_SIZE,
+            errors
+        );
+    }
+
+    if (settings.fontWeight !== undefined) {
+        const weight = readInteger(settings.fontWeight, `${path}.fontWeight`, errors);
+
+        if (weight !== null && !TICKER_FONT_WEIGHTS.includes(weight)) {
+            errors.push({
+                path: `${path}.fontWeight`,
+                message: "Value is not supported."
+            });
+        }
+
+        if (weight !== null) {
+            nextSettings.fontWeight = weight;
+        }
+    }
+
+    return nextSettings;
+}
+
+function sanitizeVerticalAnnouncementItems(items, path, errors) {
+    if (!Array.isArray(items)) {
+        errors.push({
+            path,
+            message: "Announcements must be an array."
+        });
+        return [];
+    }
+
+    if (items.length > MAX_VERTICAL_ANNOUNCEMENTS) {
+        errors.push({
+            path,
+            message: `A vertical announcements widget can contain at most ${MAX_VERTICAL_ANNOUNCEMENTS} items.`
+        });
+        return [];
+    }
+
+    const ids = new Set();
+
+    return items.map((item, index) => {
+        const itemPath = `${path}.${index}`;
+
+        if (!isPlainObject(item)) {
+            errors.push({
+                path: itemPath,
+                message: "Announcement must be an object."
+            });
+            return null;
+        }
+
+        rejectUnknownKeys(item, ["id", "title", "description", "label"], itemPath, errors);
+
+        const id = readId(item.id, `${itemPath}.id`, errors);
+
+        if (id !== null && ids.has(id)) {
+            errors.push({
+                path: `${itemPath}.id`,
+                message: "Announcement ids must be unique."
+            });
+        }
+
+        if (id !== null) {
+            ids.add(id);
+        }
+
+        const nextItem = {
+            id,
+            title: readRequiredText(item.title, `${itemPath}.title`, MAX_VERTICAL_TITLE_LENGTH, errors, true)
+        };
+
+        if (item.description !== undefined) {
+            nextItem.description = readRequiredText(
+                item.description,
+                `${itemPath}.description`,
+                MAX_VERTICAL_DESCRIPTION_LENGTH,
+                errors,
+                true,
+                true
+            );
+        }
+
+        if (item.label !== undefined) {
+            nextItem.label = readRequiredText(
+                item.label,
+                `${itemPath}.label`,
+                MAX_VERTICAL_LABEL_LENGTH,
+                errors,
+                true
+            );
+        }
+
+        return nextItem;
+    });
+}
+
 function sanitizeTickerMessages(messages, path, errors) {
     if (!Array.isArray(messages)) {
         errors.push({
@@ -665,8 +842,8 @@ function readId(value, path, errors) {
     return value.trim();
 }
 
-function readRequiredText(value, path, maxLength, errors, allowEmpty = false) {
-    if (typeof value !== "string" || hasControlCharacter(value)) {
+function readRequiredText(value, path, maxLength, errors, allowEmpty = false, allowNewlines = false) {
+    if (typeof value !== "string") {
         errors.push({
             path,
             message: "Text is required."
@@ -674,14 +851,28 @@ function readRequiredText(value, path, maxLength, errors, allowEmpty = false) {
         return null;
     }
 
-    const text = value.trim();
-
-    if ((!allowEmpty && text === "") || text.length > maxLength) {
+    if (hasDisallowedControlCharacter(value, allowNewlines)) {
         errors.push({
             path,
-            message: allowEmpty
-                ? `Text must be at most ${maxLength} characters.`
-                : `Text is required and must be at most ${maxLength} characters.`
+            message: "Text contains unsupported characters."
+        });
+        return null;
+    }
+
+    const text = value.trim();
+
+    if (!allowEmpty && text === "") {
+        errors.push({
+            path,
+            message: "Text is required."
+        });
+        return null;
+    }
+
+    if (text.length > maxLength) {
+        errors.push({
+            path,
+            message: `Text must be at most ${maxLength} characters.`
         });
         return null;
     }
@@ -890,8 +1081,17 @@ function normalizeImageSource(value) {
 }
 
 function hasControlCharacter(value) {
+    return hasDisallowedControlCharacter(value, false);
+}
+
+function hasDisallowedControlCharacter(value, allowNewlines) {
     for (let index = 0; index < value.length; index += 1) {
         const code = value.charCodeAt(index);
+        const newline = code === 10 || code === 13;
+
+        if (allowNewlines && newline) {
+            continue;
+        }
 
         if (code <= 31 || code === 127) {
             return true;

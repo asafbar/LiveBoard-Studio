@@ -27,15 +27,27 @@ type BoardFieldErrors = {
     name?: string;
 };
 
+type ApiFieldIssue = {
+    path: string;
+    message: string;
+};
+
 class BoardRequestError extends Error {
     readonly statusCode: number | null;
     readonly fieldErrors: BoardFieldErrors;
+    readonly issues: ApiFieldIssue[];
 
-    constructor(message: string, statusCode: number | null, fieldErrors: BoardFieldErrors) {
+    constructor(
+        message: string,
+        statusCode: number | null,
+        fieldErrors: BoardFieldErrors,
+        issues: ApiFieldIssue[] = [],
+    ) {
         super(message);
         this.name = "BoardRequestError";
         this.statusCode = statusCode;
         this.fieldErrors = fieldErrors;
+        this.issues = issues;
     }
 }
 
@@ -272,9 +284,9 @@ async function saveBoardDraft(boardId: string, draft: Board): Promise<void> {
             draft,
         );
     } catch (error: unknown) {
-        throw new Error(
-            readRequestError(error, "The draft could not be saved. Check that the API is running, then try again."),
-            { cause: error },
+        throw asBoardRequestError(
+            error,
+            "The draft could not be saved. Check that the API is running, then try again.",
         );
     }
 
@@ -364,6 +376,7 @@ function asBoardRequestError(error: unknown, fallback: string): BoardRequestErro
         readRequestError(error, fallback),
         error.response?.status ?? null,
         readBoardFieldErrors(error.response?.data),
+        readApiFieldIssues(error.response?.data),
     );
 }
 
@@ -396,6 +409,39 @@ function readBoardFieldErrors(value: unknown): BoardFieldErrors {
     }
 
     return fieldErrors;
+}
+
+function readApiFieldIssues(value: unknown): ApiFieldIssue[] {
+    if (typeof value !== "object" || value === null || !("errors" in value)) {
+        return [];
+    }
+
+    const errors = value.errors;
+
+    if (!Array.isArray(errors)) {
+        return [];
+    }
+
+    const issues: ApiFieldIssue[] = [];
+
+    for (const item of errors) {
+        if (typeof item !== "object" || item === null) {
+            continue;
+        }
+
+        const pathValue: unknown = "path" in item ? item.path : "";
+        const messageValue: unknown = "message" in item ? item.message : "";
+        const path = typeof pathValue === "string" ? pathValue : "";
+        const message = typeof messageValue === "string" ? messageValue.trim() : "";
+
+        if (path === "" || message === "") {
+            continue;
+        }
+
+        issues.push({ path, message });
+    }
+
+    return issues;
 }
 
 function readBoardWriteResult(value: unknown): BoardWriteResult | null {
@@ -507,6 +553,7 @@ export {
 };
 
 export type {
+    ApiFieldIssue,
     BoardSummary,
     BoardWriteResult,
 };

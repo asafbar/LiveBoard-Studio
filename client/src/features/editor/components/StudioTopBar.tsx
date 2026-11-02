@@ -135,7 +135,9 @@ function StudioTopBar({
 }: StudioTopBarProps) {
     const navigate = useNavigate();
     const [openPanel, setOpenPanel] = useState<"navigation" | "actions" | null>(null);
-    const statusLabel = saveStatus === null ? null : saveStatusLabel[saveStatus];
+    const statusLabel = saveStatus === "failed" && saveError !== null
+        ? saveError
+        : saveStatus === null ? null : saveStatusLabel[saveStatus];
     const statusDescription = saveStatus === "failed" && saveError !== null
         ? `Save failed. ${saveError}`
         : undefined;
@@ -313,10 +315,10 @@ function SaveStatus({ label, description, className, dotClassName }: SaveStatusP
             aria-live="polite"
             aria-label={description}
             title={description}
-            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-xs font-medium ${className}`}
+            className={`inline-flex min-w-0 max-w-72 items-center gap-2 text-xs font-medium ${className}`}
         >
-            <span className={`size-1.5 rounded-full ${dotClassName}`} aria-hidden="true" />
-            {label}
+            <span className={`size-1.5 shrink-0 rounded-full ${dotClassName}`} aria-hidden="true" />
+            <span className="truncate">{label}</span>
         </p>
     );
 }

@@ -33,6 +33,8 @@ function defaultWidgetSize(type: WidgetType): WidgetSize {
             return { width: 520, height: 280 };
         case "ticker":
             return { width: 1440, height: 88 };
+        case "vertical-announcements":
+            return { width: 440, height: 720 };
     }
 }
 
@@ -207,6 +209,31 @@ function createWidget(type: WidgetType, board: Board): Widget {
                         { id: firstMessageId, text: "ברוכים הבאים" },
                         { id: secondMessageId, text: "Welcome" },
                         { id: thirdMessageId, text: "האירוע מתחיל בקרוב" },
+                    ],
+                },
+            };
+        }
+        case "vertical-announcements": {
+            const itemIds = new Set(existingIds);
+            itemIds.add(id);
+
+            return {
+                id,
+                type,
+                layout,
+                settings: {
+                    speed: 40,
+                    backgroundColor: "color-mix(in srgb, var(--canvas-board) 88%, var(--foreground))",
+                    textColor: "var(--foreground)",
+                    accentColor: "var(--cyan)",
+                    borderRadius: 16,
+                    items: [
+                        {
+                            id: createWidgetId(itemIds),
+                            title: "",
+                            description: "",
+                            label: "",
+                        },
                     ],
                 },
             };

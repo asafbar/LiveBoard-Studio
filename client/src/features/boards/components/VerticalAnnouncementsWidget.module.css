@@ -1,0 +1,83 @@
+.panel {
+    width: 100%;
+    height: 100%;
+    overflow: clip;
+    box-sizing: border-box;
+    pointer-events: none;
+    border-radius: var(--vertical-radius, 0px);
+}
+
+.viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: clip;
+    border-radius: inherit;
+}
+
+.sample {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.track,
+.half,
+.sequence {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    width: 100%;
+}
+
+.item {
+    flex: none;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 18px 22px 20px;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+    border-left: 3px solid var(--vertical-accent);
+}
+
+.label,
+.title,
+.description {
+    margin: 0;
+    overflow-wrap: anywhere;
+    unicode-bidi: isolate;
+}
+
+.label {
+    margin-bottom: 0.35em;
+    line-height: 1.2;
+}
+
+.title {
+    line-height: 1.25;
+}
+
+.description {
+    margin-top: 0.35em;
+    color: color-mix(in srgb, currentColor 78%, transparent);
+    line-height: 1.45;
+}
+
+.empty {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding-inline: 1.25rem;
+    color: color-mix(in srgb, currentColor 68%, transparent);
+    line-height: 1.3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .track {
+        transform: none;
+    }
+}

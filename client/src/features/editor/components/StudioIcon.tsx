@@ -8,6 +8,7 @@ export type StudioIconName =
     | "video"
     | "announcements"
     | "ticker"
+    | "vertical-announcements"
     | "gallery"
     | "countdown"
     | "qr"
@@ -85,6 +86,15 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
             <rect x="3" y="8" width="18" height="8" rx="2" />
             <path d="M7 12h5" />
             <path d="m10.5 10 2 2-2 2" />
+        </>
+    ),
+    "vertical-announcements": (
+        <>
+            <path d="M8 19V7" />
+            <path d="m5 10 3-3 3 3" />
+            <path d="M14 8h5" />
+            <path d="M14 12h5" />
+            <path d="M14 16h5" />
         </>
     ),
     gallery: (

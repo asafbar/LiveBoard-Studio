@@ -19,6 +19,7 @@ const libraryItems: LibraryItem[] = [
     { name: "Image", icon: "image", type: "image" },
     { name: "Information Card", icon: "information-card", type: "information-card" },
     { name: "Announcements", icon: "announcements", type: "announcements" },
+    { name: "Vertical Announcements", icon: "vertical-announcements", type: "vertical-announcements" },
     { name: "Ticker", icon: "ticker", type: "ticker" },
     { name: "Video", icon: "video", type: null },
     { name: "Gallery", icon: "gallery", type: null },

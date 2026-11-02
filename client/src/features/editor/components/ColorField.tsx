@@ -1,11 +1,15 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { hexColorInputValue, normalizeCssColor } from "../cssColor.ts";
+import { colorInputHex, normalizeCssColor } from "../cssColor.ts";
 
 type ColorFieldProps = {
     label: string;
     value: string;
     onColorChange: (color: string) => void;
+    onSessionEnd?: () => void;
+    hint?: string;
+    validationPath?: string;
+    issueMessage?: string | null;
 };
 
 type PopoverPlacement = {
@@ -52,49 +56,81 @@ function placePopover(anchor: DOMRect, height: number): PopoverPlacement {
     };
 }
 
-function ColorField({ label, value, onColorChange }: ColorFieldProps) {
+function ColorField({
+    label,
+    value,
+    onColorChange,
+    onSessionEnd,
+    hint,
+    validationPath,
+    issueMessage = null,
+}: ColorFieldProps) {
     const titleId = useId();
+    const hintId = useId();
     const triggerRef = useRef<HTMLButtonElement>(null);
     const popoverRef = useRef<HTMLDivElement>(null);
     const hexRef = useRef<HTMLInputElement>(null);
+    const publishedRef = useRef(value);
+    const changedRef = useRef(false);
+    const onSessionEndRef = useRef(onSessionEnd);
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState(value);
-    const [pickerHex, setPickerHex] = useState(hexColorInputValue(value));
+    const [pickerHex, setPickerHex] = useState(() => colorInputHex(value));
     const [pickerKey, setPickerKey] = useState(0);
     const [placement, setPlacement] = useState<PopoverPlacement>({ top: 0, left: 0 });
-    const appliedColor = commitColor(draft);
-    const canApply = appliedColor !== null && appliedColor !== value;
 
-    function closePopover() {
+    useEffect(() => {
+        onSessionEndRef.current = onSessionEnd;
+    }, [onSessionEnd]);
+
+    function finishSession() {
+        if (!changedRef.current) {
+            return;
+        }
+
+        changedRef.current = false;
+        onSessionEndRef.current?.();
+    }
+
+    function closePopover(restoreFocus: boolean) {
+        finishSession();
         setOpen(false);
-        triggerRef.current?.focus();
+
+        if (restoreFocus) {
+            triggerRef.current?.focus();
+        }
     }
 
     function openPopover() {
+        publishedRef.current = value;
+        changedRef.current = false;
         setDraft(value);
-        setPickerHex(hexColorInputValue(value));
+        setPickerHex(colorInputHex(value));
         setPickerKey((current) => current + 1);
         setOpen(true);
     }
 
-    function handleApply() {
-        if (appliedColor === null || appliedColor === value) {
-            closePopover();
+    function publish(next: string) {
+        const color = commitColor(next);
+
+        if (color === null || color === publishedRef.current) {
             return;
         }
 
-        onColorChange(appliedColor);
-        closePopover();
+        publishedRef.current = color;
+        changedRef.current = true;
+        onColorChange(color);
     }
 
     function handlePickerInput(event: FormEvent<HTMLInputElement>) {
         const next = event.currentTarget.value.toLowerCase();
         setDraft(next);
         setPickerHex(next);
+        publish(next);
     }
 
     function handleHexChange(event: ChangeEvent<HTMLInputElement>) {
-        const next = event.currentTarget.value;
+        const next = event.target.value;
         setDraft(next);
         const color = commitColor(next);
 
@@ -103,6 +139,8 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
         }
 
         setPickerHex(color);
+        setPickerKey((current) => current + 1);
+        publish(color);
     }
 
     useLayoutEffect(() => {
@@ -127,6 +165,19 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
             return;
         }
 
+        function closeFromDocument(restoreFocus: boolean) {
+            if (changedRef.current) {
+                changedRef.current = false;
+                onSessionEndRef.current?.();
+            }
+
+            setOpen(false);
+
+            if (restoreFocus) {
+                triggerRef.current?.focus();
+            }
+        }
+
         function handlePointerDown(event: PointerEvent) {
             const target = event.target;
 
@@ -138,7 +189,7 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
                 return;
             }
 
-            setOpen(false);
+            closeFromDocument(false);
         }
 
         function handleKeyDown(event: KeyboardEvent) {
@@ -148,8 +199,7 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
 
             event.preventDefault();
             event.stopPropagation();
-            setOpen(false);
-            triggerRef.current?.focus();
+            closeFromDocument(true);
         }
 
         document.addEventListener("pointerdown", handlePointerDown);
@@ -160,6 +210,17 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
             document.removeEventListener("keydown", handleKeyDown);
         };
     }, [open]);
+
+    useEffect(() => {
+        return () => {
+            if (!changedRef.current) {
+                return;
+            }
+
+            changedRef.current = false;
+            onSessionEndRef.current?.();
+        };
+    }, []);
 
     const popoverStyle: CSSProperties = {
         top: placement.top,
@@ -175,16 +236,23 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
                 type="button"
                 aria-expanded={open}
                 aria-haspopup="dialog"
+                aria-invalid={issueMessage !== null}
+                aria-describedby={hint === undefined ? undefined : hintId}
                 aria-label={`${label} color`}
+                data-validation-path={validationPath}
                 onClick={() => {
                     if (open) {
-                        closePopover();
+                        closePopover(true);
                         return;
                     }
 
                     openPopover();
                 }}
-                className="flex h-9 items-center gap-2 rounded-control border border-border bg-surface-raised px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                className={
+                    issueMessage === null
+                        ? "flex h-9 items-center gap-2 rounded-control border border-border bg-surface-raised px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                        : "flex h-9 items-center gap-2 rounded-control border border-danger-border bg-surface-raised px-2 text-left outline-none ring-1 ring-danger/40 focus-visible:ring-2 focus-visible:ring-accent/40"
+                }
             >
                 <span
                     aria-hidden="true"
@@ -193,6 +261,12 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
                 />
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{value}</span>
             </button>
+            {hint === undefined ? null : (
+                <p id={hintId} className="text-xs text-muted">{hint}</p>
+            )}
+            {issueMessage === null ? null : (
+                <p className="text-xs text-danger" role="alert">{issueMessage}</p>
+            )}
             {open ? createPortal(
                 <div
                     ref={popoverRef}
@@ -220,32 +294,11 @@ function ColorField({ label, value, onColorChange }: ColorFieldProps) {
                             onKeyDown={(event) => {
                                 if (event.key === "Enter") {
                                     event.preventDefault();
-                                    handleApply();
+                                    closePopover(true);
                                 }
                             }}
                             className="h-9 min-w-0 flex-1 rounded-control border border-border bg-surface-raised px-3 font-mono text-sm text-foreground outline-none"
                         />
-                    </div>
-                    <div className="mt-3 flex justify-end gap-2">
-                        <button
-                            type="button"
-                            onClick={closePopover}
-                            className="h-8 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-secondary"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            disabled={!canApply}
-                            onClick={handleApply}
-                            className={
-                                canApply
-                                    ? "h-8 rounded-control bg-accent px-3 text-sm font-medium text-white"
-                                    : "h-8 cursor-not-allowed rounded-control bg-accent/40 px-3 text-sm font-medium text-white opacity-60"
-                            }
-                        >
-                            Apply
-                        </button>
                     </div>
                 </div>,
                 document.body,

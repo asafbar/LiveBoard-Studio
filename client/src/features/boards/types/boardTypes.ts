@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker";
+export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements";
 
 export type WidgetLayout = {
     x: number;
@@ -81,6 +81,27 @@ export type TickerWidgetSettings = {
     fontWeight?: TickerFontWeight;
 };
 
+export type VerticalAnnouncementItem = {
+    id: string;
+    title: string;
+    description?: string;
+    label?: string;
+};
+
+export type VerticalAnnouncementsWidgetSettings = {
+    items: VerticalAnnouncementItem[];
+    speed: number;
+    backgroundColor: string;
+    textColor: string;
+    accentColor: string;
+    borderRadius: number;
+    pauseSeconds?: number;
+    fontFamily?: TickerFontFamily;
+    titleFontSize?: number;
+    descriptionFontSize?: number;
+    fontWeight?: TickerFontWeight;
+};
+
 export type Widget = {
     id: string;
     layout: WidgetLayout;
@@ -111,6 +132,10 @@ export type Widget = {
     | {
         type: "ticker";
         settings: TickerWidgetSettings;
+    }
+    | {
+        type: "vertical-announcements";
+        settings: VerticalAnnouncementsWidgetSettings;
     }
 );
 

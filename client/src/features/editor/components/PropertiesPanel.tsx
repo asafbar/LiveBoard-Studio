@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from "react";
 import {
     listMediaAssets,
     mediaAssetIdFromSource,
@@ -6,6 +6,7 @@ import {
     type MediaAsset,
 } from "../../media/api/mediaApi.ts";
 import MediaManagerDialog from "../../media/components/MediaManagerDialog.tsx";
+import type { DraftFieldIssue } from "../draftFieldIssues.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -19,6 +20,8 @@ import type {
     TickerFontWeight,
     TickerMessage,
     TickerWidgetSettings,
+    VerticalAnnouncementItem,
+    VerticalAnnouncementsWidgetSettings,
     Widget,
 } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
@@ -48,6 +51,29 @@ import {
     tickerFontWeights,
     tickerSpeedIsInRange,
 } from "../tickerSettings.ts";
+import {
+    defaultVerticalAnnouncementDescriptionFontSize,
+    defaultVerticalAnnouncementFontFamily,
+    defaultVerticalAnnouncementFontWeight,
+    defaultVerticalAnnouncementPauseSeconds,
+    defaultVerticalAnnouncementTitleFontSize,
+    maximumVerticalAnnouncementDescriptionFontSize,
+    maximumVerticalAnnouncementDescriptionLength,
+    maximumVerticalAnnouncementLabelLength,
+    maximumVerticalAnnouncementPauseSeconds,
+    maximumVerticalAnnouncements,
+    maximumVerticalAnnouncementSpeed,
+    maximumVerticalAnnouncementTitleFontSize,
+    maximumVerticalAnnouncementTitleLength,
+    minimumVerticalAnnouncementDescriptionFontSize,
+    minimumVerticalAnnouncementPauseSeconds,
+    minimumVerticalAnnouncementSpeed,
+    minimumVerticalAnnouncementTitleFontSize,
+    verticalAnnouncementDescriptionFontSizeIsInRange,
+    verticalAnnouncementPauseIsInRange,
+    verticalAnnouncementSpeedIsInRange,
+    verticalAnnouncementTitleFontSizeIsInRange,
+} from "../verticalAnnouncementsSettings.ts";
 
 type PropertiesPanelProps = {
     selectedWidget: Widget | null;
@@ -56,10 +82,27 @@ type PropertiesPanelProps = {
     onTextSizeChange: (size: TextWidgetSettings["size"]) => void;
     onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
-    onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
-    onAnnouncementsSettingsChange: (settings: Partial<AnnouncementsWidgetSettings>) => void;
-    onTickerSettingsChange: (settings: Partial<TickerWidgetSettings>) => void;
+    onInformationCardSettingsChange: (
+        settings: Partial<InformationCardWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onAnnouncementsSettingsChange: (
+        settings: Partial<AnnouncementsWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onTickerSettingsChange: (
+        settings: Partial<TickerWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onVerticalAnnouncementsSettingsChange: (
+        settings: Partial<VerticalAnnouncementsWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onColorSessionEnd: () => void;
     onDeleteWidget: () => void;
+    draftIssues: DraftFieldIssue[];
+    focusedIssueIndex: number;
+    onFocusedIssueIndexChange: (index: number) => void;
 };
 
 type TextContentFieldProps = {
@@ -117,13 +160,18 @@ type InformationCardStyleFieldsProps = {
     backgroundColor: string;
     textColor: string;
     borderRadius: number;
-    onInformationCardSettingsChange: (settings: Partial<InformationCardWidgetSettings>) => void;
+    onInformationCardSettingsChange: (
+        settings: Partial<InformationCardWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onColorSessionEnd: () => void;
 };
 
 type CardTextFieldProps = {
     label: string;
     value: string;
     onChange: (value: string) => void;
+    fieldPath?: string;
 };
 
 type CardImageSourceFieldProps = {
@@ -141,7 +189,11 @@ type AnnouncementsStyleFieldsProps = {
     backgroundColor: string;
     textColor: string;
     borderRadius: number;
-    onAnnouncementsSettingsChange: (settings: Partial<AnnouncementsWidgetSettings>) => void;
+    onAnnouncementsSettingsChange: (
+        settings: Partial<AnnouncementsWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onColorSessionEnd: () => void;
 };
 
 type AnnouncementItemFieldsProps = {
@@ -176,11 +228,47 @@ type TickerStyleFieldsProps = {
     fontFamily: TickerFontFamily;
     fontSize: number;
     fontWeight: TickerFontWeight;
-    onTickerSettingsChange: (settings: Partial<TickerWidgetSettings>) => void;
+    onTickerSettingsChange: (
+        settings: Partial<TickerWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onColorSessionEnd: () => void;
 };
 
 const inspectorFieldClassName = "h-9 w-full rounded-control border border-border bg-surface-raised px-3 text-sm text-foreground outline-none";
 const inspectorSelectClassName = "h-9 w-full appearance-none rounded-control border border-border bg-surface-raised px-3 pr-8 text-sm text-foreground outline-none";
+
+const DraftFieldIssueContext = createContext<readonly DraftFieldIssue[]>([]);
+
+function useFieldIssue(fieldPath: string | undefined): string | null {
+    const issues = useContext(DraftFieldIssueContext);
+
+    if (fieldPath === undefined) {
+        return null;
+    }
+
+    return issues.find((issue) => issue.fieldPath === fieldPath)?.message ?? null;
+}
+
+function invalidFieldClassName(base: string, message: string | null): string {
+    if (message === null) {
+        return base;
+    }
+
+    return `${base} border-danger-border ring-1 ring-danger/40`;
+}
+
+function FieldIssueNote({ message }: { message: string | null }) {
+    if (message === null) {
+        return null;
+    }
+
+    return (
+        <p className="text-xs text-danger" role="alert">
+            {message}
+        </p>
+    );
+}
 
 const announcementIconOptions: { value: AnnouncementIconName; label: string }[] = [
     { value: "food", label: "Food" },
@@ -199,6 +287,7 @@ type TextProperty = {
     kind: "text" | "select";
     label: string;
     value: string;
+    validationPath?: string;
 };
 
 type ToggleProperty = {
@@ -229,6 +318,8 @@ function widgetTypeLabel(type: Widget["type"]): string {
             return "Announcements";
         case "ticker":
             return "Ticker";
+        case "vertical-announcements":
+            return "Vertical Announcements";
     }
 }
 
@@ -272,6 +363,7 @@ function contentProperties(widget: Widget): Property[] {
                 })),
             ];
         case "ticker":
+        case "vertical-announcements":
             return [];
     }
 }
@@ -295,16 +387,17 @@ function styleProperties(widget: Widget): Property[] {
         case "information-card":
         case "announcements":
         case "ticker":
+        case "vertical-announcements":
             return [];
     }
 }
 
 function positionProperties(widget: Widget): Property[] {
     return [
-        { kind: "text", label: "X", value: String(widget.layout.x) },
-        { kind: "text", label: "Y", value: String(widget.layout.y) },
-        { kind: "text", label: "Width", value: String(widget.layout.width) },
-        { kind: "text", label: "Height", value: String(widget.layout.height) },
+        { kind: "text", label: "X", value: String(widget.layout.x), validationPath: "layout.x" },
+        { kind: "text", label: "Y", value: String(widget.layout.y), validationPath: "layout.y" },
+        { kind: "text", label: "Width", value: String(widget.layout.width), validationPath: "layout.width" },
+        { kind: "text", label: "Height", value: String(widget.layout.height), validationPath: "layout.height" },
     ];
 }
 
@@ -320,17 +413,25 @@ function propertiesForTab(widget: Widget, tab: PropertyTabName): Property[] {
 }
 
 function TextContentField({ value, onTextChange }: TextContentFieldProps) {
+    const issue = useFieldIssue("text");
+
     return (
         <label className="flex flex-col gap-1.5">
             <span className="text-xs text-muted">Text</span>
             <textarea
                 value={value}
                 rows={4}
+                data-validation-path="text"
+                aria-invalid={issue !== null}
                 onChange={(event) => {
                     onTextChange(event.target.value);
                 }}
-                className="min-h-24 w-full resize-y rounded-control border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none"
+                className={invalidFieldClassName(
+                    "min-h-24 w-full resize-y rounded-control border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none",
+                    issue,
+                )}
             />
+            <FieldIssueNote message={issue} />
         </label>
     );
 }
@@ -766,17 +867,23 @@ function CardTextField({
     label,
     value,
     onChange,
+    fieldPath,
 }: CardTextFieldProps) {
+    const issue = useFieldIssue(fieldPath);
+
     return (
         <label className="flex flex-col gap-1.5">
             <span className="text-xs text-muted">{label}</span>
             <input
                 value={value}
+                data-validation-path={fieldPath}
+                aria-invalid={issue === null ? undefined : true}
                 onChange={(event) => {
                     onChange(event.target.value);
                 }}
-                className={inspectorFieldClassName}
+                className={invalidFieldClassName(inspectorFieldClassName, issue)}
             />
+            <FieldIssueNote message={issue} />
         </label>
     );
 }
@@ -786,6 +893,7 @@ function CardImageSourceField({
     onInformationCardSettingsChange,
 }: CardImageSourceFieldProps) {
     const [sourceDraft, setSourceDraft] = useState(source);
+    const sourceIssue = useFieldIssue("imageSrc");
 
     function handleSourceChange(event: ChangeEvent<HTMLInputElement>) {
         const nextDraft = event.target.value;
@@ -828,12 +936,15 @@ function CardImageSourceField({
             <span className="text-xs text-muted">Image source</span>
             <input
                 value={sourceDraft}
+                data-validation-path="imageSrc"
+                aria-invalid={sourceIssue !== null}
                 spellCheck={false}
                 autoComplete="off"
                 onChange={handleSourceChange}
                 onBlur={handleSourceBlur}
-                className={inspectorFieldClassName}
+                className={invalidFieldClassName(inspectorFieldClassName, sourceIssue)}
             />
+            <FieldIssueNote message={sourceIssue} />
         </label>
     );
 }
@@ -850,6 +961,7 @@ function InformationCardContentFields({
         <>
             <CardTextField
                 label="Title"
+                fieldPath="title"
                 value={title}
                 onChange={(value) => {
                     onInformationCardSettingsChange({ title: value });
@@ -857,6 +969,7 @@ function InformationCardContentFields({
             />
             <CardTextField
                 label="Subtitle"
+                fieldPath="subtitle"
                 value={subtitle}
                 onChange={(value) => {
                     onInformationCardSettingsChange({ subtitle: value });
@@ -864,6 +977,7 @@ function InformationCardContentFields({
             />
             <CardTextField
                 label="Description"
+                fieldPath="description"
                 value={description}
                 onChange={(value) => {
                     onInformationCardSettingsChange({ description: value });
@@ -871,6 +985,7 @@ function InformationCardContentFields({
             />
             <CardTextField
                 label="Badge"
+                fieldPath="badge"
                 value={badge}
                 onChange={(value) => {
                     onInformationCardSettingsChange({ badge: value });
@@ -889,6 +1004,7 @@ function InformationCardStyleFields({
     textColor,
     borderRadius,
     onInformationCardSettingsChange,
+    onColorSessionEnd,
 }: InformationCardStyleFieldsProps) {
     const [radiusDraft, setRadiusDraft] = useState(String(borderRadius));
 
@@ -920,15 +1036,17 @@ function InformationCardStyleFields({
                 label="Background color"
                 value={backgroundColor}
                 onColorChange={(color) => {
-                    onInformationCardSettingsChange({ backgroundColor: color });
+                    onInformationCardSettingsChange({ backgroundColor: color }, "color");
                 }}
+                onSessionEnd={onColorSessionEnd}
             />
             <ColorField
                 label="Text color"
                 value={textColor}
                 onColorChange={(color) => {
-                    onInformationCardSettingsChange({ textColor: color });
+                    onInformationCardSettingsChange({ textColor: color }, "color");
                 }}
+                onSessionEnd={onColorSessionEnd}
             />
             <label className="flex flex-col gap-1.5">
                 <span className="text-xs text-muted">Border radius</span>
@@ -1006,6 +1124,7 @@ function AnnouncementItemFields({
             </div>
             <CardTextField
                 label="Title"
+                fieldPath={`items.${index}.title`}
                 value={item.title}
                 onChange={(value) => {
                     onItemChange(item.id, {
@@ -1016,6 +1135,7 @@ function AnnouncementItemFields({
             />
             <CardTextField
                 label="Description"
+                fieldPath={`items.${index}.description`}
                 value={item.description ?? ""}
                 onChange={(value) => {
                     onItemChange(item.id, {
@@ -1026,6 +1146,7 @@ function AnnouncementItemFields({
             />
             <CardTextField
                 label="Meta"
+                fieldPath={`items.${index}.meta`}
                 value={item.meta ?? ""}
                 onChange={(value) => {
                     onItemChange(item.id, {
@@ -1095,6 +1216,7 @@ function AnnouncementsContentFields({
         <>
             <CardTextField
                 label="Title"
+                fieldPath="title"
                 value={title}
                 onChange={(value) => {
                     onAnnouncementsSettingsChange({ title: value });
@@ -1129,6 +1251,7 @@ function AnnouncementsStyleFields({
     textColor,
     borderRadius,
     onAnnouncementsSettingsChange,
+    onColorSessionEnd,
 }: AnnouncementsStyleFieldsProps) {
     const [radiusDraft, setRadiusDraft] = useState(String(borderRadius));
 
@@ -1160,15 +1283,17 @@ function AnnouncementsStyleFields({
                 label="Background color"
                 value={backgroundColor}
                 onColorChange={(color) => {
-                    onAnnouncementsSettingsChange({ backgroundColor: color });
+                    onAnnouncementsSettingsChange({ backgroundColor: color }, "color");
                 }}
+                onSessionEnd={onColorSessionEnd}
             />
             <ColorField
                 label="Text color"
                 value={textColor}
                 onColorChange={(color) => {
-                    onAnnouncementsSettingsChange({ textColor: color });
+                    onAnnouncementsSettingsChange({ textColor: color }, "color");
                 }}
+                onSessionEnd={onColorSessionEnd}
             />
             <label className="flex flex-col gap-1.5">
                 <span className="text-xs text-muted">Border radius</span>
@@ -1248,6 +1373,41 @@ function moveTickerMessage(messages: TickerMessage[], index: number, offset: -1 
     return nextMessages;
 }
 
+function TickerMessageTextField({
+    index,
+    messageNumber,
+    text,
+    onTextChange,
+}: {
+    index: number;
+    messageNumber: number;
+    text: string;
+    onTextChange: (text: string) => void;
+}) {
+    const fieldPath = `messages.${index}.text`;
+    const issue = useFieldIssue(fieldPath);
+
+    return (
+        <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted">Text</span>
+            <input
+                dir="auto"
+                maxLength={maximumTickerMessageLength}
+                aria-label={`Text for message ${messageNumber}`}
+                aria-invalid={issue !== null}
+                data-validation-path={fieldPath}
+                placeholder="New message"
+                value={text}
+                onChange={(event) => {
+                    onTextChange(event.target.value);
+                }}
+                className={invalidFieldClassName(inspectorFieldClassName, issue)}
+            />
+            <FieldIssueNote message={issue} />
+        </label>
+    );
+}
+
 function TickerMessageFields({
     index,
     message,
@@ -1300,20 +1460,14 @@ function TickerMessageFields({
                     </button>
                 </span>
             </div>
-            <label className="flex flex-col gap-1.5">
-                <span className="text-xs text-muted">Text</span>
-                <input
-                    dir="auto"
-                    maxLength={maximumTickerMessageLength}
-                    aria-label={`Text for message ${messageNumber}`}
-                    placeholder="New message"
-                    value={message.text}
-                    onChange={(event) => {
-                        onTextChange(message.id, event.target.value);
-                    }}
-                    className={inspectorFieldClassName}
-                />
-            </label>
+            <TickerMessageTextField
+                index={index}
+                messageNumber={messageNumber}
+                text={message.text}
+                onTextChange={(text) => {
+                    onTextChange(message.id, text);
+                }}
+            />
         </div>
     );
 }
@@ -1325,6 +1479,7 @@ function TickerContentFields({
     onTickerSettingsChange,
 }: TickerContentFieldsProps) {
     const [invalidSpeed, setInvalidSpeed] = useState<string | null>(null);
+    const speedIssue = useFieldIssue("speed");
     const canAddMessage = messages.length < maximumTickerMessages;
 
     function handleTextChange(messageId: string, text: string) {
@@ -1424,13 +1579,16 @@ function TickerContentFields({
                     max={maximumTickerSpeed}
                     step={1}
                     aria-label="Ticker speed in pixels per second"
+                    aria-invalid={speedIssue !== null}
+                    data-validation-path="speed"
                     value={invalidSpeed ?? String(speed)}
                     onChange={handleSpeedChange}
                     onBlur={() => {
                         setInvalidSpeed(null);
                     }}
-                    className={inspectorFieldClassName}
+                    className={invalidFieldClassName(inspectorFieldClassName, speedIssue)}
                 />
+                <FieldIssueNote message={speedIssue} />
             </label>
             {messages.length === 0 ? (
                 <p className="text-sm text-muted">No messages.</p>
@@ -1486,6 +1644,7 @@ function TickerStyleFields({
     fontSize,
     fontWeight,
     onTickerSettingsChange,
+    onColorSessionEnd,
 }: TickerStyleFieldsProps) {
     const [invalidRadius, setInvalidRadius] = useState<string | null>(null);
     const [invalidFontSize, setInvalidFontSize] = useState<string | null>(null);
@@ -1552,22 +1711,25 @@ function TickerStyleFields({
                 label="Background color"
                 value={backgroundColor}
                 onColorChange={(color) => {
-                    onTickerSettingsChange({ backgroundColor: color });
+                    onTickerSettingsChange({ backgroundColor: color }, "color");
                 }}
+                onSessionEnd={onColorSessionEnd}
             />
             <ColorField
                 label="Text color"
                 value={textColor}
                 onColorChange={(color) => {
-                    onTickerSettingsChange({ textColor: color });
+                    onTickerSettingsChange({ textColor: color }, "color");
                 }}
+                onSessionEnd={onColorSessionEnd}
             />
             <ColorField
                 label="Accent color"
                 value={accentColor}
                 onColorChange={(color) => {
-                    onTickerSettingsChange({ accentColor: color });
+                    onTickerSettingsChange({ accentColor: color }, "color");
                 }}
+                onSessionEnd={onColorSessionEnd}
             />
             <label className="flex flex-col gap-1.5">
                 <span className="text-xs text-muted">Font</span>
@@ -1657,6 +1819,9 @@ function SelectChevron() {
 }
 
 function PropertyField({ property }: PropertyFieldProps) {
+    const validationPath = property.kind === "toggle" ? undefined : property.validationPath;
+    const issue = useFieldIssue(validationPath);
+
     if (property.kind === "toggle") {
         const trackClassName = property.enabled
             ? "relative h-5 w-9 rounded-full bg-accent"
@@ -1689,13 +1854,681 @@ function PropertyField({ property }: PropertyFieldProps) {
                 <input
                     readOnly
                     value={property.value}
-                    className={inputClassName}
+                    data-validation-path={validationPath}
+                    aria-invalid={issue === null ? undefined : true}
+                    className={invalidFieldClassName(inputClassName, issue)}
                 />
                 {property.kind === "select" ? (
                     <SelectChevron />
                 ) : null}
             </span>
+            <FieldIssueNote message={issue} />
         </label>
+    );
+}
+
+const verticalFontFamilyLabels: Record<TickerFontFamily, string> = {
+    sans: "Sans",
+    serif: "Serif",
+    mono: "Mono",
+};
+
+const verticalFontWeightLabels: Record<TickerFontWeight, string> = {
+    400: "Regular",
+    500: "Medium",
+    600: "Semibold",
+    700: "Bold",
+};
+
+type VerticalAnnouncementFieldsProps = {
+    index: number;
+    item: VerticalAnnouncementItem;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    onItemChange: (itemId: string, patch: Partial<VerticalAnnouncementItem>) => void;
+    onMove: (index: number, offset: -1 | 1) => void;
+    onRemove: (itemId: string) => void;
+};
+
+type VerticalAnnouncementsContentFieldsProps = {
+    items: VerticalAnnouncementItem[];
+    speed: number;
+    pauseSeconds: number;
+    onVerticalAnnouncementsSettingsChange: (settings: Partial<VerticalAnnouncementsWidgetSettings>) => void;
+};
+
+type VerticalAnnouncementsStyleFieldsProps = {
+    backgroundColor: string;
+    textColor: string;
+    accentColor: string;
+    borderRadius: number;
+    fontFamily: TickerFontFamily;
+    titleFontSize: number;
+    descriptionFontSize: number;
+    fontWeight: TickerFontWeight;
+    onVerticalAnnouncementsSettingsChange: (
+        settings: Partial<VerticalAnnouncementsWidgetSettings>,
+        gesture?: "color",
+    ) => void;
+    onColorSessionEnd: () => void;
+};
+
+function nextVerticalAnnouncementId(): string {
+    return `vertical-announcement-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function createVerticalAnnouncementId(existingIds: ReadonlySet<string>): string {
+    const id = nextVerticalAnnouncementId();
+
+    if (existingIds.has(id)) {
+        return createVerticalAnnouncementId(existingIds);
+    }
+
+    return id;
+}
+
+function parseBoundedInteger(value: string, isInRange: (parsed: number) => boolean): number | null {
+    if (!/^\d+$/.test(value.trim())) {
+        return null;
+    }
+
+    const parsed = Number(value);
+
+    if (!isInRange(parsed)) {
+        return null;
+    }
+
+    return parsed;
+}
+
+function moveVerticalAnnouncement(
+    items: VerticalAnnouncementItem[],
+    index: number,
+    offset: -1 | 1,
+): VerticalAnnouncementItem[] {
+    const nextIndex = index + offset;
+
+    if (nextIndex < 0 || nextIndex >= items.length) {
+        return items;
+    }
+
+    const nextItems = items.slice();
+    const [item] = nextItems.splice(index, 1);
+
+    if (item === undefined) {
+        return items;
+    }
+
+    nextItems.splice(nextIndex, 0, item);
+
+    return nextItems;
+}
+
+function VerticalAnnouncementFields({
+    index,
+    item,
+    canMoveUp,
+    canMoveDown,
+    onItemChange,
+    onMove,
+    onRemove,
+}: VerticalAnnouncementFieldsProps) {
+    const announcementNumber = index + 1;
+    const labelIssue = useFieldIssue(`items.${index}.label`);
+    const titleIssue = useFieldIssue(`items.${index}.title`);
+    const descriptionIssue = useFieldIssue(`items.${index}.description`);
+
+    return (
+        <div className="flex flex-col gap-3 border-t border-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-secondary">
+                    {`Announcement ${announcementNumber}`}
+                </span>
+                <span className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        aria-label={`Move announcement ${announcementNumber} up`}
+                        disabled={!canMoveUp}
+                        onClick={() => {
+                            onMove(index, -1);
+                        }}
+                        className={canMoveUp ? tickerOrderButtonClassName : tickerOrderButtonDisabledClassName}
+                    >
+                        Up
+                    </button>
+                    <button
+                        type="button"
+                        aria-label={`Move announcement ${announcementNumber} down`}
+                        disabled={!canMoveDown}
+                        onClick={() => {
+                            onMove(index, 1);
+                        }}
+                        className={canMoveDown ? tickerOrderButtonClassName : tickerOrderButtonDisabledClassName}
+                    >
+                        Down
+                    </button>
+                    <button
+                        type="button"
+                        aria-label={`Remove announcement ${announcementNumber}`}
+                        onClick={() => {
+                            onRemove(item.id);
+                        }}
+                        className="text-xs font-medium text-muted"
+                    >
+                        Remove
+                    </button>
+                </span>
+            </div>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Label</span>
+                <input
+                    dir="auto"
+                    maxLength={maximumVerticalAnnouncementLabelLength}
+                    aria-label={`Label for announcement ${announcementNumber}`}
+                    aria-invalid={labelIssue !== null}
+                    data-validation-path={`items.${index}.label`}
+                    placeholder="Label"
+                    value={item.label ?? ""}
+                    onChange={(event) => {
+                        onItemChange(item.id, { label: event.target.value });
+                    }}
+                    className={invalidFieldClassName(inspectorFieldClassName, labelIssue)}
+                />
+                <FieldIssueNote message={labelIssue} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Title</span>
+                <input
+                    dir="auto"
+                    maxLength={maximumVerticalAnnouncementTitleLength}
+                    aria-label={`Title for announcement ${announcementNumber}`}
+                    aria-invalid={titleIssue !== null}
+                    data-validation-path={`items.${index}.title`}
+                    placeholder="Announcement title"
+                    value={item.title}
+                    onChange={(event) => {
+                        onItemChange(item.id, { title: event.target.value });
+                    }}
+                    className={invalidFieldClassName(inspectorFieldClassName, titleIssue)}
+                />
+                <FieldIssueNote message={titleIssue} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Description</span>
+                <textarea
+                    dir="auto"
+                    rows={3}
+                    maxLength={maximumVerticalAnnouncementDescriptionLength}
+                    aria-label={`Description for announcement ${announcementNumber}`}
+                    aria-invalid={descriptionIssue !== null}
+                    data-validation-path={`items.${index}.description`}
+                    placeholder="Description"
+                    value={item.description ?? ""}
+                    onChange={(event) => {
+                        onItemChange(item.id, { description: event.target.value });
+                    }}
+                    className={invalidFieldClassName(`${inspectorFieldClassName} h-auto py-2`, descriptionIssue)}
+                />
+                <FieldIssueNote message={descriptionIssue} />
+            </label>
+        </div>
+    );
+}
+
+function VerticalAnnouncementsContentFields({
+    items,
+    speed,
+    pauseSeconds,
+    onVerticalAnnouncementsSettingsChange,
+}: VerticalAnnouncementsContentFieldsProps) {
+    const [invalidSpeed, setInvalidSpeed] = useState<string | null>(null);
+    const [invalidPause, setInvalidPause] = useState<string | null>(null);
+    const speedIssue = useFieldIssue("speed");
+    const pauseIssue = useFieldIssue("pauseSeconds");
+    const canAdd = items.length < maximumVerticalAnnouncements;
+
+    function handleItemChange(itemId: string, patch: Partial<VerticalAnnouncementItem>) {
+        const current = items.find((item) => item.id === itemId);
+
+        if (current === undefined) {
+            return;
+        }
+
+        const nextItem: VerticalAnnouncementItem = {
+            ...current,
+            ...patch,
+        };
+
+        if (
+            nextItem.title === current.title
+            && (nextItem.description ?? "") === (current.description ?? "")
+            && (nextItem.label ?? "") === (current.label ?? "")
+        ) {
+            return;
+        }
+
+        onVerticalAnnouncementsSettingsChange({
+            items: items.map((item) => item.id === itemId ? nextItem : item),
+        });
+    }
+
+    function handleMove(index: number, offset: -1 | 1) {
+        const nextItems = moveVerticalAnnouncement(items, index, offset);
+
+        if (nextItems === items) {
+            return;
+        }
+
+        onVerticalAnnouncementsSettingsChange({ items: nextItems });
+    }
+
+    function handleRemove(itemId: string) {
+        onVerticalAnnouncementsSettingsChange({
+            items: items.filter((item) => item.id !== itemId),
+        });
+    }
+
+    function handleAdd() {
+        if (!canAdd) {
+            return;
+        }
+
+        const existingIds = new Set(items.map((item) => item.id));
+
+        onVerticalAnnouncementsSettingsChange({
+            items: [
+                ...items,
+                {
+                    id: createVerticalAnnouncementId(existingIds),
+                    title: "",
+                    description: "",
+                    label: "",
+                },
+            ],
+        });
+    }
+
+    function handleSpeedChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        const nextSpeed = parseBoundedInteger(nextDraft, verticalAnnouncementSpeedIsInRange);
+
+        if (nextSpeed === null) {
+            setInvalidSpeed(nextDraft);
+            return;
+        }
+
+        setInvalidSpeed(null);
+
+        if (nextSpeed !== speed) {
+            onVerticalAnnouncementsSettingsChange({ speed: nextSpeed });
+        }
+    }
+
+    function handlePauseChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        const nextPause = parseBoundedInteger(nextDraft, verticalAnnouncementPauseIsInRange);
+
+        if (nextPause === null) {
+            setInvalidPause(nextDraft);
+            return;
+        }
+
+        setInvalidPause(null);
+
+        if (nextPause !== pauseSeconds) {
+            onVerticalAnnouncementsSettingsChange({ pauseSeconds: nextPause });
+        }
+    }
+
+    return (
+        <>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Speed</span>
+                <input
+                    type="number"
+                    inputMode="numeric"
+                    min={minimumVerticalAnnouncementSpeed}
+                    max={maximumVerticalAnnouncementSpeed}
+                    step={1}
+                    aria-label="Vertical announcements speed in pixels per second"
+                    aria-invalid={speedIssue !== null}
+                    data-validation-path="speed"
+                    value={invalidSpeed ?? String(speed)}
+                    onChange={handleSpeedChange}
+                    onBlur={() => {
+                        setInvalidSpeed(null);
+                    }}
+                    className={invalidFieldClassName(inspectorFieldClassName, speedIssue)}
+                />
+                <FieldIssueNote message={speedIssue} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Pause</span>
+                <input
+                    type="number"
+                    inputMode="numeric"
+                    min={minimumVerticalAnnouncementPauseSeconds}
+                    max={maximumVerticalAnnouncementPauseSeconds}
+                    step={1}
+                    aria-label="Pause on each announcement in seconds"
+                    aria-invalid={pauseIssue !== null}
+                    data-validation-path="pauseSeconds"
+                    value={invalidPause ?? String(pauseSeconds)}
+                    onChange={handlePauseChange}
+                    onBlur={() => {
+                        setInvalidPause(null);
+                    }}
+                    className={invalidFieldClassName(inspectorFieldClassName, pauseIssue)}
+                />
+                <FieldIssueNote message={pauseIssue} />
+            </label>
+            {items.length === 0 ? (
+                <p className="text-sm text-muted">No announcements.</p>
+            ) : (
+                items.map((item, index) => (
+                    <VerticalAnnouncementFields
+                        key={item.id}
+                        index={index}
+                        item={item}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < items.length - 1}
+                        onItemChange={handleItemChange}
+                        onMove={handleMove}
+                        onRemove={handleRemove}
+                    />
+                ))
+            )}
+            <button
+                type="button"
+                disabled={!canAdd}
+                onClick={handleAdd}
+                className={
+                    canAdd
+                        ? "h-9 rounded-control border border-border bg-surface-raised px-3 text-sm font-medium text-foreground"
+                        : "h-9 cursor-not-allowed rounded-control border border-border bg-surface-raised/40 px-3 text-sm font-medium text-muted opacity-60"
+                }
+            >
+                Add announcement
+            </button>
+        </>
+    );
+}
+
+function VerticalAnnouncementsStyleFields({
+    backgroundColor,
+    textColor,
+    accentColor,
+    borderRadius,
+    fontFamily,
+    titleFontSize,
+    descriptionFontSize,
+    fontWeight,
+    onVerticalAnnouncementsSettingsChange,
+    onColorSessionEnd,
+}: VerticalAnnouncementsStyleFieldsProps) {
+    const [invalidRadius, setInvalidRadius] = useState<string | null>(null);
+    const [invalidTitleSize, setInvalidTitleSize] = useState<string | null>(null);
+    const [invalidDescriptionSize, setInvalidDescriptionSize] = useState<string | null>(null);
+    const backgroundIssue = useFieldIssue("backgroundColor");
+    const textIssue = useFieldIssue("textColor");
+    const accentIssue = useFieldIssue("accentColor");
+    const fontIssue = useFieldIssue("fontFamily");
+    const titleSizeIssue = useFieldIssue("titleFontSize");
+    const descriptionSizeIssue = useFieldIssue("descriptionFontSize");
+    const weightIssue = useFieldIssue("fontWeight");
+    const radiusIssue = useFieldIssue("borderRadius");
+
+    function handleRadiusChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        const radius = parseImageBorderRadius(nextDraft);
+
+        if (radius === null) {
+            setInvalidRadius(nextDraft);
+            return;
+        }
+
+        setInvalidRadius(null);
+
+        if (radius !== borderRadius) {
+            onVerticalAnnouncementsSettingsChange({ borderRadius: radius });
+        }
+    }
+
+    function handleFontFamilyChange(event: ChangeEvent<HTMLSelectElement>) {
+        if (!isTickerFontFamily(event.target.value) || event.target.value === fontFamily) {
+            return;
+        }
+
+        onVerticalAnnouncementsSettingsChange({ fontFamily: event.target.value });
+    }
+
+    function handleFontWeightChange(event: ChangeEvent<HTMLSelectElement>) {
+        const weight = Number(event.target.value);
+
+        if (!isTickerFontWeight(weight) || weight === fontWeight) {
+            return;
+        }
+
+        onVerticalAnnouncementsSettingsChange({ fontWeight: weight });
+    }
+
+    function handleTitleSizeChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        const size = parseBoundedInteger(nextDraft, verticalAnnouncementTitleFontSizeIsInRange);
+
+        if (size === null) {
+            setInvalidTitleSize(nextDraft);
+            return;
+        }
+
+        setInvalidTitleSize(null);
+
+        if (size !== titleFontSize) {
+            onVerticalAnnouncementsSettingsChange({ titleFontSize: size });
+        }
+    }
+
+    function handleDescriptionSizeChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextDraft = event.target.value;
+        const size = parseBoundedInteger(nextDraft, verticalAnnouncementDescriptionFontSizeIsInRange);
+
+        if (size === null) {
+            setInvalidDescriptionSize(nextDraft);
+            return;
+        }
+
+        setInvalidDescriptionSize(null);
+
+        if (size !== descriptionFontSize) {
+            onVerticalAnnouncementsSettingsChange({ descriptionFontSize: size });
+        }
+    }
+
+    return (
+        <>
+            <ColorField
+                label="Background color"
+                value={backgroundColor}
+                validationPath="backgroundColor"
+                issueMessage={backgroundIssue}
+                onColorChange={(color) => {
+                    onVerticalAnnouncementsSettingsChange({ backgroundColor: color }, "color");
+                }}
+                onSessionEnd={onColorSessionEnd}
+            />
+            <ColorField
+                label="Text color"
+                value={textColor}
+                validationPath="textColor"
+                issueMessage={textIssue}
+                onColorChange={(color) => {
+                    onVerticalAnnouncementsSettingsChange({ textColor: color }, "color");
+                }}
+                onSessionEnd={onColorSessionEnd}
+            />
+            <ColorField
+                label="Accent"
+                hint="Marker beside each announcement."
+                value={accentColor}
+                validationPath="accentColor"
+                issueMessage={accentIssue}
+                onColorChange={(color) => {
+                    onVerticalAnnouncementsSettingsChange({ accentColor: color }, "color");
+                }}
+                onSessionEnd={onColorSessionEnd}
+            />
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Font</span>
+                <span className="relative">
+                    <select
+                        aria-label="Vertical announcements font"
+                        aria-invalid={fontIssue !== null}
+                        data-validation-path="fontFamily"
+                        value={fontFamily}
+                        onChange={handleFontFamilyChange}
+                        className={invalidFieldClassName(inspectorSelectClassName, fontIssue)}
+                    >
+                        {tickerFontFamilies.map((family) => (
+                            <option key={family} value={family}>{verticalFontFamilyLabels[family]}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+                <FieldIssueNote message={fontIssue} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Title size</span>
+                <input
+                    type="number"
+                    inputMode="numeric"
+                    min={minimumVerticalAnnouncementTitleFontSize}
+                    max={maximumVerticalAnnouncementTitleFontSize}
+                    step={1}
+                    aria-label="Announcement title font size"
+                    aria-invalid={titleSizeIssue !== null}
+                    data-validation-path="titleFontSize"
+                    value={invalidTitleSize ?? String(titleFontSize)}
+                    onChange={handleTitleSizeChange}
+                    onBlur={() => {
+                        setInvalidTitleSize(null);
+                    }}
+                    className={invalidFieldClassName(inspectorFieldClassName, titleSizeIssue)}
+                />
+                <FieldIssueNote message={titleSizeIssue} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Description size</span>
+                <input
+                    type="number"
+                    inputMode="numeric"
+                    min={minimumVerticalAnnouncementDescriptionFontSize}
+                    max={maximumVerticalAnnouncementDescriptionFontSize}
+                    step={1}
+                    aria-label="Announcement description font size"
+                    aria-invalid={descriptionSizeIssue !== null}
+                    data-validation-path="descriptionFontSize"
+                    value={invalidDescriptionSize ?? String(descriptionFontSize)}
+                    onChange={handleDescriptionSizeChange}
+                    onBlur={() => {
+                        setInvalidDescriptionSize(null);
+                    }}
+                    className={invalidFieldClassName(inspectorFieldClassName, descriptionSizeIssue)}
+                />
+                <FieldIssueNote message={descriptionSizeIssue} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Font weight</span>
+                <span className="relative">
+                    <select
+                        aria-label="Vertical announcements font weight"
+                        aria-invalid={weightIssue !== null}
+                        data-validation-path="fontWeight"
+                        value={String(fontWeight)}
+                        onChange={handleFontWeightChange}
+                        className={invalidFieldClassName(inspectorSelectClassName, weightIssue)}
+                    >
+                        {tickerFontWeights.map((weight) => (
+                            <option key={weight} value={weight}>{verticalFontWeightLabels[weight]}</option>
+                        ))}
+                    </select>
+                    <SelectChevron />
+                </span>
+                <FieldIssueNote message={weightIssue} />
+            </label>
+            <label className="flex flex-col gap-1.5">
+                <span className="text-xs text-muted">Border radius</span>
+                <input
+                    type="number"
+                    inputMode="decimal"
+                    min={minimumImageBorderRadius}
+                    max={maximumImageBorderRadius}
+                    step="any"
+                    aria-label="Vertical announcements border radius"
+                    aria-invalid={radiusIssue !== null}
+                    data-validation-path="borderRadius"
+                    value={invalidRadius ?? String(borderRadius)}
+                    onChange={handleRadiusChange}
+                    onBlur={() => {
+                        setInvalidRadius(null);
+                    }}
+                    className={invalidFieldClassName(inspectorFieldClassName, radiusIssue)}
+                />
+                <FieldIssueNote message={radiusIssue} />
+            </label>
+        </>
+    );
+}
+
+function DraftIssueSummary({
+    issues,
+    focusedIndex,
+    onFocusedIndexChange,
+}: {
+    issues: DraftFieldIssue[];
+    focusedIndex: number;
+    onFocusedIndexChange: (index: number) => void;
+}) {
+    const focused = issues[focusedIndex] ?? null;
+    const summary = focused === null
+        ? "Some fields need attention."
+        : issues.length === 1
+            ? focused.message
+            : `${issues.length} fields need attention`;
+
+    return (
+        <div className="border-b border-danger-border bg-danger/10 px-4 py-3">
+            <p className="text-sm text-danger">{summary}</p>
+            {focused !== null && issues.length > 1 ? (
+                <p className="mt-1 text-xs text-secondary">{focused.message}</p>
+            ) : null}
+            {issues.length > 1 ? (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-xs text-secondary">
+                        {`${focusedIndex + 1} of ${issues.length}`}
+                    </span>
+                    <span className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onFocusedIndexChange(focusedIndex - 1);
+                            }}
+                            className="text-xs font-medium text-foreground"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onFocusedIndexChange(focusedIndex + 1);
+                            }}
+                            className="text-xs font-medium text-foreground"
+                        >
+                            Next
+                        </button>
+                    </span>
+                </div>
+            ) : null}
+        </div>
     );
 }
 
@@ -1709,9 +2542,48 @@ function PropertiesPanel({
     onInformationCardSettingsChange,
     onAnnouncementsSettingsChange,
     onTickerSettingsChange,
+    onVerticalAnnouncementsSettingsChange,
+    onColorSessionEnd,
     onDeleteWidget,
+    draftIssues,
+    focusedIssueIndex,
+    onFocusedIssueIndexChange,
 }: PropertiesPanelProps) {
-    const [activeTab, setActiveTab] = useState<PropertyTabName>("Content");
+    const panelRef = useRef<HTMLElement>(null);
+    const [tabOverride, setTabOverride] = useState<PropertyTabName | null>(null);
+    const [trackedFocusKey, setTrackedFocusKey] = useState("");
+    const focusedIssue = draftIssues[focusedIssueIndex] ?? null;
+    const focusKey = focusedIssue === null ? "" : `${focusedIssueIndex}:${focusedIssue.path}`;
+
+    if (focusKey !== "" && focusKey !== trackedFocusKey) {
+        setTrackedFocusKey(focusKey);
+        setTabOverride(null);
+    }
+
+    const guidedTab = focusedIssue !== null && focusedIssue.widgetId === selectedWidget?.id
+        ? focusedIssue.tab
+        : null;
+    const activeTab = tabOverride ?? guidedTab ?? "Content";
+    const widgetIssues = selectedWidget === null
+        ? []
+        : draftIssues.filter((issue) => issue.widgetId === selectedWidget.id);
+
+    useLayoutEffect(() => {
+        if (focusedIssue === null || focusedIssue.widgetId !== selectedWidget?.id) {
+            return;
+        }
+
+        const field = panelRef.current?.querySelector<HTMLElement>(
+            `[data-validation-path="${CSS.escape(focusedIssue.fieldPath)}"]`,
+        );
+
+        if (field === null || field === undefined) {
+            return;
+        }
+
+        field.scrollIntoView({ block: "center" });
+        field.focus({ preventScroll: true });
+    }, [activeTab, focusedIssue, selectedWidget?.id]);
     const properties = selectedWidget === null ? [] : propertiesForTab(selectedWidget, activeTab);
     const editingText = selectedWidget?.type === "text" && activeTab === "Content";
     const editingTextStyle = selectedWidget?.type === "text" && activeTab === "Style";
@@ -1725,6 +2597,8 @@ function PropertiesPanel({
     const editingAnnouncementsStyle = selectedWidget?.type === "announcements" && activeTab === "Style";
     const editingTicker = selectedWidget?.type === "ticker" && activeTab === "Content";
     const editingTickerStyle = selectedWidget?.type === "ticker" && activeTab === "Style";
+    const editingVerticalAnnouncements = selectedWidget?.type === "vertical-announcements" && activeTab === "Content";
+    const editingVerticalAnnouncementsStyle = selectedWidget?.type === "vertical-announcements" && activeTab === "Style";
     const showingReadOnlyProperties = !editingText
         && !editingTextStyle
         && !editingClock
@@ -1737,10 +2611,12 @@ function PropertiesPanel({
         && !editingAnnouncementsStyle
         && !editingTicker
         && !editingTickerStyle
+        && !editingVerticalAnnouncements
+        && !editingVerticalAnnouncementsStyle
         && properties.length > 0;
 
     return (
-        <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-surface">
+        <aside ref={panelRef} className="flex w-80 shrink-0 flex-col border-l border-border bg-surface">
             <div className="border-b border-border px-4 py-3">
                 <h2 className="text-xs font-semibold tracking-wide text-muted uppercase">
                     Properties
@@ -1754,7 +2630,7 @@ function PropertiesPanel({
                         type="button"
                         aria-selected={tab === activeTab}
                         onClick={() => {
-                            setActiveTab(tab);
+                            setTabOverride(tab);
                         }}
                         className={
                             tab === activeTab
@@ -1767,6 +2643,14 @@ function PropertiesPanel({
                 ))}
             </div>
 
+            {draftIssues.length > 0 ? (
+                <DraftIssueSummary
+                    issues={draftIssues}
+                    focusedIndex={focusedIssueIndex}
+                    onFocusedIndexChange={onFocusedIssueIndexChange}
+                />
+            ) : null}
+            <DraftFieldIssueContext.Provider value={widgetIssues}>
             {selectedWidget === null ? (
                 <div className="flex flex-col gap-2 p-4">
                     <h3 className="text-sm font-semibold text-foreground">No widget selected</h3>
@@ -1846,6 +2730,7 @@ function PropertiesPanel({
                             textColor={selectedWidget.settings.textColor}
                             borderRadius={selectedWidget.settings.borderRadius}
                             onInformationCardSettingsChange={onInformationCardSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
                         />
                     ) : null}
                     {editingAnnouncements && selectedWidget.type === "announcements" ? (
@@ -1863,6 +2748,7 @@ function PropertiesPanel({
                             textColor={selectedWidget.settings.textColor}
                             borderRadius={selectedWidget.settings.borderRadius}
                             onAnnouncementsSettingsChange={onAnnouncementsSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
                         />
                     ) : null}
                     {editingTicker && selectedWidget.type === "ticker" ? (
@@ -1885,9 +2771,34 @@ function PropertiesPanel({
                             fontSize={selectedWidget.settings.fontSize ?? defaultTickerFontSize}
                             fontWeight={selectedWidget.settings.fontWeight ?? defaultTickerFontWeight}
                             onTickerSettingsChange={onTickerSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
                         />
                     ) : null}
-                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && !editingInformationCardStyle && !editingAnnouncementsStyle && !editingTickerStyle && activeTab === "Style" && properties.length === 0 ? (
+                    {editingVerticalAnnouncements && selectedWidget.type === "vertical-announcements" ? (
+                        <VerticalAnnouncementsContentFields
+                            key={selectedWidget.id}
+                            items={selectedWidget.settings.items}
+                            speed={selectedWidget.settings.speed}
+                            pauseSeconds={selectedWidget.settings.pauseSeconds ?? defaultVerticalAnnouncementPauseSeconds}
+                            onVerticalAnnouncementsSettingsChange={onVerticalAnnouncementsSettingsChange}
+                        />
+                    ) : null}
+                    {editingVerticalAnnouncementsStyle && selectedWidget.type === "vertical-announcements" ? (
+                        <VerticalAnnouncementsStyleFields
+                            key={selectedWidget.id}
+                            backgroundColor={selectedWidget.settings.backgroundColor}
+                            textColor={selectedWidget.settings.textColor}
+                            accentColor={selectedWidget.settings.accentColor}
+                            borderRadius={selectedWidget.settings.borderRadius}
+                            fontFamily={selectedWidget.settings.fontFamily ?? defaultVerticalAnnouncementFontFamily}
+                            titleFontSize={selectedWidget.settings.titleFontSize ?? defaultVerticalAnnouncementTitleFontSize}
+                            descriptionFontSize={selectedWidget.settings.descriptionFontSize ?? defaultVerticalAnnouncementDescriptionFontSize}
+                            fontWeight={selectedWidget.settings.fontWeight ?? defaultVerticalAnnouncementFontWeight}
+                            onVerticalAnnouncementsSettingsChange={onVerticalAnnouncementsSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
+                        />
+                    ) : null}
+                    {!editingTextStyle && !editingClockStyle && !editingImageStyle && !editingInformationCardStyle && !editingAnnouncementsStyle && !editingTickerStyle && !editingVerticalAnnouncementsStyle && activeTab === "Style" && properties.length === 0 ? (
                         <p className="text-sm text-muted">No style properties.</p>
                     ) : null}
                     {showingReadOnlyProperties ? (
@@ -1906,6 +2817,7 @@ function PropertiesPanel({
                     </div>
                 </div>
             )}
+            </DraftFieldIssueContext.Provider>
         </aside>
     );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlocker, useParams, type BlockerFunction } from "react-router-dom";
 import { useAuthSession } from "../../auth/session/authSessionContext.ts";
-import { getBoard, publishBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
+import { BoardRequestError, getBoard, publishBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -12,11 +12,13 @@ import type {
     InformationCardWidgetSettings,
     TextWidgetSettings,
     TickerWidgetSettings,
+    VerticalAnnouncementsWidgetSettings,
     Widget,
     WidgetLayout,
     WidgetType,
 } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
+import { mapDraftFieldIssues, saveFailureSummary, type DraftFieldIssue } from "../draftFieldIssues.ts";
 import { normalizeCssColor } from "../cssColor.ts";
 import {
     imageObjectFitOptions,
@@ -51,6 +53,13 @@ import {
     tickerFontSizeIsInRange,
     tickerSpeedIsInRange,
 } from "../tickerSettings.ts";
+import {
+    normalizeVerticalAnnouncementItems,
+    verticalAnnouncementDescriptionFontSizeIsInRange,
+    verticalAnnouncementPauseIsInRange,
+    verticalAnnouncementSpeedIsInRange,
+    verticalAnnouncementTitleFontSizeIsInRange,
+} from "../verticalAnnouncementsSettings.ts";
 import {
     boardsEqual,
     createDraftHistory,
@@ -451,6 +460,102 @@ function updateTickerSettings(
     };
 }
 
+function updateVerticalAnnouncementsSettings(
+    board: Board,
+    widgetId: string,
+    settings: Partial<VerticalAnnouncementsWidgetSettings>,
+): Board {
+    return {
+        ...board,
+        widgets: board.widgets.map((widget) => {
+            if (widget.id !== widgetId || widget.type !== "vertical-announcements") {
+                return widget;
+            }
+
+            const nextSettings: VerticalAnnouncementsWidgetSettings = {
+                ...widget.settings,
+            };
+
+            if (settings.items !== undefined) {
+                const items = normalizeVerticalAnnouncementItems(settings.items);
+
+                if (items !== null) {
+                    nextSettings.items = items;
+                }
+            }
+
+            if (typeof settings.speed === "number" && verticalAnnouncementSpeedIsInRange(settings.speed)) {
+                nextSettings.speed = settings.speed;
+            }
+
+            if (
+                typeof settings.pauseSeconds === "number"
+                && verticalAnnouncementPauseIsInRange(settings.pauseSeconds)
+            ) {
+                nextSettings.pauseSeconds = settings.pauseSeconds;
+            }
+
+            if (typeof settings.backgroundColor === "string") {
+                const color = normalizeCssColor(settings.backgroundColor);
+
+                if (color !== null) {
+                    nextSettings.backgroundColor = color;
+                }
+            }
+
+            if (typeof settings.textColor === "string") {
+                const color = normalizeCssColor(settings.textColor);
+
+                if (color !== null) {
+                    nextSettings.textColor = color;
+                }
+            }
+
+            if (typeof settings.accentColor === "string") {
+                const color = normalizeCssColor(settings.accentColor);
+
+                if (color !== null) {
+                    nextSettings.accentColor = color;
+                }
+            }
+
+            if (
+                typeof settings.borderRadius === "number"
+                && radiusIsInRange(settings.borderRadius)
+            ) {
+                nextSettings.borderRadius = settings.borderRadius;
+            }
+
+            if (settings.fontFamily !== undefined && isTickerFontFamily(settings.fontFamily)) {
+                nextSettings.fontFamily = settings.fontFamily;
+            }
+
+            if (
+                typeof settings.titleFontSize === "number"
+                && verticalAnnouncementTitleFontSizeIsInRange(settings.titleFontSize)
+            ) {
+                nextSettings.titleFontSize = settings.titleFontSize;
+            }
+
+            if (
+                typeof settings.descriptionFontSize === "number"
+                && verticalAnnouncementDescriptionFontSizeIsInRange(settings.descriptionFontSize)
+            ) {
+                nextSettings.descriptionFontSize = settings.descriptionFontSize;
+            }
+
+            if (typeof settings.fontWeight === "number" && isTickerFontWeight(settings.fontWeight)) {
+                nextSettings.fontWeight = settings.fontWeight;
+            }
+
+            return {
+                ...widget,
+                settings: nextSettings,
+            };
+        }),
+    };
+}
+
 const minimumWidgetWidth = 100;
 const minimumWidgetHeight = 60;
 
@@ -592,7 +697,7 @@ function removeWidget(board: Board, widgetId: string): Board {
 }
 
 type OpenGesture = {
-    kind: "position" | "layout";
+    kind: "position" | "layout" | "color";
     before: Board;
 };
 
@@ -707,6 +812,8 @@ function StudioPage() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [saveState, setSaveState] = useState<"idle" | "saving" | "failed">("idle");
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [draftIssues, setDraftIssues] = useState<DraftFieldIssue[]>([]);
+    const [draftIssueIndex, setDraftIssueIndex] = useState(0);
     const [selection, setSelection] = useState<{ boardId: string; widgetId: string | null }>({
         boardId,
         widgetId: null,
@@ -985,6 +1092,20 @@ function StudioPage() {
         commitDocument(step.present);
     }
 
+    function handleFocusedIssueIndexChange(index: number) {
+        if (draftIssues.length === 0) {
+            return;
+        }
+
+        const nextIndex = (index + draftIssues.length) % draftIssues.length;
+        const issue = draftIssues[nextIndex];
+        setDraftIssueIndex(nextIndex);
+
+        if (issue !== undefined && issue.widgetId !== null) {
+            setSelection({ boardId, widgetId: issue.widgetId });
+        }
+    }
+
     function handleSave() {
         if (
             board === null
@@ -1009,6 +1130,8 @@ function StudioPage() {
             : null);
         setSaveState("saving");
         setSaveError(null);
+        setDraftIssues([]);
+        setDraftIssueIndex(0);
 
         saveBoardDraft(targetBoardId, snapshot)
             .then(() => {
@@ -1020,6 +1143,8 @@ function StudioPage() {
                 const current = boardRef.current;
                 setHasUnsavedChanges(current === null || !boardsEqual(current, snapshot));
                 setSaveState("idle");
+                setDraftIssues([]);
+                setDraftIssueIndex(0);
             })
             .catch((error: unknown) => {
                 if (!isCurrentBoard(targetBoardId)) {
@@ -1030,6 +1155,22 @@ function StudioPage() {
                 const saved = savedDraftRef.current;
                 setHasUnsavedChanges(current === null || saved === null || !boardsEqual(current, saved));
                 setSaveState("failed");
+
+                if (error instanceof BoardRequestError && error.issues.length > 0) {
+                    const issues = mapDraftFieldIssues(current, error.issues);
+                    const firstIssue = issues[0];
+                    setDraftIssues(issues);
+                    setDraftIssueIndex(0);
+                    setSaveError(saveFailureSummary(issues));
+
+                    if (firstIssue !== undefined && firstIssue.widgetId !== null) {
+                        setSelection({ boardId, widgetId: firstIssue.widgetId });
+                    }
+
+                    return;
+                }
+
+                setDraftIssues([]);
                 setSaveError(readStudioError(
                     error,
                     "The draft could not be saved. Check that the API is running, then try again.",
@@ -1223,6 +1364,8 @@ function StudioPage() {
                 setReveal({ boardId, widgetId: null });
                 setSaveState("idle");
                 setSaveError(null);
+                setDraftIssues([]);
+                setDraftIssueIndex(0);
                 setRevertPhase(null);
                 setRevertError(null);
             })
@@ -1295,28 +1438,60 @@ function StudioPage() {
         updateBoard((currentBoard) => updateImageSettings(currentBoard, selectedWidgetId, settings));
     }
 
-    function handleInformationCardSettingsChange(settings: Partial<InformationCardWidgetSettings>) {
+    function handleInformationCardSettingsChange(
+        settings: Partial<InformationCardWidgetSettings>,
+        gesture: "color" | null = null,
+    ) {
         if (selectedWidgetId === null) {
             return;
         }
 
-        updateBoard((currentBoard) => updateInformationCardSettings(currentBoard, selectedWidgetId, settings));
+        applyDocumentUpdate(
+            (currentBoard) => updateInformationCardSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
     }
 
-    function handleAnnouncementsSettingsChange(settings: Partial<AnnouncementsWidgetSettings>) {
+    function handleAnnouncementsSettingsChange(
+        settings: Partial<AnnouncementsWidgetSettings>,
+        gesture: "color" | null = null,
+    ) {
         if (selectedWidgetId === null) {
             return;
         }
 
-        updateBoard((currentBoard) => updateAnnouncementsSettings(currentBoard, selectedWidgetId, settings));
+        applyDocumentUpdate(
+            (currentBoard) => updateAnnouncementsSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
     }
 
-    function handleTickerSettingsChange(settings: Partial<TickerWidgetSettings>) {
+    function handleTickerSettingsChange(
+        settings: Partial<TickerWidgetSettings>,
+        gesture: "color" | null = null,
+    ) {
         if (selectedWidgetId === null) {
             return;
         }
 
-        updateBoard((currentBoard) => updateTickerSettings(currentBoard, selectedWidgetId, settings));
+        applyDocumentUpdate(
+            (currentBoard) => updateTickerSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
+    function handleVerticalAnnouncementsSettingsChange(
+        settings: Partial<VerticalAnnouncementsWidgetSettings>,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateVerticalAnnouncementsSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
     }
 
     function handleWidgetPositionChange(widgetId: string, position: { x: number; y: number }) {
@@ -1675,7 +1850,12 @@ function StudioPage() {
                             onInformationCardSettingsChange={handleInformationCardSettingsChange}
                             onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
                             onTickerSettingsChange={handleTickerSettingsChange}
+                            onVerticalAnnouncementsSettingsChange={handleVerticalAnnouncementsSettingsChange}
+                            onColorSessionEnd={handleGestureEnd}
                             onDeleteWidget={handleRequestDeleteSelectedWidget}
+                            draftIssues={draftIssues}
+                            focusedIssueIndex={draftIssueIndex}
+                            onFocusedIssueIndexChange={handleFocusedIssueIndexChange}
                         />
                     </div>
                 )}

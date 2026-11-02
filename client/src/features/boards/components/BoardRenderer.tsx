@@ -7,6 +7,7 @@ import InformationCardWidget from "./InformationCardWidget.tsx";
 import styles from "./BoardRenderer.module.css";
 import TextWidget from "./TextWidget.tsx";
 import TickerWidget from "./TickerWidget.tsx";
+import VerticalAnnouncementsWidget from "./VerticalAnnouncementsWidget.tsx";
 
 type WidgetPosition = {
     x: number;
@@ -159,6 +160,9 @@ function widgetAccessibleName(widget: Widget): string {
             return widget.settings.title;
         case "ticker":
             return widget.settings.messages.find((message) => message.text.trim().length > 0)?.text ?? "Ticker";
+        case "vertical-announcements":
+            return widget.settings.items.find((item) => item.title.trim().length > 0)?.title
+                ?? "Vertical Announcements";
     }
 }
 
@@ -176,6 +180,8 @@ function renderWidget(widget: Widget) {
             return <AnnouncementsWidget settings={widget.settings} />;
         case "ticker":
             return <TickerWidget settings={widget.settings} />;
+        case "vertical-announcements":
+            return <VerticalAnnouncementsWidget settings={widget.settings} />;
     }
 }
 
@@ -197,6 +203,7 @@ function selectionRadius(widget: Widget): string | undefined {
         case "information-card":
         case "announcements":
         case "ticker":
+        case "vertical-announcements":
             return `${widget.settings.borderRadius}px`;
         case "text":
         case "clock":
