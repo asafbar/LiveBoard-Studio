@@ -3,7 +3,7 @@ name: liveboard-studio-prod
 # Do not start this file while liveboard-studio-db-1 is running.
 # Both stacks would mount liveboard-studio_liveboard_studio_db.
 # Do not run docker compose down -v.
-# The media volume is defined here and stays empty until the reviewed copy.
+# The media volume liveboard-studio_liveboard_studio_media already holds the copied files.
 # Startup does not migrate, seed, or bootstrap an administrator.
 
 services:

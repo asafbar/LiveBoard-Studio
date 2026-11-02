@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const apiBaseUrl = readApiBaseUrl();
+
 const apiClient = axios.create({
-    baseURL: readApiBaseUrl(),
+    baseURL: apiBaseUrl.baseUrl,
     withCredentials: true,
     headers: {
         Accept: "application/json",
@@ -39,15 +41,53 @@ apiClient.interceptors.response.use(
     },
 );
 
-function readApiBaseUrl(): string {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL;
+function readApiBaseUrl(): ApiBaseUrl {
+    const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
-    if (typeof baseUrl !== "string") {
-        return "";
+    if (typeof rawBaseUrl !== "string" || rawBaseUrl.trim() === "") {
+        return {
+            baseUrl: "",
+            problem: null,
+        };
     }
 
-    return baseUrl.trim().replace(/\/$/, "");
+    const trimmed = rawBaseUrl.trim().replace(/\/$/, "");
+    let parsed: URL;
+
+    try {
+        parsed = new URL(trimmed);
+    } catch {
+        return invalidApiBaseUrl();
+    }
+
+    const hasRootPath = parsed.pathname === "" || parsed.pathname === "/";
+    const isHttp = parsed.protocol === "http:" || parsed.protocol === "https:";
+
+    if (!isHttp || !hasRootPath || parsed.username !== "" || parsed.password !== "" || parsed.search !== "" || parsed.hash !== "") {
+        return invalidApiBaseUrl();
+    }
+
+    return {
+        baseUrl: parsed.origin,
+        problem: null,
+    };
 }
 
-export { setUnauthorizedListener };
+function invalidApiBaseUrl(): ApiBaseUrl {
+    return {
+        baseUrl: "",
+        problem: "VITE_API_BASE_URL is not a valid URL.",
+    };
+}
+
+function readApiBaseUrlProblem(): string | null {
+    return apiBaseUrl.problem;
+}
+
+type ApiBaseUrl = {
+    baseUrl: string;
+    problem: string | null;
+};
+
+export { readApiBaseUrlProblem, setUnauthorizedListener };
 export default apiClient;

@@ -1,5 +1,5 @@
 import axios from "axios";
-import apiClient from "../../../api/apiClient.ts";
+import apiClient, { readApiBaseUrlProblem } from "../../../api/apiClient.ts";
 
 // A display id identifies a screen for local development.
 // It does not authenticate the device. Registration stays untrusted
@@ -58,8 +58,10 @@ function isDisplayId(value: string | undefined): value is string {
 }
 
 async function listDisplays(): Promise<DisplayRecord[]> {
-    if (apiClient.defaults.baseURL === "") {
-        throw new Error("VITE_API_BASE_URL is not configured.");
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new Error(apiBaseUrlProblem);
     }
 
     try {
@@ -83,8 +85,10 @@ async function listDisplays(): Promise<DisplayRecord[]> {
 }
 
 async function createDisplay(payload: CreateDisplayPayload): Promise<DisplayRecord> {
-    if (apiClient.defaults.baseURL === "") {
-        throw new DisplayRequestError("VITE_API_BASE_URL is not configured.", {});
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new DisplayRequestError(apiBaseUrlProblem, {});
     }
 
     try {
@@ -124,8 +128,10 @@ async function updateDisplay(
         );
     }
 
-    if (apiClient.defaults.baseURL === "") {
-        throw new DisplayRequestError("VITE_API_BASE_URL is not configured.", {});
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new DisplayRequestError(apiBaseUrlProblem, {});
     }
 
     const body: UpdateDisplayPayload = {};
@@ -165,8 +171,10 @@ async function getDisplay(displayId: string): Promise<PublicDisplayRecord> {
         throw new Error("This display address is not valid.");
     }
 
-    if (apiClient.defaults.baseURL === "") {
-        throw new Error("VITE_API_BASE_URL is not configured.");
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new Error(apiBaseUrlProblem);
     }
 
     try {

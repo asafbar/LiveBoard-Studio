@@ -1,5 +1,5 @@
 import axios from "axios";
-import apiClient from "../../../api/apiClient.ts";
+import apiClient, { readApiBaseUrlProblem } from "../../../api/apiClient.ts";
 
 type ApiResponse<T> = {
     success: boolean;
@@ -33,8 +33,10 @@ async function logout(): Promise<void> {
 }
 
 async function getSession(): Promise<AdminSession> {
-    if (apiClient.defaults.baseURL === "") {
-        throw new AuthRequestError("VITE_API_BASE_URL is not configured.", null);
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new AuthRequestError(apiBaseUrlProblem, null);
     }
 
     try {
@@ -55,8 +57,10 @@ async function getSession(): Promise<AdminSession> {
 }
 
 async function sendAuthRequest(path: string, fallback: string, body: { username: string; password: string } | Record<string, never>): Promise<AdminSession> {
-    if (apiClient.defaults.baseURL === "") {
-        throw new AuthRequestError("VITE_API_BASE_URL is not configured.", null);
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new AuthRequestError(apiBaseUrlProblem, null);
     }
 
     try {

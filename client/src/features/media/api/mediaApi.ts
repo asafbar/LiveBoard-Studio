@@ -1,5 +1,5 @@
 import axios from "axios";
-import apiClient from "../../../api/apiClient.ts";
+import apiClient, { readApiBaseUrlProblem } from "../../../api/apiClient.ts";
 
 type ApiResponse<T> = {
     success: boolean;
@@ -95,6 +95,10 @@ async function uploadMediaAsset(
 }
 
 function toPublicMediaFileUrl(fileUrl: string): string {
+    if (readApiBaseUrlProblem() !== null) {
+        return fileUrl;
+    }
+
     const configured = apiClient.defaults.baseURL;
     const base = typeof configured === "string" ? configured.replace(/\/$/, "") : "";
     const origin = base === "" ? window.location.origin : base;
@@ -197,8 +201,10 @@ function clientFileProblem(file: File): string | null {
 }
 
 function assertApiConfigured(): void {
-    if (apiClient.defaults.baseURL === "") {
-        throw new MediaRequestError("VITE_API_BASE_URL is not configured.", null);
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new MediaRequestError(apiBaseUrlProblem, null);
     }
 }
 

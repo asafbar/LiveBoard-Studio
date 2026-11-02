@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import apiClient from "../../../api/apiClient.ts";
+import apiClient, { readApiBaseUrlProblem } from "../../../api/apiClient.ts";
 
 export type DisplayConnectionState = "connected" | "reconnecting" | "disconnected";
 
@@ -184,9 +184,7 @@ function ensureSocket() {
         return;
     }
 
-    const baseUrl = apiClient.defaults.baseURL;
-
-    if (typeof baseUrl !== "string" || baseUrl.trim() === "") {
+    if (readApiBaseUrlProblem() !== null) {
         queueMicrotask(() => {
             for (const subscription of subscriptions) {
                 subscription.handlers.onConnectionState("disconnected");
@@ -202,10 +200,15 @@ function ensureSocket() {
         return;
     }
 
-    const nextSocket = io(baseUrl, {
+    const baseUrl = apiClient.defaults.baseURL;
+    const socketOptions = {
         autoConnect: true,
+        path: "/socket.io",
         reconnection: true,
-    });
+    };
+    const nextSocket = baseUrl === ""
+        ? io(socketOptions)
+        : io(baseUrl, socketOptions);
     socket = nextSocket;
 
     nextSocket.on("connect", () => {

@@ -1,5 +1,5 @@
 import axios, { type AxiosResponse } from "axios";
-import apiClient from "../../../api/apiClient.ts";
+import apiClient, { readApiBaseUrlProblem } from "../../../api/apiClient.ts";
 import type { Board } from "../types/boardTypes.ts";
 
 // Callers pass the database UUID. It stays separate from the id stored in draft.id.
@@ -67,8 +67,10 @@ function isBoardId(value: string | undefined): value is string {
 }
 
 async function getBoardById(boardId: string): Promise<BoardRecord> {
-    if (apiClient.defaults.baseURL === "") {
-        throw new Error("VITE_API_BASE_URL is not configured.");
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new Error(apiBaseUrlProblem);
     }
 
     const response = await apiClient.get<ApiResponse<BoardRecord>>(
@@ -83,8 +85,10 @@ async function getBoardById(boardId: string): Promise<BoardRecord> {
 }
 
 async function listBoardSummaries(): Promise<BoardSummary[]> {
-    if (apiClient.defaults.baseURL === "") {
-        throw new Error("VITE_API_BASE_URL is not configured.");
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new Error(apiBaseUrlProblem);
     }
 
     let response: AxiosResponse<ApiResponse<BoardSummary[]>>;
@@ -106,8 +110,10 @@ async function listBoardSummaries(): Promise<BoardSummary[]> {
 }
 
 async function createBoard(name: string): Promise<BoardWriteResult> {
-    if (apiClient.defaults.baseURL === "") {
-        throw new BoardRequestError("VITE_API_BASE_URL is not configured.", null, {});
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new BoardRequestError(apiBaseUrlProblem, null, {});
     }
 
     try {
@@ -139,8 +145,10 @@ async function renameBoard(boardId: string, name: string): Promise<BoardWriteRes
         throw new BoardRequestError("This board address is not valid.", null, {});
     }
 
-    if (apiClient.defaults.baseURL === "") {
-        throw new BoardRequestError("VITE_API_BASE_URL is not configured.", null, {});
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new BoardRequestError(apiBaseUrlProblem, null, {});
     }
 
     try {
@@ -171,8 +179,10 @@ async function duplicateBoard(boardId: string): Promise<BoardWriteResult> {
         throw new BoardRequestError("This board address is not valid.", null, {});
     }
 
-    if (apiClient.defaults.baseURL === "") {
-        throw new BoardRequestError("VITE_API_BASE_URL is not configured.", null, {});
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new BoardRequestError(apiBaseUrlProblem, null, {});
     }
 
     try {
@@ -208,8 +218,10 @@ async function getPublishedBoard(boardId: string): Promise<PublishedBoardResult>
         throw new Error("This board address is not valid.");
     }
 
-    if (apiClient.defaults.baseURL === "") {
-        throw new Error("VITE_API_BASE_URL is not configured.");
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new Error(apiBaseUrlProblem);
     }
 
     try {
@@ -272,8 +284,10 @@ async function saveBoardDraft(boardId: string, draft: Board): Promise<void> {
         throw new Error("This board address is not valid.");
     }
 
-    if (apiClient.defaults.baseURL === "") {
-        throw new Error("VITE_API_BASE_URL is not configured.");
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new Error(apiBaseUrlProblem);
     }
 
     let response: AxiosResponse<ApiResponse<BoardRecord>>;
@@ -302,8 +316,10 @@ async function publishBoard(boardId: string): Promise<BoardRecord> {
         throw new Error("This board address is not valid.");
     }
 
-    if (apiClient.defaults.baseURL === "") {
-        throw new Error("VITE_API_BASE_URL is not configured.");
+    const apiBaseUrlProblem = readApiBaseUrlProblem();
+
+    if (apiBaseUrlProblem !== null) {
+        throw new Error(apiBaseUrlProblem);
     }
 
     let response: AxiosResponse<ApiResponse<BoardRecord>>;

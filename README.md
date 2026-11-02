@@ -7,7 +7,7 @@ Image bytes are stored as files. PostgreSQL keeps metadata only, in `media_asset
 
 `compose.yaml` remains the development PostgreSQL file. `compose.prod.yaml` is a separate production definition and is not started as part of development. It publishes only web on `127.0.0.1`, keeps the API and PostgreSQL on the Compose network, and reuses the external volume `liveboard-studio_liveboard_studio_db` at `/var/lib/postgresql`. Do not start that file while `liveboard-studio-db-1` is running. Do not run `docker compose down -v`.
 
-The production API mounts a different named volume, `liveboard-studio_liveboard_studio_media`, at `/app/storage/media` and sets `MEDIA_DIR=/app/storage/media`. That volume stays empty until the three files in `server/storage/media` are copied into it. The copy has not been run. Do not overwrite a destination file, and leave the host files in place. The reviewed checksums are:
+The production API mounts a different named volume, `liveboard-studio_liveboard_studio_media`, at `/app/storage/media` and sets `MEDIA_DIR=/app/storage/media`. The three host files were copied into that volume with matching checksums. The host files remain in place. Do not overwrite a destination file with different bytes. The checksums are:
 
 - `c849ee75-6331-42be-86db-44896dc00e74.jpg`, 542628 bytes, SHA-256 `5aaac7525b10caceedb5583580061c2c8c27647c3de52fc75fc5c3c02ec60324`
 - `e87d4ee0-f699-4409-937b-46467dbf20ef.jpg`, 152043 bytes, SHA-256 `ab06b3437a54d1a3b5e74fd51f640f49793ba0599be6914ed50598b15c2503fa`
