@@ -15,7 +15,9 @@ const {
 
 const router = express.Router();
 
-// Reads stay public so a published display can load stored images.
+// Metadata requires an administrator session.
+// File bytes stay public so a published display can load an image
+// whose file URL is already stored in the board.
 // Deletion is not implemented. The upload gate bounds decode work
 // before the multipart parser writes a temporary file.
 router.post(
@@ -28,7 +30,11 @@ router.post(
     mediaController.uploadMedia
 );
 
-router.get("/", mediaController.listMedia);
+router.get(
+    "/",
+    requireAdmin,
+    mediaController.listMedia
+);
 
 router.get(
     "/:id/file",
@@ -38,6 +44,7 @@ router.get(
 
 router.get(
     "/:id",
+    requireAdmin,
     validateMediaId,
     mediaController.getMedia
 );

@@ -1,25 +1,27 @@
 # LiveBoard-Studio
 Visual digital signage editor with realtime display management
 
+## Deployment profiles
+
+Local Docker installation uses `compose.fresh.yaml`. It creates new empty database and media volumes for a first-time setup. Web is published on `127.0.0.1` only. The API and PostgreSQL stay on the Compose network. The commands are in Fresh Docker installation below.
+
+Existing-data deployment uses `compose.prod.yaml`. It also publishes web only on `127.0.0.1`, and it attaches the external database and media volumes named in that file. `compose.yaml` remains the development PostgreSQL file. Do not start `compose.prod.yaml` while the development database container is running. Do not run `docker compose down -v`. Do not point `compose.fresh.yaml` at the existing volumes.
+
+Future public HTTPS deployment is not configured. It requires `COOKIE_SECURE=true`, the exact `https` origin in `CLIENT_URL`, and a deliberate decision to publish the web port beyond loopback. The current localhost HTTP configuration, including `COOKIE_SECURE=false`, is not intended for direct internet exposure.
+
 ## Media storage
 
 Image bytes are stored as files. PostgreSQL keeps metadata only, in `media_assets`. The default directory is `server/storage/media`, which Git ignores. Set `MEDIA_DIR` in `server/.env` to move it. The directory must stay outside `client/public`.
 
-`compose.yaml` remains the development PostgreSQL file. `compose.prod.yaml` is a separate production definition and is not started as part of development. It publishes only web on `127.0.0.1`, keeps the API and PostgreSQL on the Compose network, and reuses the external volume `liveboard-studio_liveboard_studio_db` at `/var/lib/postgresql`. Do not start that file while `liveboard-studio-db-1` is running. Do not run `docker compose down -v`. A portable first-time installation uses `compose.fresh.yaml` instead. That file is separate from this existing-data workflow and must not mount either existing volume.
+Before copying media or attaching an existing database volume, back up that volume and keep the backup outside the Git repository. Do not store the backup path or database credentials in this file.
 
-The production API mounts a different named volume, `liveboard-studio_liveboard_studio_media`, at `/app/storage/media` and sets `MEDIA_DIR=/app/storage/media`. The three host files were copied into that volume with matching checksums. The host files remain in place. Do not overwrite a destination file with different bytes. The checksums are:
+For an existing-data deployment, the API mounts the external media volume at `/app/storage/media` and sets `MEDIA_DIR=/app/storage/media`. To copy host files into that volume, use a one-off container. Mount the host media directory read-only and the named media volume read-write. Override the image entrypoint so PostgreSQL does not start, and do not mount the database volume. Copy a file only when that filename is absent. If it is present and the checksum differs, stop. Do not overwrite a destination file with different bytes. After a matching copy, change ownership to uid 1000, gid 1000, so the API user can read and write. Leave the host files in place.
 
-- `c849ee75-6331-42be-86db-44896dc00e74.jpg`, 542628 bytes, SHA-256 `5aaac7525b10caceedb5583580061c2c8c27647c3de52fc75fc5c3c02ec60324`
-- `e87d4ee0-f699-4409-937b-46467dbf20ef.jpg`, 152043 bytes, SHA-256 `ab06b3437a54d1a3b5e74fd51f640f49793ba0599be6914ed50598b15c2503fa`
-- `fce15274-8f44-4636-acc6-6730329bbaf7.jpg`, 94497 bytes, SHA-256 `2907f7d2a8739c10a9fd49125e299ee13a248f4758e342100782e86062e97b2c`
+After the existing database is the only PostgreSQL process attached to its volume, apply migrations once with `node src/db/migrate.js`. Do not run that command on API startup. Do not run `src/db/seed.js` or `src/db/bootstrapAdmin.js` against that database.
 
-Use a one-off container with the host directory mounted read-only and the named volume mounted read-write. Override the image entrypoint so PostgreSQL does not start, and do not mount the database volume. Copy each file only when that filename is absent. If it is present and the checksum differs, stop. After a matching copy, change ownership to uid 1000, gid 1000, so the API user can read and write.
+The Tech Summit images in `client/public/media/tech-summit/` stay static assets.
 
-After the production database is the only PostgreSQL process attached to the existing volume, apply migrations once with `node src/db/migrate.js`. Do not run that command on API startup. Do not run `src/db/seed.js` or `src/db/bootstrapAdmin.js`.
-
-The existing Tech Summit images in `client/public/media/tech-summit/` stay static assets.
-
-`GET /api/media`, `GET /api/media/:id`, and `GET /api/media/:id/file` stay public. `POST /api/media` accepts one JPEG, PNG, or WebP image from an administrator session and requires `X-LiveBoard-Request: 1`. The server decodes the upload, rejects animated or oversized images, re-encodes it in the same format, and stores only those processed bytes. Deletion is not implemented. A crash after the file is written and before the metadata insert can leave an unreferenced file, because the filesystem write is not part of the database transaction. A failed insert removes the file it just wrote.
+`GET /api/media` and `GET /api/media/:id` require an administrator session. `GET /api/media/:id/file` stays public so a published display can load an image whose file URL is already stored in the board. `POST /api/media` accepts one JPEG, PNG, or WebP image from an administrator session and requires `X-LiveBoard-Request: 1`. The server decodes the upload, rejects animated or oversized images, re-encodes it in the same format, and stores only those processed bytes. Deletion is not implemented. A crash after the file is written and before the metadata insert can leave an unreferenced file, because the filesystem write is not part of the database transaction. A failed insert removes the file it just wrote.
 
 ## Administrator account
 
@@ -50,7 +52,7 @@ Use this path for a new, empty installation. It does not read the development da
 
 The fresh project name is `liveboard-studio-fresh`. Its database volume is `liveboard-studio-fresh_db`, mounted at `/var/lib/postgresql`. Its media volume is `liveboard-studio-fresh_media`, mounted at `/app/storage/media`. Web is published on `127.0.0.1` only. The API and PostgreSQL stay on the `liveboard-studio-fresh` network. Images are tagged `liveboard-studio-web:fresh` and `liveboard-studio-api:fresh`, so building them does not replace the `:prod` tags.
 
-Copy `compose.fresh.env.example` to `.env.fresh` and choose a new database password. `.env.fresh` is ignored by Git. Do not commit it, and do not put the administrator password in it. Every command below passes `--env-file .env.fresh` so Compose does not interpolate a different `.env` from the repository root. `CLIENT_URL` must be the exact origin opened in the browser, including the port. Use `http://127.0.0.1` rather than `http://localhost`. If port 8080 is already taken, change `WEB_PORT` and `CLIENT_URL` together. `COOKIE_SECURE=false` is only for this loopback HTTP setup. A later HTTPS site needs `COOKIE_SECURE=true`, the exact `https` origin, and a deliberate decision to publish the web port beyond loopback. This Compose file does not make that change.
+Copy `compose.fresh.env.example` to `.env.fresh` and choose a new database password. `.env.fresh` is ignored by Git. Do not commit it, and do not put the administrator password in it. Every command below passes `--env-file .env.fresh` so Compose does not interpolate a different `.env` from the repository root. `CLIENT_URL` must be the exact origin opened in the browser, including the port. Use `http://127.0.0.1` rather than `http://localhost`. If port 8080 is already taken, change `WEB_PORT` and `CLIENT_URL` together. `COOKIE_SECURE=false` is only for this loopback HTTP setup. This localhost HTTP configuration is not intended for direct internet exposure. A later HTTPS site needs `COOKIE_SECURE=true`, the exact `https` origin, and a deliberate decision to publish the web port beyond loopback. This Compose file does not make that change.
 
 PostgreSQL applies `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` only while `liveboard-studio-fresh_db` is empty. Changing them later does not rewrite an initialized cluster.
 
