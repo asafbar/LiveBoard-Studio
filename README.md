@@ -5,7 +5,7 @@ Visual digital signage editor with realtime display management
 
 Image bytes are stored as files. PostgreSQL keeps metadata only, in `media_assets`. The default directory is `server/storage/media`, which Git ignores. Set `MEDIA_DIR` in `server/.env` to move it. The directory must stay outside `client/public`.
 
-`compose.yaml` remains the development PostgreSQL file. `compose.prod.yaml` is a separate production definition and is not started as part of development. It publishes only web on `127.0.0.1`, keeps the API and PostgreSQL on the Compose network, and reuses the external volume `liveboard-studio_liveboard_studio_db` at `/var/lib/postgresql`. Do not start that file while `liveboard-studio-db-1` is running. Do not run `docker compose down -v`.
+`compose.yaml` remains the development PostgreSQL file. `compose.prod.yaml` is a separate production definition and is not started as part of development. It publishes only web on `127.0.0.1`, keeps the API and PostgreSQL on the Compose network, and reuses the external volume `liveboard-studio_liveboard_studio_db` at `/var/lib/postgresql`. Do not start that file while `liveboard-studio-db-1` is running. Do not run `docker compose down -v`. A portable first-time installation uses `compose.fresh.yaml` instead. That file is separate from this existing-data workflow and must not mount either existing volume.
 
 The production API mounts a different named volume, `liveboard-studio_liveboard_studio_media`, at `/app/storage/media` and sets `MEDIA_DIR=/app/storage/media`. The three host files were copied into that volume with matching checksums. The host files remain in place. Do not overwrite a destination file with different bytes. The checksums are:
 
@@ -43,3 +43,61 @@ Upload rules enforced by `POST /api/media`:
 - Reject path traversal, symlinks that leave the storage root, and non-image content.
 - A storage quota is not enforced yet.
 - Treat stored metadata as a label, not as proof that the bytes are safe.
+
+## Fresh Docker installation
+
+Use this path for a new, empty installation. It does not read the development database, the production database, or the copied media volume. Keep using `compose.prod.yaml` only for the existing local data. Do not point `compose.fresh.yaml` at `liveboard-studio_liveboard_studio_db` or `liveboard-studio_liveboard_studio_media`.
+
+The fresh project name is `liveboard-studio-fresh`. Its database volume is `liveboard-studio-fresh_db`, mounted at `/var/lib/postgresql`. Its media volume is `liveboard-studio-fresh_media`, mounted at `/app/storage/media`. Web is published on `127.0.0.1` only. The API and PostgreSQL stay on the `liveboard-studio-fresh` network. Images are tagged `liveboard-studio-web:fresh` and `liveboard-studio-api:fresh`, so building them does not replace the `:prod` tags.
+
+Copy `compose.fresh.env.example` to `.env.fresh` and choose a new database password. `.env.fresh` is ignored by Git. Do not commit it, and do not put the administrator password in it. Every command below passes `--env-file .env.fresh` so Compose does not interpolate a different `.env` from the repository root. `CLIENT_URL` must be the exact origin opened in the browser, including the port. Use `http://127.0.0.1` rather than `http://localhost`. If port 8080 is already taken, change `WEB_PORT` and `CLIENT_URL` together. `COOKIE_SECURE=false` is only for this loopback HTTP setup. A later HTTPS site needs `COOKIE_SECURE=true`, the exact `https` origin, and a deliberate decision to publish the web port beyond loopback. This Compose file does not make that change.
+
+PostgreSQL applies `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` only while `liveboard-studio-fresh_db` is empty. Changing them later does not rewrite an initialized cluster.
+
+Build the images:
+
+    docker compose --env-file .env.fresh -f compose.fresh.yaml build
+
+Start only PostgreSQL and wait until `liveboard-studio-fresh-db-1` is healthy:
+
+    docker compose --env-file .env.fresh -f compose.fresh.yaml up -d db
+
+Apply migrations once. This creates the schema. It does not insert boards, displays, media, or an administrator:
+
+    docker compose --env-file .env.fresh -f compose.fresh.yaml run --rm --no-deps --entrypoint node api src/db/migrate.js
+
+Create the single administrator. The password must be 12 to 128 characters and must not contain a null character. The username must be 1 to 64 characters without control characters. The command stores a scrypt hash and refuses to run when an account already exists. There is no public registration route.
+
+    printf 'Username: '
+    read -r ADMIN_USERNAME
+    printf 'Password: '
+    read -rs ADMIN_PASSWORD
+    printf '\n'
+    export ADMIN_USERNAME ADMIN_PASSWORD
+    docker compose --env-file .env.fresh -f compose.fresh.yaml run --rm --no-deps \
+        -e ADMIN_USERNAME \
+        -e ADMIN_PASSWORD \
+        --entrypoint node api src/db/bootstrapAdmin.js
+    unset ADMIN_PASSWORD
+
+Start the web and API containers:
+
+    docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --no-build
+
+Open `http://127.0.0.1:8080` when `WEB_PORT` is 8080, or the origin stored in `CLIENT_URL`. Sign in with the account just created. Studio routes require that session. `/display/:boardId` and `/screens/:displayId` stay public. State-changing requests still require `X-LiveBoard-Request: 1`, and the browser `Origin` must match `CLIENT_URL`.
+
+The sample board is optional. Run it only after migrations and only with `compose.fresh.yaml`. It inserts the Tech Summit sample when that board id is absent, leaves an existing row unchanged, and does not publish the board. Its images are the static files built into the web image. It does not read or write the existing media volume.
+
+    docker compose --env-file .env.fresh -f compose.fresh.yaml run --rm --no-deps --entrypoint node api src/db/seed.js
+
+Stop the fresh stack with `stop`. The named volumes remain, and the next start does not need another migration or bootstrap:
+
+    docker compose --env-file .env.fresh -f compose.fresh.yaml stop
+    docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --no-build
+
+Update the application by building again and starting the same project. Compose may recreate the fresh containers, but the named volumes keep the database and uploaded files. Do not add `-v`.
+
+    docker compose --env-file .env.fresh -f compose.fresh.yaml build
+    docker compose --env-file .env.fresh -f compose.fresh.yaml up -d
+
+`docker compose down` without `-v` removes the fresh containers and keeps the volumes. `docker compose down -v` deletes `liveboard-studio-fresh_db` and `liveboard-studio-fresh_media`. Do not use `-v` unless the fresh installation should be erased. Never run a removal command against `compose.prod.yaml` or `compose.yaml` from these steps.
