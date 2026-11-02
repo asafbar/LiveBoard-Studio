@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type {
     DisplayConnectionState,
     DisplayRegistrationState,
@@ -20,6 +22,8 @@ type ScreenPresenceStatusProps = {
     registrationState: DisplayRegistrationState;
     details: string[];
 };
+
+const connectionBannerDelayMs = 400;
 
 const connectionLabel: Record<DisplayConnectionState, string> = {
     connected: "Connected",
@@ -58,28 +62,88 @@ function DisplayStatus({ title, message, actionLabel, onAction }: DisplayStatusP
     );
 }
 
-function DisplayConnectionStatus({ connectionState, detail }: DisplayConnectionStatusProps) {
+function useDisplayDiagnostic(): boolean {
+    const [searchParams] = useSearchParams();
+
+    return searchParams.get("debug") === "1";
+}
+
+// A fast first connection should not flash a status over the board.
+function useDelayedVisibility(active: boolean): boolean {
+    const [revealed, setRevealed] = useState(false);
+
+    useEffect(() => {
+        if (!active) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            setRevealed(true);
+        }, connectionBannerDelayMs);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [active]);
+
+    return active && revealed;
+}
+
+type ConnectionBannerProps = {
+    label: string | null;
+    dotClassName: string;
+    details: string[];
+};
+
+function ConnectionBanner({
+    label,
+    dotClassName,
+    details,
+}: ConnectionBannerProps) {
     return (
-        <div className="pointer-events-none fixed bottom-4 left-4 z-20 flex max-w-xs flex-col items-start gap-2 font-sans">
-            <p
-                role="status"
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/90 px-3 py-1.5 text-xs font-medium text-secondary shadow-panel"
-            >
-                <span
-                    className={`size-1.5 rounded-full ${connectionDotClassName[connectionState]}`}
-                    aria-hidden="true"
-                />
-                {connectionLabel[connectionState]}
-            </p>
-            {detail !== null ? (
+        <div className="pointer-events-none fixed top-4 left-1/2 z-20 flex w-max max-w-[min(24rem,calc(100%-2rem))] -translate-x-1/2 flex-col items-center gap-2 font-sans">
+            {label !== null ? (
                 <p
                     role="status"
-                    className="rounded-control border border-border bg-surface/90 px-3 py-2 text-xs leading-4 text-secondary shadow-panel"
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/90 px-3 py-1.5 text-xs font-medium text-secondary shadow-panel"
+                >
+                    <span
+                        className={`size-1.5 rounded-full ${dotClassName}`}
+                        aria-hidden="true"
+                    />
+                    {label}
+                </p>
+            ) : null}
+            {details.map((detail) => (
+                <p
+                    key={detail}
+                    role="status"
+                    className="rounded-control border border-border bg-surface/90 px-3 py-2 text-center text-xs leading-4 text-secondary shadow-panel"
                 >
                     {detail}
                 </p>
-            ) : null}
+            ))}
         </div>
+    );
+}
+
+function DisplayConnectionStatus({ connectionState, detail }: DisplayConnectionStatusProps) {
+    const diagnostic = useDisplayDiagnostic();
+    const connectionProblem = connectionState !== "connected";
+    const showConnectionProblem = useDelayedVisibility(connectionProblem);
+    const showConnection = diagnostic || showConnectionProblem;
+    const details = detail === null ? [] : [detail];
+
+    if (!showConnection && details.length === 0) {
+        return null;
+    }
+
+    return (
+        <ConnectionBanner
+            label={showConnection ? connectionLabel[connectionState] : null}
+            dotClassName={connectionDotClassName[connectionState]}
+            details={details}
+        />
     );
 }
 
@@ -121,35 +185,40 @@ function readScreenConnection(
     };
 }
 
+function screenConnectionNeedsAttention(
+    connectionState: DisplayConnectionState,
+    registrationState: DisplayRegistrationState,
+): boolean {
+    if (connectionState !== "connected" || registrationState === "failed") {
+        return true;
+    }
+
+    return registrationState !== "registered";
+}
+
 function ScreenPresenceStatus({
     connectionState,
     registrationState,
     details,
 }: ScreenPresenceStatusProps) {
+    const diagnostic = useDisplayDiagnostic();
     const connection = readScreenConnection(connectionState, registrationState);
+    const immediate = registrationState === "failed" || details.length > 0;
+    const showConnectionProblem = useDelayedVisibility(
+        screenConnectionNeedsAttention(connectionState, registrationState) && !immediate,
+    );
+    const showConnection = diagnostic || immediate || showConnectionProblem;
+
+    if (!showConnection && details.length === 0) {
+        return null;
+    }
 
     return (
-        <div className="pointer-events-none fixed bottom-4 left-4 z-20 flex max-w-xs flex-col items-start gap-2 font-sans">
-            <p
-                role="status"
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/90 px-3 py-1.5 text-xs font-medium text-secondary shadow-panel"
-            >
-                <span
-                    className={`size-1.5 rounded-full ${connection.dotClassName}`}
-                    aria-hidden="true"
-                />
-                {connection.label}
-            </p>
-            {details.map((detail) => (
-                <p
-                    key={detail}
-                    role="status"
-                    className="rounded-control border border-border bg-surface/90 px-3 py-2 text-xs leading-4 text-secondary shadow-panel"
-                >
-                    {detail}
-                </p>
-            ))}
-        </div>
+        <ConnectionBanner
+            label={showConnection ? connection.label : null}
+            dotClassName={connection.dotClassName}
+            details={details}
+        />
     );
 }
 
