@@ -1,0 +1,9 @@
+.git
+.cursor
+**/.env
+**/.env.*
+**/node_modules
+client/dist
+server/storage
+*.log
+.DS_Store
