@@ -82,6 +82,16 @@ async function listMediaAssets() {
     return mediaRepository.listMediaAssets();
 }
 
+async function renameMediaAsset(id, originalFilename) {
+    const asset = await mediaRepository.updateMediaFilename(id, originalFilename);
+
+    if (asset === null) {
+        throw createHttpError(404, "Media asset not found.");
+    }
+
+    return asset;
+}
+
 async function getMediaAsset(id) {
     const asset = await mediaRepository.findMediaAssetById(id);
 
@@ -143,5 +153,6 @@ module.exports = {
     createMediaAsset,
     listMediaAssets,
     getMediaAsset,
-    openMediaFile
+    openMediaFile,
+    renameMediaAsset
 };

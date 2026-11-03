@@ -8,6 +8,7 @@ type MediaAssetMenuProps = {
     onOpenChange: (open: boolean) => void;
     onPreview: () => void;
     onCopyUrl: () => void;
+    onRename: () => void;
 };
 
 type MenuPlacement = {
@@ -16,7 +17,7 @@ type MenuPlacement = {
 };
 
 const MENU_WIDTH = 176;
-const MENU_HEIGHT = 80;
+const MENU_HEIGHT = 116;
 const MENU_GAP = 4;
 const VIEWPORT_MARGIN = 8;
 
@@ -29,12 +30,14 @@ function MediaAssetMenu({
     onOpenChange,
     onPreview,
     onCopyUrl,
+    onRename,
 }: MediaAssetMenuProps) {
     const menuId = useId();
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const previewRef = useRef<HTMLButtonElement>(null);
     const copyRef = useRef<HTMLButtonElement>(null);
+    const renameRef = useRef<HTMLButtonElement>(null);
     const [placement, setPlacement] = useState<MenuPlacement | null>(null);
     const [focusIndex, setFocusIndex] = useState(0);
     const menuOpen = open && !disabled;
@@ -77,8 +80,8 @@ function MediaAssetMenu({
             return;
         }
 
-        const item = focusIndex === 0 ? previewRef.current : copyRef.current;
-        item?.focus();
+        const items = [previewRef.current, copyRef.current, renameRef.current];
+        items[focusIndex]?.focus();
     }, [menuOpen, focusIndex]);
 
     useEffect(() => {
@@ -154,7 +157,7 @@ function MediaAssetMenu({
 
         if (event.key === "ArrowUp") {
             consumeKey(event);
-            openMenu(1);
+            openMenu(2);
             return;
         }
 
@@ -165,7 +168,7 @@ function MediaAssetMenu({
     }
 
     function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-        const items = [previewRef.current, copyRef.current];
+        const items = [previewRef.current, copyRef.current, renameRef.current];
 
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             consumeKey(event);
@@ -188,8 +191,8 @@ function MediaAssetMenu({
 
         if (event.key === "End") {
             consumeKey(event);
-            setFocusIndex(1);
-            copyRef.current?.focus();
+            setFocusIndex(2);
+            renameRef.current?.focus();
             return;
         }
 
@@ -240,6 +243,18 @@ function MediaAssetMenu({
                     className={menuItemClassName}
                 >
                     Copy image URL
+                </button>
+                <button
+                    ref={renameRef}
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => {
+                        choose(onRename);
+                    }}
+                    className={menuItemClassName}
+                >
+                    Rename
                 </button>
             </div>,
             document.body,

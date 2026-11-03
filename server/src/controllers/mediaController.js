@@ -41,6 +41,24 @@ async function listMedia(req, res, next) {
     }
 }
 
+async function renameMedia(req, res, next) {
+    try {
+        const asset = await mediaService.renameMediaAsset(
+            req.params.id,
+            req.mediaFilename
+        );
+
+        res.status(200).json(
+            successResponse(
+                "Media asset renamed successfully.",
+                toMediaAsset(asset)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
 async function getMedia(req, res, next) {
     try {
         const asset = await mediaService.getMediaAsset(req.params.id);
@@ -86,5 +104,6 @@ module.exports = {
     uploadMedia,
     listMedia,
     getMedia,
-    getMediaFile
+    getMediaFile,
+    renameMedia
 };

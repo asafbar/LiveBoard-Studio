@@ -10,6 +10,7 @@ const {
 } = require("../middleware/mediaUpload");
 const {
     validateMediaId,
+    validateMediaRename,
     validateUploadedFile
 } = require("../validators/mediaValidator");
 
@@ -34,6 +35,15 @@ router.get(
     "/",
     requireAdmin,
     mediaController.listMedia
+);
+
+router.patch(
+    "/:id",
+    requireAdmin,
+    requireCsrf,
+    validateMediaId,
+    validateMediaRename,
+    mediaController.renameMedia
 );
 
 router.get(

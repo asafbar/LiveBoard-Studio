@@ -11,6 +11,7 @@ import {
 import { formatFileSize, formatTimestamp } from "../mediaFormat.ts";
 import MediaAssetMenu from "./MediaAssetMenu.tsx";
 import MediaPreviewDialog from "./MediaPreviewDialog.tsx";
+import RenameMediaDialog from "./RenameMediaDialog.tsx";
 
 type MediaManagerMode = "manage" | "select";
 
@@ -51,6 +52,7 @@ function MediaManager({
     const [query, setQuery] = useState("");
     const [sort, setSort] = useState<MediaSort>("newest");
     const [preview, setPreview] = useState<MediaAsset | null>(null);
+    const [renameTarget, setRenameTarget] = useState<MediaAsset | null>(null);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -284,6 +286,10 @@ function MediaManager({
                             onCopyUrl={() => {
                                 void copyAssetUrl(asset);
                             }}
+                            onRename={() => {
+                                setOpenMenuId(null);
+                                setRenameTarget(asset);
+                            }}
                             onSelect={selectionEnabled
                                 ? () => {
                                     selectAsset(asset);
@@ -438,6 +444,27 @@ function MediaManager({
                         : undefined}
                 />
             ) : null}
+            {renameTarget !== null ? (
+                <RenameMediaDialog
+                    asset={renameTarget}
+                    onClose={() => {
+                        setRenameTarget(null);
+                    }}
+                    onRenamed={(asset) => {
+                        const currentAssets = assetsRef.current ?? [];
+                        const nextAssets = currentAssets.map((item) => (
+                            item.id === asset.id ? asset : item
+                        ));
+                        assetsRef.current = nextAssets;
+                        setAssets(nextAssets);
+                        setPreview((current) => (
+                            current !== null && current.id === asset.id ? asset : current
+                        ));
+                        setRenameTarget(null);
+                        setActionMessage("Image renamed.");
+                    }}
+                />
+            ) : null}
         </div>
     );
 }
@@ -450,6 +477,7 @@ type MediaAssetRowProps = {
     onOpenMenu: (open: boolean) => void;
     onPreview: () => void;
     onCopyUrl: () => void;
+    onRename: () => void;
     onSelect?: () => void;
 };
 
@@ -461,6 +489,7 @@ function MediaAssetRow({
     onOpenMenu,
     onPreview,
     onCopyUrl,
+    onRename,
     onSelect,
 }: MediaAssetRowProps) {
     const [imageFailed, setImageFailed] = useState(false);
@@ -533,6 +562,7 @@ function MediaAssetRow({
                         onOpenChange={onOpenMenu}
                         onPreview={onPreview}
                         onCopyUrl={onCopyUrl}
+                        onRename={onRename}
                     />
                 </div>
             </div>

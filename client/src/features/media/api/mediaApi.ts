@@ -54,6 +54,31 @@ async function listMediaAssets(): Promise<MediaAsset[]> {
     }
 }
 
+async function renameMediaAsset(id: string, originalFilename: string): Promise<MediaAsset> {
+    assertApiConfigured();
+
+    try {
+        const response = await apiClient.patch<ApiResponse<unknown>>(`/api/media/${id}`, {
+            originalFilename,
+        });
+        const asset = readMediaAsset(response.data.data);
+
+        if (!response.data.success || asset === null) {
+            throw new MediaRequestError(
+                response.data.message || "The image could not be renamed.",
+                response.status,
+            );
+        }
+
+        return asset;
+    } catch (error: unknown) {
+        throw asMediaRequestError(
+            error,
+            "The image could not be renamed. Check that the API is running, then try again.",
+        );
+    }
+}
+
 async function uploadMediaAsset(
     file: File,
     onProgress: (percent: number) => void,
@@ -339,6 +364,7 @@ export {
     describeMediaError,
     listMediaAssets,
     mediaAssetIdFromSource,
+    renameMediaAsset,
     resolveBoardImageSource,
     toPublicMediaFileUrl,
     uploadMediaAsset,

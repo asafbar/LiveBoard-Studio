@@ -57,8 +57,26 @@ async function insertMediaAsset(asset) {
     return result.rows[0];
 }
 
+async function updateMediaFilename(id, originalFilename) {
+    const result = await pool.query(
+        `UPDATE media_assets
+         SET original_filename = $2
+         WHERE id = $1::uuid
+         RETURNING id,
+                   original_filename,
+                   storage_key,
+                   mime_type,
+                   size_bytes,
+                   created_at`,
+        [id, originalFilename]
+    );
+
+    return result.rows[0] || null;
+}
+
 module.exports = {
     listMediaAssets,
     findMediaAssetById,
-    insertMediaAsset
+    insertMediaAsset,
+    updateMediaFilename
 };
