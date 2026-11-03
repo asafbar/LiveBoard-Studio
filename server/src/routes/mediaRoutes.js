@@ -47,6 +47,13 @@ router.patch(
 );
 
 router.get(
+    "/:id/usage",
+    requireAdmin,
+    validateMediaId,
+    mediaController.getMediaUsage
+);
+
+router.get(
     "/:id/file",
     validateMediaId,
     mediaController.getMediaFile

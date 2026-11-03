@@ -20,6 +20,16 @@ async function listBoards() {
     return result.rows;
 }
 
+async function listBoardDocuments() {
+    const result = await pool.query(
+        `SELECT id, name, draft, published
+         FROM boards
+         ORDER BY name ASC, id ASC`
+    );
+
+    return result.rows;
+}
+
 async function listBoardIdentities() {
     const result = await pool.query(
         `SELECT name, draft->>'id' AS draft_id
@@ -105,6 +115,7 @@ async function publishDraft(id) {
 
 module.exports = {
     listBoards,
+    listBoardDocuments,
     listBoardIdentities,
     findBoardById,
     findPublishedBoardById,

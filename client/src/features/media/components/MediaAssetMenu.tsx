@@ -9,6 +9,7 @@ type MediaAssetMenuProps = {
     onPreview: () => void;
     onCopyUrl: () => void;
     onRename: () => void;
+    onViewUsage: () => void;
 };
 
 type MenuPlacement = {
@@ -17,7 +18,7 @@ type MenuPlacement = {
 };
 
 const MENU_WIDTH = 176;
-const MENU_HEIGHT = 116;
+const MENU_HEIGHT = 152;
 const MENU_GAP = 4;
 const VIEWPORT_MARGIN = 8;
 
@@ -31,6 +32,7 @@ function MediaAssetMenu({
     onPreview,
     onCopyUrl,
     onRename,
+    onViewUsage,
 }: MediaAssetMenuProps) {
     const menuId = useId();
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -38,6 +40,7 @@ function MediaAssetMenu({
     const previewRef = useRef<HTMLButtonElement>(null);
     const copyRef = useRef<HTMLButtonElement>(null);
     const renameRef = useRef<HTMLButtonElement>(null);
+    const usageRef = useRef<HTMLButtonElement>(null);
     const [placement, setPlacement] = useState<MenuPlacement | null>(null);
     const [focusIndex, setFocusIndex] = useState(0);
     const menuOpen = open && !disabled;
@@ -80,7 +83,7 @@ function MediaAssetMenu({
             return;
         }
 
-        const items = [previewRef.current, copyRef.current, renameRef.current];
+        const items = [previewRef.current, copyRef.current, renameRef.current, usageRef.current];
         items[focusIndex]?.focus();
     }, [menuOpen, focusIndex]);
 
@@ -157,7 +160,7 @@ function MediaAssetMenu({
 
         if (event.key === "ArrowUp") {
             consumeKey(event);
-            openMenu(2);
+            openMenu(3);
             return;
         }
 
@@ -168,7 +171,7 @@ function MediaAssetMenu({
     }
 
     function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-        const items = [previewRef.current, copyRef.current, renameRef.current];
+        const items = [previewRef.current, copyRef.current, renameRef.current, usageRef.current];
 
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             consumeKey(event);
@@ -191,8 +194,8 @@ function MediaAssetMenu({
 
         if (event.key === "End") {
             consumeKey(event);
-            setFocusIndex(2);
-            renameRef.current?.focus();
+            setFocusIndex(3);
+            usageRef.current?.focus();
             return;
         }
 
@@ -255,6 +258,18 @@ function MediaAssetMenu({
                     className={menuItemClassName}
                 >
                     Rename
+                </button>
+                <button
+                    ref={usageRef}
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => {
+                        choose(onViewUsage);
+                    }}
+                    className={menuItemClassName}
+                >
+                    View Usage
                 </button>
             </div>,
             document.body,

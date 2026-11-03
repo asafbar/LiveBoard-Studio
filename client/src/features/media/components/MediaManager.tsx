@@ -11,6 +11,7 @@ import {
 import { formatFileSize, formatTimestamp } from "../mediaFormat.ts";
 import MediaAssetMenu from "./MediaAssetMenu.tsx";
 import MediaPreviewDialog from "./MediaPreviewDialog.tsx";
+import MediaUsageDialog from "./MediaUsageDialog.tsx";
 import RenameMediaDialog from "./RenameMediaDialog.tsx";
 
 type MediaManagerMode = "manage" | "select";
@@ -53,6 +54,7 @@ function MediaManager({
     const [sort, setSort] = useState<MediaSort>("newest");
     const [preview, setPreview] = useState<MediaAsset | null>(null);
     const [renameTarget, setRenameTarget] = useState<MediaAsset | null>(null);
+    const [usageTarget, setUsageTarget] = useState<MediaAsset | null>(null);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -290,6 +292,10 @@ function MediaManager({
                                 setOpenMenuId(null);
                                 setRenameTarget(asset);
                             }}
+                            onViewUsage={() => {
+                                setOpenMenuId(null);
+                                setUsageTarget(asset);
+                            }}
                             onSelect={selectionEnabled
                                 ? () => {
                                     selectAsset(asset);
@@ -465,6 +471,14 @@ function MediaManager({
                     }}
                 />
             ) : null}
+            {usageTarget !== null ? (
+                <MediaUsageDialog
+                    asset={usageTarget}
+                    onClose={() => {
+                        setUsageTarget(null);
+                    }}
+                />
+            ) : null}
         </div>
     );
 }
@@ -478,6 +492,7 @@ type MediaAssetRowProps = {
     onPreview: () => void;
     onCopyUrl: () => void;
     onRename: () => void;
+    onViewUsage: () => void;
     onSelect?: () => void;
 };
 
@@ -490,6 +505,7 @@ function MediaAssetRow({
     onPreview,
     onCopyUrl,
     onRename,
+    onViewUsage,
     onSelect,
 }: MediaAssetRowProps) {
     const [imageFailed, setImageFailed] = useState(false);
@@ -563,6 +579,7 @@ function MediaAssetRow({
                         onPreview={onPreview}
                         onCopyUrl={onCopyUrl}
                         onRename={onRename}
+                        onViewUsage={onViewUsage}
                     />
                 </div>
             </div>

@@ -1,4 +1,6 @@
+const boardRepository = require("../repositories/boardRepository");
 const mediaRepository = require("../repositories/mediaRepository");
+const { collectMediaUsage } = require("./mediaUsage");
 const { sanitizeDisplayFilename } = require("./mediaFilename");
 const { processUploadedImage } = require("./mediaImageProcessor");
 const {
@@ -92,6 +94,18 @@ async function renameMediaAsset(id, originalFilename) {
     return asset;
 }
 
+async function getMediaUsage(id) {
+    const asset = await mediaRepository.findMediaAssetById(id);
+
+    if (asset === null) {
+        throw createHttpError(404, "Media asset not found.");
+    }
+
+    const boards = await boardRepository.listBoardDocuments();
+
+    return collectMediaUsage(asset.id, boards);
+}
+
 async function getMediaAsset(id) {
     const asset = await mediaRepository.findMediaAssetById(id);
 
@@ -153,6 +167,7 @@ module.exports = {
     createMediaAsset,
     listMediaAssets,
     getMediaAsset,
+    getMediaUsage,
     openMediaFile,
     renameMediaAsset
 };
