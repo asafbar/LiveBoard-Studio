@@ -31,11 +31,13 @@ type MediaUsage = {
 
 class MediaRequestError extends Error {
     readonly statusCode: number | null;
+    readonly usage: MediaUsage | null;
 
-    constructor(message: string, statusCode: number | null) {
+    constructor(message: string, statusCode: number | null, usage: MediaUsage | null = null) {
         super(message);
         this.name = "MediaRequestError";
         this.statusCode = statusCode;
+        this.usage = usage;
     }
 }
 
@@ -111,6 +113,38 @@ async function getMediaUsage(id: string): Promise<MediaUsage> {
         throw asMediaRequestError(
             error,
             "Image usage could not be loaded. Check that the API is running, then try again.",
+        );
+    }
+}
+
+async function deleteMediaAsset(id: string): Promise<void> {
+    assertApiConfigured();
+
+    try {
+        const response = await apiClient.delete<ApiResponse<null>>(`/api/media/${id}`);
+
+        if (!response.data.success) {
+            throw new MediaRequestError(
+                response.data.message || "The image could not be deleted.",
+                response.status,
+            );
+        }
+    } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.status === 409) {
+            const usage = readMediaUsage(readResponseData(error.response.data));
+            const message = readResponseMessage(
+                error.response.data,
+                "This image is used by a board and cannot be deleted.",
+            );
+
+            if (usage !== null) {
+                throw new MediaRequestError(message, 409, usage);
+            }
+        }
+
+        throw asMediaRequestError(
+            error,
+            "The image could not be deleted. Check that the API is running, then try again.",
         );
     }
 }
@@ -431,6 +465,14 @@ function asMediaRequestError(error: unknown, fallback: string): MediaRequestErro
     );
 }
 
+function readResponseData(data: unknown): unknown {
+    if (typeof data !== "object" || data === null || !("data" in data)) {
+        return null;
+    }
+
+    return data.data;
+}
+
 function readResponseMessage(data: unknown, fallback: string): string {
     if (typeof data !== "object" || data === null) {
         return fallback;
@@ -470,6 +512,7 @@ export {
     MAX_UPLOAD_BYTES,
     MediaRequestError,
     clientFileProblem,
+    deleteMediaAsset,
     describeMediaError,
     getMediaUsage,
     listMediaAssets,

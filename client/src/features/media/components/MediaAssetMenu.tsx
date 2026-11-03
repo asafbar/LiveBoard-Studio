@@ -10,6 +10,7 @@ type MediaAssetMenuProps = {
     onCopyUrl: () => void;
     onRename: () => void;
     onViewUsage: () => void;
+    onDelete: () => void;
 };
 
 type MenuPlacement = {
@@ -18,11 +19,12 @@ type MenuPlacement = {
 };
 
 const MENU_WIDTH = 176;
-const MENU_HEIGHT = 152;
+const MENU_HEIGHT = 188;
 const MENU_GAP = 4;
 const VIEWPORT_MARGIN = 8;
 
 const menuItemClassName = "flex h-9 w-full items-center px-3 text-left text-sm font-medium text-secondary outline-none hover:bg-surface-hover hover:text-foreground focus-visible:bg-surface-hover focus-visible:text-foreground";
+const deleteItemClassName = "flex h-9 w-full items-center px-3 text-left text-sm font-medium text-danger outline-none hover:bg-surface-hover focus-visible:bg-surface-hover";
 
 function MediaAssetMenu({
     filename,
@@ -33,6 +35,7 @@ function MediaAssetMenu({
     onCopyUrl,
     onRename,
     onViewUsage,
+    onDelete,
 }: MediaAssetMenuProps) {
     const menuId = useId();
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -41,6 +44,7 @@ function MediaAssetMenu({
     const copyRef = useRef<HTMLButtonElement>(null);
     const renameRef = useRef<HTMLButtonElement>(null);
     const usageRef = useRef<HTMLButtonElement>(null);
+    const deleteRef = useRef<HTMLButtonElement>(null);
     const [placement, setPlacement] = useState<MenuPlacement | null>(null);
     const [focusIndex, setFocusIndex] = useState(0);
     const menuOpen = open && !disabled;
@@ -83,7 +87,7 @@ function MediaAssetMenu({
             return;
         }
 
-        const items = [previewRef.current, copyRef.current, renameRef.current, usageRef.current];
+        const items = [previewRef.current, copyRef.current, renameRef.current, usageRef.current, deleteRef.current];
         items[focusIndex]?.focus();
     }, [menuOpen, focusIndex]);
 
@@ -160,7 +164,7 @@ function MediaAssetMenu({
 
         if (event.key === "ArrowUp") {
             consumeKey(event);
-            openMenu(3);
+            openMenu(4);
             return;
         }
 
@@ -171,7 +175,7 @@ function MediaAssetMenu({
     }
 
     function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-        const items = [previewRef.current, copyRef.current, renameRef.current, usageRef.current];
+        const items = [previewRef.current, copyRef.current, renameRef.current, usageRef.current, deleteRef.current];
 
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             consumeKey(event);
@@ -194,8 +198,8 @@ function MediaAssetMenu({
 
         if (event.key === "End") {
             consumeKey(event);
-            setFocusIndex(3);
-            usageRef.current?.focus();
+            setFocusIndex(4);
+            deleteRef.current?.focus();
             return;
         }
 
@@ -270,6 +274,18 @@ function MediaAssetMenu({
                     className={menuItemClassName}
                 >
                     View Usage
+                </button>
+                <button
+                    ref={deleteRef}
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => {
+                        choose(onDelete);
+                    }}
+                    className={deleteItemClassName}
+                >
+                    Delete
                 </button>
             </div>,
             document.body,

@@ -1,6 +1,9 @@
 const { pipeline } = require("stream");
 const mediaService = require("../services/mediaService");
-const { successResponse } = require("../utils/apiResponse");
+const {
+    errorResponse,
+    successResponse
+} = require("../utils/apiResponse");
 const {
     toMediaAsset,
     toMediaAssetList
@@ -55,6 +58,27 @@ async function renameMedia(req, res, next) {
             )
         );
     } catch (error) {
+        next(error);
+    }
+}
+
+async function deleteMedia(req, res, next) {
+    try {
+        await mediaService.deleteMediaAsset(req.params.id);
+
+        res.status(200).json(successResponse(
+            "Media asset deleted successfully.",
+            null
+        ));
+    } catch (error) {
+        if (error.statusCode === 409 && error.usage !== undefined) {
+            res.status(409).json({
+                ...errorResponse(error.message),
+                data: error.usage
+            });
+            return;
+        }
+
         next(error);
     }
 }
@@ -118,6 +142,7 @@ module.exports = {
     listMedia,
     getMedia,
     getMediaUsage,
+    deleteMedia,
     getMediaFile,
     renameMedia
 };

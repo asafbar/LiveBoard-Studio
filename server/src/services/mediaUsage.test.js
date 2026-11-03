@@ -1,6 +1,9 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { collectMediaUsage } = require("./mediaUsage");
+const {
+    collectMediaUsage,
+    collectReferencedMediaIds
+} = require("./mediaUsage");
 
 const ASSET_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -102,6 +105,21 @@ test("returns no boards for an unused asset", () => {
 
     assert.equal(usage.referenced, false);
     assert.deepEqual(usage.boards, []);
+});
+
+test("collects the same media ids that usage matching accepts", () => {
+    const ids = collectReferencedMediaIds({
+        widgets: [{
+            hidden: true,
+            locked: true,
+            settings: {
+                src: `https://signs.example/api/media/${ASSET_ID.toUpperCase()}/file`,
+                note: `Static /media/tech-summit/hero.png and bare ${OTHER_ID}`
+            }
+        }]
+    });
+
+    assert.deepEqual(ids, [ASSET_ID]);
 });
 
 function board(id, name, draft, published) {

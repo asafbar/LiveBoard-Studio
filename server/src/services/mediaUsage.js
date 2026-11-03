@@ -1,5 +1,13 @@
 const MEDIA_FILE_PATTERN = /\/api\/media\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/file/gi;
 
+function collectReferencedMediaIds(document) {
+    const ids = new Set();
+
+    collectIdsFromValue(document, ids);
+
+    return [...ids];
+}
+
 function collectMediaUsage(assetId, rows) {
     const normalizedId = assetId.toLowerCase();
     const boards = [];
@@ -54,18 +62,41 @@ function valueReferencesAsset(value, assetId) {
 }
 
 function stringReferencesAsset(value, assetId) {
+    const ids = new Set();
+
+    collectIdsFromString(value, ids);
+
+    return ids.has(assetId);
+}
+
+function collectIdsFromValue(value, ids) {
+    if (typeof value === "string") {
+        collectIdsFromString(value, ids);
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        value.forEach((item) => {
+            collectIdsFromValue(item, ids);
+        });
+        return;
+    }
+
+    if (value !== null && typeof value === "object") {
+        Object.values(value).forEach((item) => {
+            collectIdsFromValue(item, ids);
+        });
+    }
+}
+
+function collectIdsFromString(value, ids) {
     MEDIA_FILE_PATTERN.lastIndex = 0;
     let match = MEDIA_FILE_PATTERN.exec(value);
 
     while (match !== null) {
-        if (match[1].toLowerCase() === assetId) {
-            return true;
-        }
-
+        ids.add(match[1].toLowerCase());
         match = MEDIA_FILE_PATTERN.exec(value);
     }
-
-    return false;
 }
 
 function compareUsageBoards(left, right) {
@@ -89,5 +120,6 @@ function compareUsageBoards(left, right) {
 }
 
 module.exports = {
-    collectMediaUsage
+    collectMediaUsage,
+    collectReferencedMediaIds
 };

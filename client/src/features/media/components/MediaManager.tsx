@@ -9,6 +9,7 @@ import {
     type MediaAsset,
 } from "../api/mediaApi.ts";
 import { formatFileSize, formatTimestamp } from "../mediaFormat.ts";
+import DeleteMediaDialog from "./DeleteMediaDialog.tsx";
 import MediaAssetMenu from "./MediaAssetMenu.tsx";
 import MediaPreviewDialog from "./MediaPreviewDialog.tsx";
 import MediaUsageDialog from "./MediaUsageDialog.tsx";
@@ -55,6 +56,7 @@ function MediaManager({
     const [preview, setPreview] = useState<MediaAsset | null>(null);
     const [renameTarget, setRenameTarget] = useState<MediaAsset | null>(null);
     const [usageTarget, setUsageTarget] = useState<MediaAsset | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<MediaAsset | null>(null);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [loadAttempt, setLoadAttempt] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -296,6 +298,10 @@ function MediaManager({
                                 setOpenMenuId(null);
                                 setUsageTarget(asset);
                             }}
+                            onDelete={() => {
+                                setOpenMenuId(null);
+                                setDeleteTarget(asset);
+                            }}
                             onSelect={selectionEnabled
                                 ? () => {
                                     selectAsset(asset);
@@ -479,6 +485,32 @@ function MediaManager({
                     }}
                 />
             ) : null}
+            {deleteTarget !== null ? (
+                <DeleteMediaDialog
+                    asset={deleteTarget}
+                    onClose={() => {
+                        setDeleteTarget(null);
+                    }}
+                    onRemoved={(assetId) => {
+                        const currentAssets = assetsRef.current ?? [];
+                        const nextAssets = currentAssets.filter((item) => item.id !== assetId);
+                        assetsRef.current = nextAssets;
+                        setAssets(nextAssets);
+                        setPreview((current) => (
+                            current !== null && current.id === assetId ? null : current
+                        ));
+                        setRenameTarget((current) => (
+                            current !== null && current.id === assetId ? null : current
+                        ));
+                        setUsageTarget((current) => (
+                            current !== null && current.id === assetId ? null : current
+                        ));
+                    }}
+                    onFinished={(message) => {
+                        setActionMessage(message);
+                    }}
+                />
+            ) : null}
         </div>
     );
 }
@@ -493,6 +525,7 @@ type MediaAssetRowProps = {
     onCopyUrl: () => void;
     onRename: () => void;
     onViewUsage: () => void;
+    onDelete: () => void;
     onSelect?: () => void;
 };
 
@@ -506,6 +539,7 @@ function MediaAssetRow({
     onCopyUrl,
     onRename,
     onViewUsage,
+    onDelete,
     onSelect,
 }: MediaAssetRowProps) {
     const [imageFailed, setImageFailed] = useState(false);
@@ -580,6 +614,7 @@ function MediaAssetRow({
                         onCopyUrl={onCopyUrl}
                         onRename={onRename}
                         onViewUsage={onViewUsage}
+                        onDelete={onDelete}
                     />
                 </div>
             </div>

@@ -94,6 +94,37 @@ async function renameMediaAsset(id, originalFilename) {
     return asset;
 }
 
+async function deleteMediaAsset(id) {
+    const result = await mediaRepository.deleteUnreferencedMediaAsset(id);
+
+    if (result.outcome === "missing") {
+        throw createHttpError(404, "Media asset not found.");
+    }
+
+    if (result.outcome === "referenced") {
+        const error = createHttpError(
+            409,
+            "This image is used by a board and cannot be deleted."
+        );
+        error.usage = result.usage;
+        throw error;
+    }
+
+    try {
+        await removeStoredFile(result.asset.storage_key);
+    } catch (error) {
+        console.error(
+            `Media file cleanup failed after the record was deleted. assetId=${result.asset.id} storageKey=${result.asset.storage_key}`
+        );
+        throw createHttpError(
+            422,
+            `The media record was deleted, but the file remains on disk. Remove the stored file manually: ${result.asset.storage_key}.`
+        );
+    }
+
+    return result.asset;
+}
+
 async function getMediaUsage(id) {
     const asset = await mediaRepository.findMediaAssetById(id);
 
@@ -168,6 +199,7 @@ module.exports = {
     listMediaAssets,
     getMediaAsset,
     getMediaUsage,
+    deleteMediaAsset,
     openMediaFile,
     renameMediaAsset
 };
