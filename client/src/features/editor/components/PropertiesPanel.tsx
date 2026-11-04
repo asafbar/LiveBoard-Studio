@@ -26,6 +26,8 @@ import type {
 } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
 import ColorField from "./ColorField.tsx";
+import { WeatherContentFields, WeatherStyleFields } from "./WeatherFields.tsx";
+import type { WeatherSettingsPatch } from "../weatherSettings.ts";
 import {
     imageObjectFitOptions,
     maximumImageBorderRadius,
@@ -81,6 +83,10 @@ type PropertiesPanelProps = {
     onTextToneChange: (tone: TextWidgetSettings["tone"]) => void;
     onTextSizeChange: (size: TextWidgetSettings["size"]) => void;
     onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
+    onWeatherSettingsChange: (
+        settings: WeatherSettingsPatch,
+        gesture?: "color" | null,
+    ) => void;
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
     onInformationCardSettingsChange: (
         settings: Partial<InformationCardWidgetSettings>,
@@ -320,6 +326,8 @@ function widgetTypeLabel(type: Widget["type"]): string {
             return "Ticker";
         case "vertical-announcements":
             return "Vertical Announcements";
+        case "weather":
+            return "Weather";
     }
 }
 
@@ -364,6 +372,7 @@ function contentProperties(widget: Widget): Property[] {
             ];
         case "ticker":
         case "vertical-announcements":
+        case "weather":
             return [];
     }
 }
@@ -388,6 +397,7 @@ function styleProperties(widget: Widget): Property[] {
         case "announcements":
         case "ticker":
         case "vertical-announcements":
+        case "weather":
             return [];
     }
 }
@@ -2538,6 +2548,7 @@ function PropertiesPanel({
     onTextToneChange,
     onTextSizeChange,
     onClockSettingsChange,
+    onWeatherSettingsChange,
     onImageSettingsChange,
     onInformationCardSettingsChange,
     onAnnouncementsSettingsChange,
@@ -2589,6 +2600,8 @@ function PropertiesPanel({
     const editingTextStyle = selectedWidget?.type === "text" && activeTab === "Style";
     const editingClock = selectedWidget?.type === "clock" && activeTab === "Content";
     const editingClockStyle = selectedWidget?.type === "clock" && activeTab === "Style";
+    const editingWeather = selectedWidget?.type === "weather" && activeTab === "Content";
+    const editingWeatherStyle = selectedWidget?.type === "weather" && activeTab === "Style";
     const editingImage = selectedWidget?.type === "image" && activeTab === "Content";
     const editingImageStyle = selectedWidget?.type === "image" && activeTab === "Style";
     const editingInformationCard = selectedWidget?.type === "information-card" && activeTab === "Content";
@@ -2603,6 +2616,8 @@ function PropertiesPanel({
         && !editingTextStyle
         && !editingClock
         && !editingClockStyle
+        && !editingWeather
+        && !editingWeatherStyle
         && !editingImage
         && !editingImageStyle
         && !editingInformationCard
@@ -2694,6 +2709,23 @@ function PropertiesPanel({
                         <ClockStyleFields
                             align={selectedWidget.settings.align}
                             onClockSettingsChange={onClockSettingsChange}
+                        />
+                    ) : null}
+                    {editingWeather && selectedWidget.type === "weather" ? (
+                        <WeatherContentFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            frame={selectedWidget.layout}
+                            onWeatherSettingsChange={onWeatherSettingsChange}
+                        />
+                    ) : null}
+                    {editingWeatherStyle && selectedWidget.type === "weather" ? (
+                        <WeatherStyleFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            frame={selectedWidget.layout}
+                            onWeatherSettingsChange={onWeatherSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
                         />
                     ) : null}
                     {editingImage && selectedWidget.type === "image" ? (

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type K
 import type { Board, BoardBackground, Widget, WidgetLayout } from "../types/boardTypes.ts";
 import AnnouncementsWidget from "./AnnouncementsWidget.tsx";
 import ClockWidget from "./ClockWidget.tsx";
+import WeatherWidget from "./WeatherWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
 import InformationCardWidget from "./InformationCardWidget.tsx";
 import styles from "./BoardRenderer.module.css";
@@ -163,10 +164,15 @@ function widgetAccessibleName(widget: Widget): string {
         case "vertical-announcements":
             return widget.settings.items.find((item) => item.title.trim().length > 0)?.title
                 ?? "Vertical Announcements";
+        case "weather":
+            return widget.settings.title?.trim()
+                || widget.settings.location.label
+                || widget.settings.location.name
+                || "Weather";
     }
 }
 
-function renderWidget(widget: Widget) {
+function renderWidget(widget: Widget, interactive: boolean) {
     switch (widget.type) {
         case "text":
             return <TextWidget settings={widget.settings} />;
@@ -182,6 +188,15 @@ function renderWidget(widget: Widget) {
             return <TickerWidget settings={widget.settings} />;
         case "vertical-announcements":
             return <VerticalAnnouncementsWidget settings={widget.settings} />;
+        case "weather":
+            return (
+                <WeatherWidget
+                    key={`${widget.settings.location.latitude}:${widget.settings.location.longitude}:${widget.settings.unit}`}
+                    settings={widget.settings}
+                    linkAttribution={!interactive}
+                    studioFrame={interactive ? widget.layout : undefined}
+                />
+            );
     }
 }
 
@@ -204,6 +219,7 @@ function selectionRadius(widget: Widget): string | undefined {
         case "announcements":
         case "ticker":
         case "vertical-announcements":
+        case "weather":
             return `${widget.settings.borderRadius}px`;
         case "text":
         case "clock":
@@ -369,7 +385,7 @@ function WidgetView({
     const resizeSessionRef = useRef<ResizeSession | null>(null);
     const geometryLocked = widget.locked === true;
     const draggable = interactive && onWidgetPositionChange !== undefined && !geometryLocked;
-    const content = renderWidget(widget);
+    const content = renderWidget(widget, interactive);
     const className = [
         styles.widget,
         interactive ? styles.widgetSelectable : "",

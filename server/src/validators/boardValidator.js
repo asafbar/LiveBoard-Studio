@@ -31,12 +31,29 @@ const MAX_ID_LENGTH = 80;
 const MAX_LAYER_NAME_LENGTH = 80;
 const MAX_COLOR_LENGTH = 200;
 
-const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker", "vertical-announcements"];
+const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker", "vertical-announcements", "weather"];
 const WIDGET_KEYS = ["id", "type", "layout", "settings", "layerName", "visible", "locked"];
 const TEXT_TONES = ["default", "accent"];
 const TEXT_SIZES = ["title", "display"];
 const CLOCK_TIME_ZONES = ["Asia/Jerusalem", "UTC", "America/New_York", "Europe/London"];
 const CLOCK_ALIGNMENTS = ["left", "right"];
+const WEATHER_UNITS = ["celsius", "fahrenheit"];
+const WEATHER_LAYOUTS = ["compact", "expanded"];
+const WEATHER_PRESETS = ["classic", "minimal", "horizontal", "forecast"];
+const WEATHER_DIRECTIONS = ["auto", "ltr", "rtl"];
+const WEATHER_ALIGNS = ["start", "center", "end", "left", "right"];
+const WEATHER_FONT_FAMILIES = ["sans", "serif", "mono"];
+const WEATHER_FONT_WEIGHTS = [400, 500, 600, 700];
+const MIN_WEATHER_FONT_SIZE = 12;
+const MAX_WEATHER_FONT_SIZE = 96;
+const MIN_WEATHER_TITLE_FONT_SIZE = 12;
+const MAX_WEATHER_TITLE_FONT_SIZE = 72;
+const MAX_WEATHER_OPACITY = 100;
+const MAX_WEATHER_PADDING = 48;
+const MAX_WEATHER_TITLE_SPACING = 64;
+const WEATHER_REFRESH_MINUTES = [10, 30, 60, 1440];
+const WEATHER_TIME_ZONE_PATTERN = /^(?:UTC|GMT|[A-Za-z][A-Za-z0-9+-]*(?:\/[A-Za-z0-9+_-]+){1,2})$/;
+const MAX_WEATHER_TITLE_LENGTH = 80;
 const OBJECT_FITS = ["cover", "contain"];
 const ANNOUNCEMENT_ICONS = ["food", "people", "music", "info"];
 const TICKER_DIRECTIONS = ["rtl", "ltr"];
@@ -352,7 +369,259 @@ function sanitizeSettings(type, settings, path, errors) {
         return sanitizeVerticalAnnouncementsSettings(settings, path, errors);
     }
 
+    if (type === "weather") {
+        return sanitizeWeatherSettings(settings, path, errors);
+    }
+
     return null;
+}
+
+function sanitizeWeatherSettings(settings, path, errors) {
+    rejectUnknownKeys(settings, [
+        "location",
+        "unit",
+        "layout",
+        "showFeelsLike",
+        "showForecast",
+        "title",
+        "backgroundColor",
+        "textColor",
+        "accentColor",
+        "borderRadius",
+        "padding",
+        "titleSpacing",
+        "refreshIntervalMinutes",
+        "backgroundOpacity",
+        "titleColor",
+        "titleAlign",
+        "preset",
+        "direction",
+        "align",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "titleFontFamily",
+        "titleFontSize",
+        "titleFontWeight"
+    ], path, errors);
+
+    const nextSettings = {
+        location: sanitizeWeatherLocation(settings.location, `${path}.location`, errors),
+        unit: readChoice(settings.unit, `${path}.unit`, WEATHER_UNITS, errors),
+        layout: readChoice(settings.layout, `${path}.layout`, WEATHER_LAYOUTS, errors),
+        showFeelsLike: readBoolean(settings.showFeelsLike, `${path}.showFeelsLike`, errors),
+        showForecast: readBoolean(settings.showForecast, `${path}.showForecast`, errors),
+        backgroundColor: readColor(settings.backgroundColor, `${path}.backgroundColor`, errors),
+        textColor: readColor(settings.textColor, `${path}.textColor`, errors),
+        accentColor: readColor(settings.accentColor, `${path}.accentColor`, errors),
+        borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
+    };
+
+    if (settings.title !== undefined) {
+        const title = readRequiredText(settings.title, `${path}.title`, MAX_WEATHER_TITLE_LENGTH, errors, true);
+
+        if (title) {
+            nextSettings.title = title;
+        }
+    }
+
+    assignWeatherChoice(nextSettings, "preset", settings.preset, `${path}.preset`, WEATHER_PRESETS, errors);
+    assignWeatherChoice(nextSettings, "direction", settings.direction, `${path}.direction`, WEATHER_DIRECTIONS, errors);
+    assignWeatherChoice(nextSettings, "align", settings.align, `${path}.align`, WEATHER_ALIGNS, errors);
+    assignWeatherChoice(nextSettings, "titleAlign", settings.titleAlign, `${path}.titleAlign`, WEATHER_ALIGNS, errors);
+    assignWeatherChoice(nextSettings, "fontFamily", settings.fontFamily, `${path}.fontFamily`, WEATHER_FONT_FAMILIES, errors);
+    assignWeatherChoice(nextSettings, "titleFontFamily", settings.titleFontFamily, `${path}.titleFontFamily`, WEATHER_FONT_FAMILIES, errors);
+    assignWeatherFontSize(
+        nextSettings,
+        "fontSize",
+        settings.fontSize,
+        `${path}.fontSize`,
+        MIN_WEATHER_FONT_SIZE,
+        MAX_WEATHER_FONT_SIZE,
+        errors
+    );
+    assignWeatherFontSize(
+        nextSettings,
+        "titleFontSize",
+        settings.titleFontSize,
+        `${path}.titleFontSize`,
+        MIN_WEATHER_TITLE_FONT_SIZE,
+        MAX_WEATHER_TITLE_FONT_SIZE,
+        errors
+    );
+    assignWeatherOpacity(nextSettings, settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignWeatherPadding(nextSettings, settings.padding, `${path}.padding`, errors);
+    assignWeatherTitleSpacing(nextSettings, settings.titleSpacing, `${path}.titleSpacing`, errors);
+    assignWeatherRefresh(nextSettings, settings.refreshIntervalMinutes, `${path}.refreshIntervalMinutes`, errors);
+
+    if (settings.titleColor !== undefined) {
+        nextSettings.titleColor = readColor(settings.titleColor, `${path}.titleColor`, errors);
+    }
+    assignWeatherFontWeight(nextSettings, "fontWeight", settings.fontWeight, `${path}.fontWeight`, errors);
+    assignWeatherFontWeight(nextSettings, "titleFontWeight", settings.titleFontWeight, `${path}.titleFontWeight`, errors);
+
+    return nextSettings;
+}
+
+function sanitizeWeatherLocation(location, path, errors) {
+    if (!isPlainObject(location)) {
+        errors.push({
+            path,
+            message: "Weather location is required."
+        });
+        return null;
+    }
+
+    rejectUnknownKeys(location, [
+        "id",
+        "name",
+        "label",
+        "latitude",
+        "longitude",
+        "timezone",
+        "country",
+        "countryCode",
+        "admin1"
+    ], path, errors);
+
+    const nextLocation = {
+        name: readRequiredText(location.name, `${path}.name`, MAX_SHORT_TEXT_LENGTH, errors, false),
+        label: readRequiredText(location.label, `${path}.label`, MAX_SHORT_TEXT_LENGTH, errors, false),
+        latitude: readNumberInRange(location.latitude, `${path}.latitude`, -90, 90, errors),
+        longitude: readNumberInRange(location.longitude, `${path}.longitude`, -180, 180, errors),
+        timezone: readWeatherTimeZone(location.timezone, `${path}.timezone`, errors)
+    };
+
+    assignOptionalText(nextLocation, "country", location.country, `${path}.country`, errors);
+    assignOptionalText(nextLocation, "admin1", location.admin1, `${path}.admin1`, errors);
+    omitBlankText(nextLocation, "country");
+    omitBlankText(nextLocation, "admin1");
+
+    if (location.countryCode !== undefined) {
+        nextLocation.countryCode = readCountryCode(location.countryCode, `${path}.countryCode`, errors);
+    }
+
+    if (location.id !== undefined) {
+        nextLocation.id = readWeatherLocationId(location.id, `${path}.id`, errors);
+    }
+
+    return nextLocation;
+}
+
+function assignWeatherChoice(target, key, value, path, choices, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    target[key] = readChoice(value, path, choices, errors);
+}
+
+function assignWeatherFontSize(target, key, value, path, minimum, maximum, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    target[key] = readIntegerInRange(value, path, minimum, maximum, errors);
+}
+
+function assignWeatherOpacity(target, value, path, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    target.backgroundOpacity = readIntegerInRange(value, path, 0, MAX_WEATHER_OPACITY, errors);
+}
+
+function assignWeatherPadding(target, value, path, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    target.padding = readIntegerInRange(value, path, 0, MAX_WEATHER_PADDING, errors);
+}
+
+function assignWeatherTitleSpacing(target, value, path, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    target.titleSpacing = readIntegerInRange(value, path, 0, MAX_WEATHER_TITLE_SPACING, errors);
+}
+
+function assignWeatherRefresh(target, value, path, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    if (!WEATHER_REFRESH_MINUTES.includes(value)) {
+        errors.push({
+            path,
+            message: "Value is not supported."
+        });
+        target.refreshIntervalMinutes = null;
+        return;
+    }
+
+    target.refreshIntervalMinutes = value;
+}
+
+function readWeatherLocationId(value, path, errors) {
+    if (typeof value !== "string" || !/^[0-9]{1,12}$/.test(value)) {
+        errors.push({
+            path,
+            message: "Location id is not supported."
+        });
+        return null;
+    }
+
+    return value;
+}
+
+function assignWeatherFontWeight(target, key, value, path, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    if (!WEATHER_FONT_WEIGHTS.includes(value)) {
+        errors.push({
+            path,
+            message: "Value is not supported."
+        });
+        target[key] = null;
+        return;
+    }
+
+    target[key] = value;
+}
+
+function readWeatherTimeZone(value, path, errors) {
+    if (typeof value !== "string" || value.length > 80 || !WEATHER_TIME_ZONE_PATTERN.test(value)) {
+        errors.push({
+            path,
+            message: "Time zone is not supported."
+        });
+        return null;
+    }
+
+    return value;
+}
+
+function readCountryCode(value, path, errors) {
+    if (typeof value !== "string" || !/^[A-Za-z]{2}$/.test(value)) {
+        errors.push({
+            path,
+            message: "Country code is not supported."
+        });
+        return null;
+    }
+
+    return value.toUpperCase();
+}
+
+function omitBlankText(target, key) {
+    if (target[key] === "") {
+        delete target[key];
+    }
 }
 
 function sanitizeTextSettings(settings, path, errors) {

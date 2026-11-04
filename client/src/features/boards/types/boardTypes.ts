@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements";
+export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements" | "weather";
 
 export type WidgetLayout = {
     x: number;
@@ -88,6 +88,62 @@ export type VerticalAnnouncementItem = {
     label?: string;
 };
 
+export type WeatherTemperatureUnit = "celsius" | "fahrenheit";
+
+export type WeatherLayoutName = "compact" | "expanded";
+
+export type WeatherPreset = "classic" | "minimal" | "horizontal" | "forecast";
+
+export type WeatherDirection = "auto" | "ltr" | "rtl";
+
+export type WeatherAlign = "start" | "center" | "end" | "left" | "right";
+
+export type WeatherFontFamily = "sans" | "serif" | "mono";
+
+export type WeatherFontWeight = 400 | 500 | 600 | 700;
+
+export type WeatherRefreshMinutes = 10 | 30 | 60 | 1440;
+
+export type WeatherLocationSettings = {
+    id?: string;
+    name: string;
+    label: string;
+    latitude: number;
+    longitude: number;
+    timezone: string;
+    country?: string;
+    countryCode?: string;
+    admin1?: string;
+};
+
+export type WeatherWidgetSettings = {
+    location: WeatherLocationSettings;
+    unit: WeatherTemperatureUnit;
+    layout: WeatherLayoutName;
+    showFeelsLike: boolean;
+    showForecast: boolean;
+    title?: string;
+    preset?: WeatherPreset;
+    backgroundColor: string;
+    backgroundOpacity?: number;
+    textColor: string;
+    titleColor?: string;
+    accentColor: string;
+    borderRadius: number;
+    padding?: number;
+    titleSpacing?: number;
+    refreshIntervalMinutes?: WeatherRefreshMinutes;
+    direction?: WeatherDirection;
+    align?: WeatherAlign;
+    titleAlign?: WeatherAlign;
+    fontFamily?: WeatherFontFamily;
+    fontSize?: number;
+    fontWeight?: WeatherFontWeight;
+    titleFontFamily?: WeatherFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: WeatherFontWeight;
+};
+
 export type VerticalAnnouncementsWidgetSettings = {
     items: VerticalAnnouncementItem[];
     speed: number;
@@ -136,6 +192,10 @@ export type Widget = {
     | {
         type: "vertical-announcements";
         settings: VerticalAnnouncementsWidgetSettings;
+    }
+    | {
+        type: "weather";
+        settings: WeatherWidgetSettings;
     }
 );
 

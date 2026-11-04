@@ -16,6 +16,7 @@ type LibraryItem = {
 const libraryItems: LibraryItem[] = [
     { name: "Text", icon: "text", type: "text" },
     { name: "Clock", icon: "clock", type: "clock" },
+    { name: "Weather", icon: "weather", type: "weather" },
     { name: "Image", icon: "image", type: "image" },
     { name: "Information Card", icon: "information-card", type: "information-card" },
     { name: "Announcements", icon: "announcements", type: "announcements" },

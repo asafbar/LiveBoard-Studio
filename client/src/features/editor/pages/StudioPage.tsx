@@ -45,6 +45,7 @@ import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
 import { createWidget } from "../createWidget.ts";
+import { updateWeatherSettings, type WeatherSettingsPatch } from "../weatherSettings.ts";
 import {
     isTickerDirection,
     isTickerFontFamily,
@@ -1430,6 +1431,20 @@ function StudioPage() {
         updateBoard((currentBoard) => updateClockSettings(currentBoard, selectedWidgetId, settings));
     }
 
+    function handleWeatherSettingsChange(
+        settings: WeatherSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateWeatherSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
     function handleImageSettingsChange(settings: Partial<ImageWidgetSettings>) {
         if (selectedWidgetId === null) {
             return;
@@ -1846,6 +1861,7 @@ function StudioPage() {
                             onTextToneChange={handleTextToneChange}
                             onTextSizeChange={handleTextSizeChange}
                             onClockSettingsChange={handleClockSettingsChange}
+                            onWeatherSettingsChange={handleWeatherSettingsChange}
                             onImageSettingsChange={handleImageSettingsChange}
                             onInformationCardSettingsChange={handleInformationCardSettingsChange}
                             onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
