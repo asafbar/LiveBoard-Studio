@@ -71,7 +71,10 @@ async function publishBoard(req, res, next) {
 
 async function createBoard(req, res, next) {
     try {
-        const board = await boardService.createBoard(req.boardName);
+        const board = await boardService.createBoard(req.boardName, {
+            width: req.boardWidth,
+            height: req.boardHeight
+        });
 
         res.status(201).json(
             successResponse(

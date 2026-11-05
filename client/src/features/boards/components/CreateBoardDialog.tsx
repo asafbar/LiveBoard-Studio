@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import {
+    boardSizeForOrientation,
+    type BoardOrientation,
+} from "../boardOrientation.ts";
+import {
     BoardRequestError,
     createBoard,
     type BoardWriteResult,
@@ -15,6 +19,7 @@ const fieldClassName = "h-9 w-full rounded-control border border-border bg-surfa
 
 function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
     const [name, setName] = useState("");
+    const [orientation, setOrientation] = useState<BoardOrientation>("landscape");
     const [nameError, setNameError] = useState<string | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -106,7 +111,7 @@ function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
         setSubmitting(true);
 
         try {
-            const created = await createBoard(name.trim());
+            const created = await createBoard(name.trim(), boardSizeForOrientation(orientation));
             onCreated(created);
         } catch (error: unknown) {
             const editorError = readCreateError(error);
@@ -135,9 +140,26 @@ function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
                     New Board
                 </h2>
                 <p className="mt-2 text-sm leading-5 text-secondary">
-                    The new board starts unpublished, with an empty 1920×1080 draft.
+                    The new board starts unpublished and empty.
                 </p>
                 <form className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+                    <fieldset className="flex flex-col gap-2" disabled={submitting}>
+                        <legend className="text-xs text-muted">Orientation</legend>
+                        <div className="grid grid-cols-2 gap-2">
+                            <OrientationChoice
+                                label="Landscape"
+                                detail="1920 × 1080"
+                                selected={orientation === "landscape"}
+                                onSelect={() => setOrientation("landscape")}
+                            />
+                            <OrientationChoice
+                                label="Portrait"
+                                detail="1080 × 1920"
+                                selected={orientation === "portrait"}
+                                onSelect={() => setOrientation("portrait")}
+                            />
+                        </div>
+                    </fieldset>
                     <div className="flex flex-col gap-1.5">
                         <label htmlFor="board-name" className="text-xs text-muted">
                             Board name
@@ -197,6 +219,36 @@ function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
                 </form>
             </div>
         </div>
+    );
+}
+
+type OrientationChoiceProps = {
+    label: string;
+    detail: string;
+    selected: boolean;
+    onSelect: () => void;
+};
+
+function OrientationChoice({
+    label,
+    detail,
+    selected,
+    onSelect,
+}: OrientationChoiceProps) {
+    return (
+        <button
+            type="button"
+            aria-pressed={selected}
+            onClick={onSelect}
+            className={
+                selected
+                    ? "rounded-md border border-cyan/70 bg-surface-raised px-3 py-2 text-left"
+                    : "rounded-md border border-border bg-surface-raised/40 px-3 py-2 text-left transition-colors duration-150 hover:border-border-strong hover:bg-surface-hover"
+            }
+        >
+            <span className="block text-sm font-medium text-foreground">{label}</span>
+            <span className="block text-xs text-muted">{detail}</span>
+        </button>
     );
 }
 

@@ -9,6 +9,8 @@ import NewsWidget from "./NewsWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
 import InformationCardWidget from "./InformationCardWidget.tsx";
 import { boardPointFromClient, dragStartDistance } from "../boardCoordinates.ts";
+import { resizeOutsideLayout } from "../canvasView.ts";
+import { widgetExtendsOutsideBoard } from "../boardOrientation.ts";
 import styles from "./BoardRenderer.module.css";
 import TextWidget from "./TextWidget.tsx";
 import TickerWidget from "./TickerWidget.tsx";
@@ -22,6 +24,7 @@ type WidgetPosition = {
 type BoardRendererProps = {
     board: Board;
     framed?: boolean;
+    editorScale?: number;
     selectedWidgetId?: string | null;
     onSelectWidget?: (widgetId: string | null) => void;
     onWidgetPositionChange?: (widgetId: string, position: WidgetPosition) => void;
@@ -409,10 +412,12 @@ function WidgetView({
     const geometryLocked = widget.locked === true;
     const draggable = interactive && onWidgetPositionChange !== undefined && !geometryLocked;
     const content = renderWidget(widget, interactive);
+    const outsideBoard = interactive && widgetExtendsOutsideBoard(widget.layout, boardWidth, boardHeight);
     const className = [
         styles.widget,
         interactive ? styles.widgetSelectable : "",
         geometryLocked ? styles.widgetLocked : "",
+        outsideBoard ? styles.widgetOutside : "",
         selected ? styles.widgetSelected : "",
     ].filter((name) => name.length > 0).join(" ");
     const radius = selectionRadius(widget);
@@ -710,14 +715,13 @@ function WidgetView({
             boardHeight,
         );
 
-        onWidgetLayoutChange(widget.id, resizeLayout(
-            session.originLayout,
-            session.corner,
-            current.x - origin.x,
-            current.y - origin.y,
-            boardWidth,
-            boardHeight,
-        ));
+        const deltaX = current.x - origin.x;
+        const deltaY = current.y - origin.y;
+        const nextLayout = widgetExtendsOutsideBoard(session.originLayout, boardWidth, boardHeight)
+            ? resizeOutsideLayout(session.originLayout, session.corner, deltaX, deltaY, boardWidth, boardHeight)
+            : resizeLayout(session.originLayout, session.corner, deltaX, deltaY, boardWidth, boardHeight);
+
+        onWidgetLayoutChange(widget.id, nextLayout);
     }
 
     function handleResizePointerUp(event: PointerEvent<HTMLDivElement>) {
@@ -747,6 +751,7 @@ function WidgetView({
             ref={frameRef}
             className={className}
             style={frameStyle}
+            data-widget-id={widget.id}
             role={interactive ? "button" : undefined}
             tabIndex={interactive ? 0 : undefined}
             aria-pressed={interactive ? selected : undefined}
@@ -779,6 +784,7 @@ function WidgetView({
 function BoardRenderer({
     board,
     framed = true,
+    editorScale,
     selectedWidgetId = null,
     onSelectWidget,
     onWidgetPositionChange,
@@ -786,7 +792,17 @@ function BoardRenderer({
     onGestureEnd,
 }: BoardRendererProps) {
     const interactive = onSelectWidget !== undefined;
+    const editing = editorScale !== undefined;
     const suppressStageClickRef = useRef(false);
+    const frameStyle: CSSProperties = editing
+        ? {
+            width: board.width * editorScale,
+            height: board.height * editorScale,
+        }
+        : {
+            aspectRatio: `${board.width} / ${board.height}`,
+            width: `min(100cqi, calc(100cqb * ${board.width} / ${board.height}))`,
+        };
     const stageStyle: StageStyle = {
         width: board.width,
         height: board.height,
@@ -809,9 +825,16 @@ function BoardRenderer({
     }
 
     return (
-        <div className={styles.root}>
+        <div className={editing ? styles.rootEditor : styles.root}>
             <div
-                className={framed ? styles.frame : `${styles.frame} ${styles.framePlain}`}
+                className={
+                    editing
+                        ? `${styles.frame} ${styles.frameEditor}`
+                        : framed
+                            ? styles.frame
+                            : `${styles.frame} ${styles.framePlain}`
+                }
+                style={frameStyle}
                 aria-label={board.name}
             >
                 <div

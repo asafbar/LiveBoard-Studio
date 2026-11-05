@@ -24,6 +24,9 @@ type StudioSidebarProps = {
     onMoveWidget: (widgetId: string, move: LayerMove) => void;
     onReorderWidget: (widgetId: string, targetId: string, placement: LayerDropPlacement) => void;
     onLayerChange: (widgetId: string, change: WidgetLayerChange) => void;
+    onMoveIntoBoard: (widgetId: string) => void;
+    onFitWidget: (widgetId: string) => void;
+    onMoveAllInside: () => void;
 };
 
 type SidebarSectionProps = {
@@ -47,6 +50,9 @@ function StudioSidebar({
     onMoveWidget,
     onReorderWidget,
     onLayerChange,
+    onMoveIntoBoard,
+    onFitWidget,
+    onMoveAllInside,
 }: StudioSidebarProps) {
     const [sections, setSections] = useState<SidebarSections>({
         componentsOpen: true,
@@ -100,6 +106,11 @@ function StudioSidebar({
                     onMoveWidget={onMoveWidget}
                     onReorderWidget={onReorderWidget}
                     onLayerChange={onLayerChange}
+                    boardWidth={boardWidth}
+                    boardHeight={boardHeight}
+                    onMoveIntoBoard={onMoveIntoBoard}
+                    onFitWidget={onFitWidget}
+                    onMoveAllInside={onMoveAllInside}
                 />
             </SidebarSection>
         </aside>
