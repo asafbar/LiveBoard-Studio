@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements" | "weather";
+export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements" | "weather" | "news";
 
 export type WidgetLayout = {
     x: number;
@@ -35,7 +35,9 @@ export type InformationCardWidgetSettings = {
     badge?: string;
     imageSrc?: string;
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     borderRadius: number;
 };
 
@@ -53,7 +55,9 @@ export type AnnouncementsWidgetSettings = {
     title: string;
     items: AnnouncementItem[];
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     borderRadius: number;
 };
 
@@ -73,8 +77,11 @@ export type TickerWidgetSettings = {
     direction: TickerDirection;
     speed: number;
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     accentColor: string;
+    accentOpacity?: number;
     borderRadius: number;
     fontFamily?: TickerFontFamily;
     fontSize?: number;
@@ -116,6 +123,59 @@ export type WeatherLocationSettings = {
     admin1?: string;
 };
 
+export type NewsSource = "sample" | "usgs";
+
+export type NewsCategory = "israel" | "breaking" | "business" | "technology" | "earthquakes";
+
+export type NewsPreset = "ticker" | "cards" | "list";
+
+export type NewsTickerMotion = "scroll" | "slide";
+
+export type NewsScrollDirection = "ltr" | "rtl";
+
+export type NewsDirection = "auto" | "ltr" | "rtl";
+
+export type NewsAlign = "start" | "center" | "end" | "left" | "right";
+
+export type NewsFontFamily = "sans" | "serif" | "mono";
+
+export type NewsFontWeight = 400 | 500 | 600 | 700;
+
+export type NewsRefreshMinutes = 10 | 30 | 60 | 1440;
+
+export type NewsWidgetSettings = {
+    source: NewsSource;
+    category: NewsCategory;
+    preset: NewsPreset;
+    maxHeadlines: number;
+    rotationSeconds: number;
+    tickerMotion?: NewsTickerMotion;
+    scrollDirection?: NewsScrollDirection;
+    scrollSpeed?: number;
+    refreshIntervalMinutes?: NewsRefreshMinutes;
+    backgroundColor: string;
+    textColor: string;
+    accentColor: string;
+    borderRadius: number;
+    title?: string;
+    direction?: NewsDirection;
+    align?: NewsAlign;
+    titleAlign?: NewsAlign;
+    backgroundOpacity?: number;
+    padding?: number;
+    titleSpacing?: number;
+    titleColor?: string;
+    textOpacity?: number;
+    titleOpacity?: number;
+    accentOpacity?: number;
+    fontFamily?: NewsFontFamily;
+    fontSize?: number;
+    fontWeight?: NewsFontWeight;
+    titleFontFamily?: NewsFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: NewsFontWeight;
+};
+
 export type WeatherWidgetSettings = {
     location: WeatherLocationSettings;
     unit: WeatherTemperatureUnit;
@@ -127,8 +187,11 @@ export type WeatherWidgetSettings = {
     backgroundColor: string;
     backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     titleColor?: string;
+    titleOpacity?: number;
     accentColor: string;
+    accentOpacity?: number;
     borderRadius: number;
     padding?: number;
     titleSpacing?: number;
@@ -148,8 +211,11 @@ export type VerticalAnnouncementsWidgetSettings = {
     items: VerticalAnnouncementItem[];
     speed: number;
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     accentColor: string;
+    accentOpacity?: number;
     borderRadius: number;
     pauseSeconds?: number;
     fontFamily?: TickerFontFamily;
@@ -196,6 +262,10 @@ export type Widget = {
     | {
         type: "weather";
         settings: WeatherWidgetSettings;
+    }
+    | {
+        type: "news";
+        settings: NewsWidgetSettings;
     }
 );
 

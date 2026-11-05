@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
+import { paintColor } from "../../editor/colorAlpha.ts";
 import type { WeatherFontFamily, WeatherWidgetSettings, WidgetLayout } from "../types/boardTypes.ts";
 import {
     resolveTitleAlign,
@@ -225,6 +226,10 @@ function weatherStyle(
     settings: WeatherWidgetSettings,
     visual: ReturnType<typeof weatherVisual>,
 ): CSSProperties {
+    const textPaint = paintColor(settings.textColor, settings.textOpacity);
+    const titlePaint = paintColor(settings.titleColor ?? settings.textColor, settings.titleOpacity);
+    const accentPaint = paintColor(settings.accentColor, settings.accentOpacity);
+
     return {
         borderRadius: settings.borderRadius,
         fontSize: settings.fontSize ?? (visual === "expanded" ? 32 : 26),
@@ -236,6 +241,15 @@ function weatherStyle(
         ["--weather-background-opacity" as string]: settings.backgroundOpacity === undefined
             ? "1"
             : String(settings.backgroundOpacity / 100),
+        ...(textPaint === settings.textColor
+            ? {}
+            : { ["--weather-text-paint" as string]: textPaint }),
+        ...(settings.titleOpacity === undefined
+            ? {}
+            : { ["--weather-title-paint" as string]: titlePaint }),
+        ...(accentPaint === settings.accentColor
+            ? {}
+            : { ["--weather-accent-paint" as string]: accentPaint }),
         ...(settings.padding === undefined
             ? {}
             : { ["--weather-padding" as string]: `${settings.padding}px` }),

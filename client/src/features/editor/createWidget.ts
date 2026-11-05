@@ -1,4 +1,5 @@
 import type { Board, Widget, WidgetLayout, WidgetType } from "../boards/types/boardTypes.ts";
+import { defaultNewsSettings } from "../boards/news/newsDefaults.ts";
 import { defaultWeatherSettings } from "../boards/weather/weatherDefaults.ts";
 import { newWeatherRefreshMinutes } from "../boards/weather/weatherSchedule.ts";
 
@@ -39,6 +40,8 @@ function defaultWidgetSize(type: WidgetType): WidgetSize {
             return { width: 440, height: 720 };
         case "weather":
             return { width: 480, height: 300 };
+        case "news":
+            return { width: 1200, height: 140 };
     }
 }
 
@@ -226,6 +229,15 @@ function createWidget(type: WidgetType, board: Board): Widget {
                     ...defaultWeatherSettings,
                     location: { ...defaultWeatherSettings.location },
                     refreshIntervalMinutes: newWeatherRefreshMinutes,
+                },
+            };
+        case "news":
+            return {
+                id,
+                type,
+                layout,
+                settings: {
+                    ...defaultNewsSettings,
                 },
             };
         case "vertical-announcements": {

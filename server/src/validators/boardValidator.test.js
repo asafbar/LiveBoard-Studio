@@ -351,6 +351,228 @@ test("accepts weather title spacing and refresh intervals, and rejects invalid v
     assert.equal(refresh[0].path, "widgets.0.settings.refreshIntervalMinutes");
 });
 
+test("accepts a Hebrew sample news widget and rejects live sources and stored headlines", () => {
+    const errors = [];
+    const draft = sanitizeDraft(boardWith([{
+        id: "news-1",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "sample",
+            category: "israel",
+            preset: "ticker",
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            refreshIntervalMinutes: 30,
+            direction: "rtl",
+            align: "right",
+            title: "  חדשות לדוגמה  ",
+            backgroundColor: "#102030",
+            textColor: "#ffffff",
+            accentColor: "#37d6ff",
+            borderRadius: 16
+        }
+    }]), errors);
+    const rejected = [];
+
+    sanitizeDraft(boardWith([{
+        id: "news-2",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "walla",
+            category: "israel",
+            preset: "cards",
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            backgroundColor: "#102030",
+            textColor: "#ffffff",
+            accentColor: "#37d6ff",
+            borderRadius: 16,
+            items: [{ title: "כותרת חיצונית" }]
+        }
+    }]), rejected);
+
+    const clockErrors = [];
+    const clockDraft = sanitizeDraft(boardWith([{
+        id: "clock-1",
+        type: "clock",
+        layout: { x: 40, y: 40, width: 460, height: 170 },
+        settings: {
+            timeZone: "Asia/Jerusalem",
+            showDate: true,
+            showSeconds: false,
+            align: "left"
+        }
+    }]), clockErrors);
+
+    assert.deepEqual(errors, []);
+    assert.equal(draft.widgets[0].settings.title, "חדשות לדוגמה");
+    assert.equal(draft.widgets[0].settings.source, "sample");
+    assert.equal(draft.widgets[0].settings.tickerMotion, undefined);
+    assert.equal(draft.widgets[0].settings.scrollDirection, undefined);
+    assert.equal(draft.widgets[0].settings.backgroundColor, "#102030");
+    assert.equal(JSON.stringify(draft).includes("items"), false);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.source"), true);
+    assert.equal(rejected.some((error) => error.message === "Unknown field."), true);
+    assert.deepEqual(clockErrors, []);
+    assert.equal(clockDraft.widgets[0].type, "clock");
+});
+
+test("accepts a USGS earthquake widget without storing event records", () => {
+    const errors = [];
+    const draft = sanitizeDraft(boardWith([{
+        id: "news-usgs",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "usgs",
+            category: "earthquakes",
+            preset: "list",
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            direction: "ltr",
+            backgroundColor: "#102030",
+            textColor: "#ffffff",
+            accentColor: "#37d6ff",
+            borderRadius: 16
+        }
+    }]), errors);
+    const rejected = [];
+
+    sanitizeDraft(boardWith([{
+        id: "news-mismatch",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "usgs",
+            category: "israel",
+            preset: "ticker",
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            backgroundColor: "#102030",
+            textColor: "#ffffff",
+            accentColor: "#37d6ff",
+            borderRadius: 16,
+            items: [{ title: "M 4.3 earthquake - Papua New Guinea" }]
+        }
+    }]), rejected);
+
+    assert.deepEqual(errors, []);
+    assert.equal(draft.widgets[0].settings.source, "usgs");
+    assert.equal(draft.widgets[0].settings.category, "earthquakes");
+    assert.equal(JSON.stringify(draft).includes("items"), false);
+    assert.equal(JSON.stringify(draft).includes("articleUrl"), false);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.category"), true);
+    assert.equal(rejected.some((error) => error.message === "Unknown field."), true);
+});
+
+test("accepts ticker scroll speed and a saved background opacity", () => {
+    const errors = [];
+    const draft = sanitizeDraft(boardWith([{
+        id: "news-scroll",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "sample",
+            category: "israel",
+            preset: "ticker",
+            tickerMotion: "scroll",
+            scrollDirection: "ltr",
+            scrollSpeed: 48,
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            backgroundColor: "#102030",
+            backgroundOpacity: 35,
+            textColor: "#ffffff",
+            accentColor: "#37d6ff",
+            borderRadius: 16
+        }
+    }]), errors);
+    const rejected = [];
+
+    sanitizeDraft(boardWith([{
+        id: "news-bad-motion",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "sample",
+            category: "israel",
+            preset: "ticker",
+            tickerMotion: "bounce",
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            backgroundColor: "#102030",
+            textColor: "#ffffff",
+            accentColor: "#37d6ff",
+            borderRadius: 16
+        }
+    }]), rejected);
+
+    assert.deepEqual(errors, []);
+    assert.equal(draft.widgets[0].settings.tickerMotion, "scroll");
+    assert.equal(draft.widgets[0].settings.scrollDirection, "ltr");
+    assert.equal(draft.widgets[0].settings.scrollSpeed, 48);
+    assert.equal(draft.widgets[0].settings.backgroundColor, "#102030");
+    assert.equal(draft.widgets[0].settings.backgroundOpacity, 35);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.tickerMotion"), true);
+});
+
+test("keeps opaque colors and stores each opacity independently", () => {
+    const errors = [];
+    const draft = sanitizeDraft(boardWith([{
+        id: "news-alpha",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "sample",
+            category: "israel",
+            preset: "ticker",
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            backgroundColor: "var(--canvas-board)",
+            backgroundOpacity: 50,
+            textColor: "#ffffff",
+            textOpacity: 25,
+            accentColor: "#37d6ff",
+            accentOpacity: 0,
+            titleColor: "#ffdd88",
+            titleOpacity: 75,
+            borderRadius: 16
+        }
+    }]), errors);
+    const rejected = [];
+
+    sanitizeDraft(boardWith([{
+        id: "news-bad-color",
+        type: "news",
+        layout: { x: 40, y: 40, width: 1200, height: 140 },
+        settings: {
+            source: "sample",
+            category: "israel",
+            preset: "ticker",
+            maxHeadlines: 5,
+            rotationSeconds: 8,
+            backgroundColor: "#11223344",
+            textColor: "rgba(255, 255, 255, 0.5)",
+            accentColor: "#37d6ff",
+            textOpacity: 101,
+            borderRadius: 16
+        }
+    }]), rejected);
+
+    assert.deepEqual(errors, []);
+    assert.equal(draft.widgets[0].settings.backgroundColor, "var(--canvas-board)");
+    assert.equal(draft.widgets[0].settings.backgroundOpacity, 50);
+    assert.equal(draft.widgets[0].settings.textColor, "#ffffff");
+    assert.equal(draft.widgets[0].settings.textOpacity, 25);
+    assert.equal(draft.widgets[0].settings.accentOpacity, 0);
+    assert.equal(draft.widgets[0].settings.titleOpacity, 75);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.backgroundColor"), true);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.textColor"), true);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.textOpacity"), true);
+});
+
 test("accepts the backed-up multiline descriptions unchanged", () => {
     const backupPath = process.env.DRAFT_BACKUP;
 

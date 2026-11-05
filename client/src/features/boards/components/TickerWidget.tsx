@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { paintColor } from "../../editor/colorAlpha.ts";
 import type { TickerDirection, TickerMessage, TickerWidgetSettings } from "../types/boardTypes.ts";
 import {
     resolvedTickerFontSize,
@@ -25,6 +26,7 @@ type TickerLoop = {
 
 type TickerStyle = CSSProperties & {
     "--ticker-accent": string;
+    "--ticker-accent-paint"?: string;
 };
 
 const minimumPlaybackSpeed = 20;
@@ -84,11 +86,15 @@ function TickerWidget({ settings }: TickerWidgetProps) {
         fontStyle.fontWeight,
         messages.map((message) => `${message.id}\u0000${message.text}`).join("\u0001"),
     ].join("\u0002");
+    const accentPaint = paintColor(settings.accentColor, settings.accentOpacity);
     const panelStyle: TickerStyle = {
-        backgroundColor: settings.backgroundColor,
-        color: settings.textColor,
+        backgroundColor: paintColor(settings.backgroundColor, settings.backgroundOpacity),
+        color: paintColor(settings.textColor, settings.textOpacity),
         borderRadius: settings.borderRadius,
         "--ticker-accent": settings.accentColor,
+        ...(accentPaint === settings.accentColor
+            ? {}
+            : { "--ticker-accent-paint": accentPaint }),
     };
 
     useLayoutEffect(() => {

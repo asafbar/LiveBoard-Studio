@@ -3,6 +3,7 @@ import type { Board, BoardBackground, Widget, WidgetLayout } from "../types/boar
 import AnnouncementsWidget from "./AnnouncementsWidget.tsx";
 import ClockWidget from "./ClockWidget.tsx";
 import WeatherWidget from "./WeatherWidget.tsx";
+import NewsWidget from "./NewsWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
 import InformationCardWidget from "./InformationCardWidget.tsx";
 import styles from "./BoardRenderer.module.css";
@@ -169,6 +170,8 @@ function widgetAccessibleName(widget: Widget): string {
                 || widget.settings.location.label
                 || widget.settings.location.name
                 || "Weather";
+        case "news":
+            return widget.settings.title?.trim() || "Sample headlines";
     }
 }
 
@@ -197,6 +200,14 @@ function renderWidget(widget: Widget, interactive: boolean) {
                     studioFrame={interactive ? widget.layout : undefined}
                 />
             );
+        case "news":
+            return (
+                <NewsWidget
+                    key={`${widget.settings.source}:${widget.settings.category}`}
+                    settings={widget.settings}
+                    studioFrame={interactive ? widget.layout : undefined}
+                />
+            );
     }
 }
 
@@ -220,6 +231,7 @@ function selectionRadius(widget: Widget): string | undefined {
         case "ticker":
         case "vertical-announcements":
         case "weather":
+        case "news":
             return `${widget.settings.borderRadius}px`;
         case "text":
         case "clock":

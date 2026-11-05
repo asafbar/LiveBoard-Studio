@@ -60,6 +60,7 @@ const typeLabels: Record<Widget["type"], string> = {
     ticker: "Ticker",
     "vertical-announcements": "Vertical Announcements",
     weather: "Weather",
+    news: "News",
 };
 
 const typeIcons: Record<Widget["type"], StudioIconName> = {
@@ -71,6 +72,7 @@ const typeIcons: Record<Widget["type"], StudioIconName> = {
     ticker: "ticker",
     "vertical-announcements": "vertical-announcements",
     weather: "weather",
+    news: "news",
 };
 
 const layerMenuWidth = 168;
@@ -778,6 +780,8 @@ function widgetContentLabel(widget: Widget): string | null {
         }
         case "weather":
             return nonempty(widget.settings.title ?? "") ?? nonempty(widget.settings.location.label);
+        case "news":
+            return nonempty(widget.settings.title ?? "");
         case "vertical-announcements": {
             const item = widget.settings.items.find((entry) => {
                 return entry.title.trim().length > 0

@@ -12,7 +12,7 @@
     padding: var(--weather-padding, 0.7em 0.85em);
     border: 2px solid color-mix(in srgb, var(--weather-accent) 62%, transparent);
     background: transparent;
-    color: var(--weather-text);
+    color: var(--weather-text-paint, var(--weather-text));
     font-family: var(--font-sans);
     font-weight: 500;
     line-height: 1.2;
@@ -112,7 +112,7 @@
 
 .heading {
     margin: 0;
-    color: var(--weather-title-color, inherit);
+    color: var(--weather-title-paint, var(--weather-title-color, var(--weather-text)));
     font-size: var(--weather-title-size, 0.82em);
     font-weight: var(--weather-title-weight, 600);
     line-height: 1.25;
@@ -138,7 +138,7 @@
     flex: 0 0 auto;
     transform: none;
     fill: none;
-    color: var(--weather-accent);
+    color: var(--weather-accent-paint, var(--weather-accent));
     stroke: currentColor;
     stroke-width: 2.4;
     stroke-linecap: round;

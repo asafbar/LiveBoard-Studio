@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { paintColor } from "../../editor/colorAlpha.ts";
 import type { InformationCardWidgetSettings } from "../types/boardTypes.ts";
 import styles from "./InformationCardWidget.module.css";
 
@@ -28,8 +29,8 @@ function InformationCardWidget({ settings }: InformationCardWidgetProps) {
         <article
             className={styles.card}
             style={{
-                backgroundColor: settings.backgroundColor,
-                color: settings.textColor,
+                backgroundColor: paintColor(settings.backgroundColor, settings.backgroundOpacity),
+                color: paintColor(settings.textColor, settings.textOpacity),
                 borderRadius: settings.borderRadius,
             }}
         >

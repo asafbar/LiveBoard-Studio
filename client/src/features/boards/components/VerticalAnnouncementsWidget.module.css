@@ -39,7 +39,7 @@
     width: 100%;
     padding: 18px 22px 20px;
     border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent);
-    border-left: 3px solid var(--vertical-accent);
+    border-left: 3px solid var(--vertical-accent-paint, var(--vertical-accent));
 }
 
 .label,

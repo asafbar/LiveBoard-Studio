@@ -70,7 +70,7 @@
     width: 0.38em;
     height: 0.38em;
     margin-inline: 0.8em;
-    background-color: var(--ticker-accent);
+    background-color: var(--ticker-accent-paint, var(--ticker-accent));
     transform: rotate(45deg);
 }
 

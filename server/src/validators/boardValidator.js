@@ -31,7 +31,7 @@ const MAX_ID_LENGTH = 80;
 const MAX_LAYER_NAME_LENGTH = 80;
 const MAX_COLOR_LENGTH = 200;
 
-const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker", "vertical-announcements", "weather"];
+const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker", "vertical-announcements", "weather", "news"];
 const WIDGET_KEYS = ["id", "type", "layout", "settings", "layerName", "visible", "locked"];
 const TEXT_TONES = ["default", "accent"];
 const TEXT_SIZES = ["title", "display"];
@@ -52,6 +52,18 @@ const MAX_WEATHER_OPACITY = 100;
 const MAX_WEATHER_PADDING = 48;
 const MAX_WEATHER_TITLE_SPACING = 64;
 const WEATHER_REFRESH_MINUTES = [10, 30, 60, 1440];
+const NEWS_SOURCES = ["sample", "usgs"];
+const NEWS_CATEGORIES = ["israel", "breaking", "business", "technology", "earthquakes"];
+const NEWS_PRESETS = ["ticker", "cards", "list"];
+const NEWS_TICKER_MOTIONS = ["scroll", "slide"];
+const NEWS_SCROLL_DIRECTIONS = ["ltr", "rtl"];
+const MIN_NEWS_HEADLINES = 1;
+const MAX_NEWS_HEADLINES = 10;
+const MIN_NEWS_ROTATION_SECONDS = 4;
+const MAX_NEWS_ROTATION_SECONDS = 30;
+const MIN_NEWS_SCROLL_SPEED = 20;
+const MAX_NEWS_SCROLL_SPEED = 160;
+const MAX_NEWS_TITLE_LENGTH = 80;
 const WEATHER_TIME_ZONE_PATTERN = /^(?:UTC|GMT|[A-Za-z][A-Za-z0-9+-]*(?:\/[A-Za-z0-9+_-]+){1,2})$/;
 const MAX_WEATHER_TITLE_LENGTH = 80;
 const OBJECT_FITS = ["cover", "contain"];
@@ -373,7 +385,138 @@ function sanitizeSettings(type, settings, path, errors) {
         return sanitizeWeatherSettings(settings, path, errors);
     }
 
+    if (type === "news") {
+        return sanitizeNewsSettings(settings, path, errors);
+    }
+
     return null;
+}
+
+function sanitizeNewsSettings(settings, path, errors) {
+    rejectUnknownKeys(settings, [
+        "source",
+        "category",
+        "preset",
+        "maxHeadlines",
+        "rotationSeconds",
+        "tickerMotion",
+        "scrollDirection",
+        "scrollSpeed",
+        "refreshIntervalMinutes",
+        "title",
+        "backgroundColor",
+        "textColor",
+        "accentColor",
+        "borderRadius",
+        "padding",
+        "titleSpacing",
+        "backgroundOpacity",
+        "textOpacity",
+        "titleOpacity",
+        "accentOpacity",
+        "titleColor",
+        "titleAlign",
+        "direction",
+        "align",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "titleFontFamily",
+        "titleFontSize",
+        "titleFontWeight"
+    ], path, errors);
+
+    const nextSettings = {
+        source: readChoice(settings.source, `${path}.source`, NEWS_SOURCES, errors),
+        category: readChoice(settings.category, `${path}.category`, NEWS_CATEGORIES, errors),
+        preset: readChoice(settings.preset, `${path}.preset`, NEWS_PRESETS, errors),
+        maxHeadlines: readIntegerInRange(
+            settings.maxHeadlines,
+            `${path}.maxHeadlines`,
+            MIN_NEWS_HEADLINES,
+            MAX_NEWS_HEADLINES,
+            errors
+        ),
+        rotationSeconds: readIntegerInRange(
+            settings.rotationSeconds,
+            `${path}.rotationSeconds`,
+            MIN_NEWS_ROTATION_SECONDS,
+            MAX_NEWS_ROTATION_SECONDS,
+            errors
+        ),
+        backgroundColor: readColor(settings.backgroundColor, `${path}.backgroundColor`, errors),
+        textColor: readColor(settings.textColor, `${path}.textColor`, errors),
+        accentColor: readColor(settings.accentColor, `${path}.accentColor`, errors),
+        borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
+    };
+
+    if (
+        (nextSettings.source === "usgs" && nextSettings.category !== "earthquakes")
+        || (nextSettings.source === "sample" && nextSettings.category === "earthquakes")
+    ) {
+        errors.push({
+            path: `${path}.category`,
+            message: "This source and category are not available."
+        });
+    }
+
+    if (settings.title !== undefined) {
+        const title = readRequiredText(settings.title, `${path}.title`, MAX_NEWS_TITLE_LENGTH, errors, true);
+
+        if (title) {
+            nextSettings.title = title;
+        }
+    }
+
+    assignWeatherChoice(nextSettings, "direction", settings.direction, `${path}.direction`, WEATHER_DIRECTIONS, errors);
+    assignWeatherChoice(nextSettings, "tickerMotion", settings.tickerMotion, `${path}.tickerMotion`, NEWS_TICKER_MOTIONS, errors);
+    assignWeatherChoice(nextSettings, "scrollDirection", settings.scrollDirection, `${path}.scrollDirection`, NEWS_SCROLL_DIRECTIONS, errors);
+    assignWeatherFontSize(
+        nextSettings,
+        "scrollSpeed",
+        settings.scrollSpeed,
+        `${path}.scrollSpeed`,
+        MIN_NEWS_SCROLL_SPEED,
+        MAX_NEWS_SCROLL_SPEED,
+        errors
+    );
+    assignWeatherChoice(nextSettings, "align", settings.align, `${path}.align`, WEATHER_ALIGNS, errors);
+    assignWeatherChoice(nextSettings, "titleAlign", settings.titleAlign, `${path}.titleAlign`, WEATHER_ALIGNS, errors);
+    assignWeatherChoice(nextSettings, "fontFamily", settings.fontFamily, `${path}.fontFamily`, WEATHER_FONT_FAMILIES, errors);
+    assignWeatherChoice(nextSettings, "titleFontFamily", settings.titleFontFamily, `${path}.titleFontFamily`, WEATHER_FONT_FAMILIES, errors);
+    assignWeatherFontWeight(nextSettings, "fontWeight", settings.fontWeight, `${path}.fontWeight`, errors);
+    assignWeatherFontWeight(nextSettings, "titleFontWeight", settings.titleFontWeight, `${path}.titleFontWeight`, errors);
+    assignWeatherFontSize(
+        nextSettings,
+        "fontSize",
+        settings.fontSize,
+        `${path}.fontSize`,
+        MIN_WEATHER_FONT_SIZE,
+        MAX_WEATHER_FONT_SIZE,
+        errors
+    );
+    assignWeatherFontSize(
+        nextSettings,
+        "titleFontSize",
+        settings.titleFontSize,
+        `${path}.titleFontSize`,
+        MIN_WEATHER_TITLE_FONT_SIZE,
+        MAX_WEATHER_TITLE_FONT_SIZE,
+        errors
+    );
+    assignWeatherOpacity(nextSettings, settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "titleOpacity", settings.titleOpacity, `${path}.titleOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "accentOpacity", settings.accentOpacity, `${path}.accentOpacity`, errors);
+    assignWeatherPadding(nextSettings, settings.padding, `${path}.padding`, errors);
+    assignWeatherTitleSpacing(nextSettings, settings.titleSpacing, `${path}.titleSpacing`, errors);
+    assignWeatherRefresh(nextSettings, settings.refreshIntervalMinutes, `${path}.refreshIntervalMinutes`, errors);
+
+    if (settings.titleColor !== undefined) {
+        nextSettings.titleColor = readColor(settings.titleColor, `${path}.titleColor`, errors);
+    }
+
+    return nextSettings;
 }
 
 function sanitizeWeatherSettings(settings, path, errors) {
@@ -392,6 +535,9 @@ function sanitizeWeatherSettings(settings, path, errors) {
         "titleSpacing",
         "refreshIntervalMinutes",
         "backgroundOpacity",
+        "textOpacity",
+        "titleOpacity",
+        "accentOpacity",
         "titleColor",
         "titleAlign",
         "preset",
@@ -450,6 +596,9 @@ function sanitizeWeatherSettings(settings, path, errors) {
         errors
     );
     assignWeatherOpacity(nextSettings, settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "titleOpacity", settings.titleOpacity, `${path}.titleOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "accentOpacity", settings.accentOpacity, `${path}.accentOpacity`, errors);
     assignWeatherPadding(nextSettings, settings.padding, `${path}.padding`, errors);
     assignWeatherTitleSpacing(nextSettings, settings.titleSpacing, `${path}.titleSpacing`, errors);
     assignWeatherRefresh(nextSettings, settings.refreshIntervalMinutes, `${path}.refreshIntervalMinutes`, errors);
@@ -522,6 +671,14 @@ function assignWeatherFontSize(target, key, value, path, minimum, maximum, error
     }
 
     target[key] = readIntegerInRange(value, path, minimum, maximum, errors);
+}
+
+function assignOptionalOpacity(target, key, value, path, errors) {
+    if (value === undefined) {
+        return;
+    }
+
+    target[key] = readIntegerInRange(value, path, 0, MAX_WEATHER_OPACITY, errors);
 }
 
 function assignWeatherOpacity(target, value, path, errors) {
@@ -665,7 +822,7 @@ function sanitizeImageSettings(settings, path, errors) {
 function sanitizeInformationCardSettings(settings, path, errors) {
     rejectUnknownKeys(
         settings,
-        ["title", "subtitle", "description", "badge", "imageSrc", "backgroundColor", "textColor", "borderRadius"],
+        ["title", "subtitle", "description", "badge", "imageSrc", "backgroundColor", "backgroundOpacity", "textColor", "textOpacity", "borderRadius"],
         path,
         errors
     );
@@ -685,24 +842,32 @@ function sanitizeInformationCardSettings(settings, path, errors) {
         nextSettings.imageSrc = readImageSource(settings.imageSrc, `${path}.imageSrc`, true, errors);
     }
 
+    assignOptionalOpacity(nextSettings, "backgroundOpacity", settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+
     return nextSettings;
 }
 
 function sanitizeAnnouncementsSettings(settings, path, errors) {
     rejectUnknownKeys(
         settings,
-        ["title", "items", "backgroundColor", "textColor", "borderRadius"],
+        ["title", "items", "backgroundColor", "backgroundOpacity", "textColor", "textOpacity", "borderRadius"],
         path,
         errors
     );
 
-    return {
+    const nextSettings = {
         title: readRequiredText(settings.title, `${path}.title`, MAX_SHORT_TEXT_LENGTH, errors, true),
         items: sanitizeAnnouncementItems(settings.items, `${path}.items`, errors),
         backgroundColor: readColor(settings.backgroundColor, `${path}.backgroundColor`, errors),
         textColor: readColor(settings.textColor, `${path}.textColor`, errors),
         borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
     };
+
+    assignOptionalOpacity(nextSettings, "backgroundOpacity", settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+
+    return nextSettings;
 }
 
 function sanitizeAnnouncementItems(items, path, errors) {
@@ -774,8 +939,11 @@ function sanitizeTickerSettings(settings, path, errors) {
             "direction",
             "speed",
             "backgroundColor",
+            "backgroundOpacity",
             "textColor",
+            "textOpacity",
             "accentColor",
+            "accentOpacity",
             "borderRadius",
             "fontFamily",
             "fontSize",
@@ -794,6 +962,10 @@ function sanitizeTickerSettings(settings, path, errors) {
         accentColor: readColor(settings.accentColor, `${path}.accentColor`, errors),
         borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
     };
+
+    assignOptionalOpacity(nextSettings, "backgroundOpacity", settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "accentOpacity", settings.accentOpacity, `${path}.accentOpacity`, errors);
 
     if (settings.fontFamily !== undefined) {
         nextSettings.fontFamily = readChoice(
@@ -839,8 +1011,11 @@ function sanitizeVerticalAnnouncementsSettings(settings, path, errors) {
             "items",
             "speed",
             "backgroundColor",
+            "backgroundOpacity",
             "textColor",
+            "textOpacity",
             "accentColor",
+            "accentOpacity",
             "borderRadius",
             "pauseSeconds",
             "fontFamily",
@@ -860,6 +1035,10 @@ function sanitizeVerticalAnnouncementsSettings(settings, path, errors) {
         accentColor: readColor(settings.accentColor, `${path}.accentColor`, errors),
         borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
     };
+
+    assignOptionalOpacity(nextSettings, "backgroundOpacity", settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "accentOpacity", settings.accentOpacity, `${path}.accentOpacity`, errors);
 
     if (settings.pauseSeconds !== undefined) {
         nextSettings.pauseSeconds = readIntegerInRange(

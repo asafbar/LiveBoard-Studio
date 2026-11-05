@@ -20,6 +20,7 @@ import type {
 import { clockTimeZones } from "../clockTimeZones.ts";
 import { mapDraftFieldIssues, saveFailureSummary, type DraftFieldIssue } from "../draftFieldIssues.ts";
 import { normalizeCssColor } from "../cssColor.ts";
+import type { ColorOpacityPatch, SettingsWithColorOpacity } from "../colorAlpha.ts";
 import {
     imageObjectFitOptions,
     normalizeImageSource,
@@ -46,6 +47,7 @@ import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.t
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
 import { createWidget } from "../createWidget.ts";
 import { updateWeatherSettings, type WeatherSettingsPatch } from "../weatherSettings.ts";
+import { updateNewsSettings, type NewsSettingsPatch } from "../newsSettings.ts";
 import {
     isTickerDirection,
     isTickerFontFamily,
@@ -142,6 +144,33 @@ function updateClockSettings(
     };
 }
 
+function assignColorOpacity(target: object, settings: ColorOpacityPatch) {
+    const record = target as Record<string, unknown>;
+    const keys: Array<keyof ColorOpacityPatch> = [
+        "backgroundOpacity",
+        "textOpacity",
+        "titleOpacity",
+        "accentOpacity",
+    ];
+
+    keys.forEach((key) => {
+        const value = settings[key];
+
+        if (value === undefined) {
+            return;
+        }
+
+        if (value === null) {
+            delete record[key];
+            return;
+        }
+
+        if (Number.isInteger(value) && value >= 0 && value <= 100) {
+            record[key] = value;
+        }
+    });
+}
+
 function updateImageSettings(
     board: Board,
     widgetId: string,
@@ -195,7 +224,7 @@ function updateImageSettings(
 function updateInformationCardSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<InformationCardWidgetSettings>,
+    settings: SettingsWithColorOpacity<InformationCardWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -247,6 +276,8 @@ function updateInformationCardSettings(
                     nextSettings.textColor = color;
                 }
             }
+
+            assignColorOpacity(nextSettings, settings);
 
             if (
                 typeof settings.borderRadius === "number"
@@ -322,7 +353,7 @@ function normalizeAnnouncementItems(items: AnnouncementItem[]): AnnouncementItem
 function updateAnnouncementsSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<AnnouncementsWidgetSettings>,
+    settings: SettingsWithColorOpacity<AnnouncementsWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -363,6 +394,8 @@ function updateAnnouncementsSettings(
                 }
             }
 
+            assignColorOpacity(nextSettings, settings);
+
             if (
                 typeof settings.borderRadius === "number"
                 && radiusIsInRange(settings.borderRadius)
@@ -381,7 +414,7 @@ function updateAnnouncementsSettings(
 function updateTickerSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<TickerWidgetSettings>,
+    settings: SettingsWithColorOpacity<TickerWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -434,6 +467,8 @@ function updateTickerSettings(
                 }
             }
 
+            assignColorOpacity(nextSettings, settings);
+
             if (
                 typeof settings.borderRadius === "number"
                 && radiusIsInRange(settings.borderRadius)
@@ -464,7 +499,7 @@ function updateTickerSettings(
 function updateVerticalAnnouncementsSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<VerticalAnnouncementsWidgetSettings>,
+    settings: SettingsWithColorOpacity<VerticalAnnouncementsWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -519,6 +554,8 @@ function updateVerticalAnnouncementsSettings(
                     nextSettings.accentColor = color;
                 }
             }
+
+            assignColorOpacity(nextSettings, settings);
 
             if (
                 typeof settings.borderRadius === "number"
@@ -1445,6 +1482,20 @@ function StudioPage() {
         );
     }
 
+    function handleNewsSettingsChange(
+        settings: NewsSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateNewsSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
     function handleImageSettingsChange(settings: Partial<ImageWidgetSettings>) {
         if (selectedWidgetId === null) {
             return;
@@ -1454,7 +1505,7 @@ function StudioPage() {
     }
 
     function handleInformationCardSettingsChange(
-        settings: Partial<InformationCardWidgetSettings>,
+        settings: SettingsWithColorOpacity<InformationCardWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1468,7 +1519,7 @@ function StudioPage() {
     }
 
     function handleAnnouncementsSettingsChange(
-        settings: Partial<AnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<AnnouncementsWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1482,7 +1533,7 @@ function StudioPage() {
     }
 
     function handleTickerSettingsChange(
-        settings: Partial<TickerWidgetSettings>,
+        settings: SettingsWithColorOpacity<TickerWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1496,7 +1547,7 @@ function StudioPage() {
     }
 
     function handleVerticalAnnouncementsSettingsChange(
-        settings: Partial<VerticalAnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<VerticalAnnouncementsWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1862,6 +1913,7 @@ function StudioPage() {
                             onTextSizeChange={handleTextSizeChange}
                             onClockSettingsChange={handleClockSettingsChange}
                             onWeatherSettingsChange={handleWeatherSettingsChange}
+                            onNewsSettingsChange={handleNewsSettingsChange}
                             onImageSettingsChange={handleImageSettingsChange}
                             onInformationCardSettingsChange={handleInformationCardSettingsChange}
                             onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}

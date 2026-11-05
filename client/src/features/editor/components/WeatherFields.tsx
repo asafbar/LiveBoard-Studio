@@ -24,10 +24,10 @@ import {
     minimumImageBorderRadius,
     parseImageBorderRadius,
 } from "../imageSettings.ts";
-import ColorField from "./ColorField.tsx";
+import { defaultWeatherSettings } from "../../boards/weather/weatherDefaults.ts";
+import ColorAlphaField from "./ColorAlphaField.tsx";
 import {
     maximumWeatherFontSize,
-    maximumWeatherOpacity,
     maximumWeatherPadding,
     maximumWeatherTitleFontSize,
     maximumWeatherTitleLength,
@@ -337,62 +337,59 @@ function WeatherStyleFields({
                     toggleSection("colors");
                 }}
             >
-            <ColorField
+            <ColorAlphaField
                 label="Background"
                 value={settings.backgroundColor}
+                opacity={settings.backgroundOpacity}
+                defaultColor={defaultWeatherSettings.backgroundColor}
                 onColorChange={(backgroundColor) => {
                     onWeatherSettingsChange({ backgroundColor }, "color");
                 }}
+                onOpacityChange={(backgroundOpacity) => {
+                    onWeatherSettingsChange({ backgroundOpacity }, "color");
+                }}
                 onSessionEnd={onColorSessionEnd}
             />
-            <NumberField
-                label="Background opacity"
-                hint="100 is solid. Lower values let the board show through."
-                value={settings.backgroundOpacity}
-                fallback={100}
-                minimum={0}
-                maximum={maximumWeatherOpacity}
-                commitOnInput
-                resetLabel={settings.backgroundOpacity === undefined ? undefined : "Reset opacity"}
-                onReset={() => {
-                    onWeatherSettingsChange({ backgroundOpacity: null });
-                }}
-                onChange={(backgroundOpacity) => {
-                    onWeatherSettingsChange({ backgroundOpacity });
-                }}
-            />
-            <ColorField
+            <ColorAlphaField
                 label="Text"
                 value={settings.textColor}
+                opacity={settings.textOpacity}
+                defaultColor={defaultWeatherSettings.textColor}
                 onColorChange={(textColor) => {
                     onWeatherSettingsChange({ textColor }, "color");
                 }}
-                onSessionEnd={onColorSessionEnd}
-            />
-            <ColorField
-                label="Title color"
-                value={settings.titleColor ?? settings.textColor}
-                onColorChange={(titleColor) => {
-                    onWeatherSettingsChange({ titleColor }, "color");
+                onOpacityChange={(textOpacity) => {
+                    onWeatherSettingsChange({ textOpacity }, "color");
                 }}
                 onSessionEnd={onColorSessionEnd}
             />
-            {settings.titleColor !== undefined ? (
-                <button
-                    type="button"
-                    onClick={() => {
-                        onWeatherSettingsChange({ titleColor: null });
+            <ColorAlphaField
+                label="Title color"
+                value={settings.titleColor ?? settings.textColor}
+                opacity={settings.titleOpacity}
+                onColorChange={(titleColor) => {
+                    onWeatherSettingsChange({ titleColor }, "color");
+                }}
+                onOpacityChange={(titleOpacity) => {
+                    onWeatherSettingsChange({ titleOpacity }, "color");
+                }}
+                onReset={settings.titleColor === undefined && settings.titleOpacity === undefined
+                    ? undefined
+                    : () => {
+                        onWeatherSettingsChange({ titleColor: null, titleOpacity: null }, "color");
                     }}
-                    className="text-left text-xs text-secondary"
-                >
-                    Use text color for the title
-                </button>
-            ) : null}
-            <ColorField
+                onSessionEnd={onColorSessionEnd}
+            />
+            <ColorAlphaField
                 label="Accent"
                 value={settings.accentColor}
+                opacity={settings.accentOpacity}
+                defaultColor={defaultWeatherSettings.accentColor}
                 onColorChange={(accentColor) => {
                     onWeatherSettingsChange({ accentColor }, "color");
+                }}
+                onOpacityChange={(accentOpacity) => {
+                    onWeatherSettingsChange({ accentOpacity }, "color");
                 }}
                 onSessionEnd={onColorSessionEnd}
             />

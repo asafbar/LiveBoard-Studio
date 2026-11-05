@@ -15,10 +15,13 @@ import { radiusIsInRange } from "./imageSettings.ts";
 
 type WeatherSettingsPatch = Omit<
     Partial<WeatherWidgetSettings>,
-    "preset" | "backgroundOpacity" | "padding" | "titleSpacing" | "titleColor" | "titleAlign" | "direction" | "align" | "fontFamily" | "fontSize" | "fontWeight" | "titleFontFamily" | "titleFontSize" | "titleFontWeight"
+    "preset" | "backgroundOpacity" | "textOpacity" | "titleOpacity" | "accentOpacity" | "padding" | "titleSpacing" | "titleColor" | "titleAlign" | "direction" | "align" | "fontFamily" | "fontSize" | "fontWeight" | "titleFontFamily" | "titleFontSize" | "titleFontWeight"
 > & {
     preset?: WeatherPreset | null;
     backgroundOpacity?: number | null;
+    textOpacity?: number | null;
+    titleOpacity?: number | null;
+    accentOpacity?: number | null;
     padding?: number | null;
     titleSpacing?: number | null;
     titleColor?: string | null;
@@ -101,6 +104,9 @@ function applyWeatherSettings(
     assignInteger(nextSettings, "titleSpacing", patch.titleSpacing, 0, maximumWeatherTitleSpacing);
     assignInteger(nextSettings, "titleFontSize", patch.titleFontSize, minimumWeatherTitleFontSize, maximumWeatherTitleFontSize);
     assignInteger(nextSettings, "backgroundOpacity", patch.backgroundOpacity, 0, maximumWeatherOpacity);
+    assignInteger(nextSettings, "textOpacity", patch.textOpacity, 0, maximumWeatherOpacity);
+    assignInteger(nextSettings, "titleOpacity", patch.titleOpacity, 0, maximumWeatherOpacity);
+    assignInteger(nextSettings, "accentOpacity", patch.accentOpacity, 0, maximumWeatherOpacity);
     assignInteger(nextSettings, "padding", patch.padding, 0, maximumWeatherPadding);
     assignColor(nextSettings, "backgroundColor", patch.backgroundColor);
     assignColor(nextSettings, "textColor", patch.textColor);
@@ -177,7 +183,7 @@ function assignChoice<Key extends "preset" | "direction" | "align" | "titleAlign
 
 function assignInteger(
     settings: WeatherWidgetSettings,
-    key: "fontSize" | "titleFontSize" | "backgroundOpacity" | "padding" | "titleSpacing",
+    key: "fontSize" | "titleFontSize" | "backgroundOpacity" | "textOpacity" | "titleOpacity" | "accentOpacity" | "padding" | "titleSpacing",
     value: number | null | undefined,
     minimum: number,
     maximum: number,
