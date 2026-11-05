@@ -25,8 +25,8 @@ const libraryItems: LibraryItem[] = [
     { name: "Ticker", icon: "ticker", type: "ticker" },
     { name: "Video", icon: "video", type: null },
     { name: "Gallery", icon: "gallery", type: null },
-    { name: "Countdown", icon: "countdown", type: null },
-    { name: "QR Code", icon: "qr", type: null },
+    { name: "Countdown", icon: "countdown", type: "countdown" },
+    { name: "QR Code", icon: "qr", type: "qr" },
 ];
 
 function ComponentsPanel({ onAddWidget }: ComponentsPanelProps) {

@@ -1,0 +1,151 @@
+.root {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    container-type: size;
+    align-items: center;
+    justify-content: center;
+    padding: var(--qr-padding, 24px);
+    background: transparent;
+    color: var(--qr-text, var(--foreground));
+    font-family: var(--qr-font, var(--font-sans));
+    font-weight: var(--qr-weight, 500);
+}
+
+.root::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--qr-background);
+    opacity: var(--qr-background-opacity, 1);
+    pointer-events: none;
+}
+
+.frame {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.classic {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--qr-title-spacing, 12px);
+    text-align: center;
+}
+
+.split {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25em;
+}
+
+.copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--qr-title-spacing, 12px);
+}
+
+.classic .copy {
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.root[data-align="center"] .copy {
+    align-items: center;
+    text-align: center;
+}
+
+.root[data-align="start"] .copy,
+.root[data-align="left"] .copy {
+    align-items: flex-start;
+    text-align: start;
+}
+
+.root[data-align="end"] .copy,
+.root[data-align="right"] .copy {
+    align-items: flex-end;
+    text-align: end;
+}
+
+.root[data-align="left"] .copy {
+    text-align: left;
+}
+
+.root[data-align="right"] .copy {
+    text-align: right;
+}
+
+.title,
+.subtitle {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+}
+
+.title {
+    color: var(--qr-title, inherit);
+    font-family: var(--qr-title-font, inherit);
+    font-size: var(--qr-title-size, 32px);
+    font-weight: var(--qr-title-weight, 600);
+    line-height: 1.15;
+}
+
+.subtitle {
+    color: var(--qr-text);
+    font-size: var(--qr-text-size, 22px);
+    font-weight: var(--qr-weight, 500);
+    line-height: 1.3;
+}
+
+.code {
+    display: grid;
+    flex: 0 0 auto;
+    aspect-ratio: 1;
+    place-items: center;
+    background: transparent;
+}
+
+.classic .code {
+    width: min(78%, 100%);
+    max-height: 100%;
+}
+
+.split .code {
+    width: min(46%, 70cqmin);
+}
+
+.code svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.issue {
+    display: grid;
+    width: min(78%, 100%);
+    aspect-ratio: 1;
+    place-items: center;
+    margin: 0;
+    padding: 1em;
+    border: 2px dashed color-mix(in srgb, var(--qr-text) 45%, transparent);
+    border-radius: 0.6em;
+    color: var(--qr-text);
+    font-size: clamp(14px, 3cqi, 22px);
+    line-height: 1.35;
+    text-align: center;
+}

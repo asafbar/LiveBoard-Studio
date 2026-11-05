@@ -29,7 +29,11 @@ import ColorAlphaField from "./ColorAlphaField.tsx";
 import type { SettingsWithColorOpacity } from "../colorAlpha.ts";
 import { WeatherContentFields, WeatherStyleFields } from "./WeatherFields.tsx";
 import { NewsContentFields, NewsStyleFields } from "./NewsFields.tsx";
+import { CountdownContentFields, CountdownStyleFields } from "./CountdownFields.tsx";
+import { QrContentFields, QrStyleFields } from "./QrFields.tsx";
 import type { NewsSettingsPatch } from "../newsSettings.ts";
+import type { CountdownSettingsPatch } from "../countdownSettings.ts";
+import type { QrSettingsPatch } from "../qrSettings.ts";
 import type { WeatherSettingsPatch } from "../weatherSettings.ts";
 import {
     imageObjectFitOptions,
@@ -92,6 +96,14 @@ type PropertiesPanelProps = {
     ) => void;
     onNewsSettingsChange: (
         settings: NewsSettingsPatch,
+        gesture?: "color" | null,
+    ) => void;
+    onCountdownSettingsChange: (
+        settings: CountdownSettingsPatch,
+        gesture?: "color" | null,
+    ) => void;
+    onQrSettingsChange: (
+        settings: QrSettingsPatch,
         gesture?: "color" | null,
     ) => void;
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
@@ -344,6 +356,10 @@ function widgetTypeLabel(type: Widget["type"]): string {
             return "Weather";
         case "news":
             return "News";
+        case "countdown":
+            return "Countdown";
+        case "qr":
+            return "QR Code";
     }
 }
 
@@ -390,6 +406,8 @@ function contentProperties(widget: Widget): Property[] {
         case "vertical-announcements":
         case "weather":
         case "news":
+        case "countdown":
+        case "qr":
             return [];
     }
 }
@@ -416,6 +434,8 @@ function styleProperties(widget: Widget): Property[] {
         case "vertical-announcements":
         case "weather":
         case "news":
+        case "countdown":
+        case "qr":
             return [];
     }
 }
@@ -2621,6 +2641,8 @@ function PropertiesPanel({
     onClockSettingsChange,
     onWeatherSettingsChange,
     onNewsSettingsChange,
+    onCountdownSettingsChange,
+    onQrSettingsChange,
     onImageSettingsChange,
     onInformationCardSettingsChange,
     onAnnouncementsSettingsChange,
@@ -2676,6 +2698,10 @@ function PropertiesPanel({
     const editingWeatherStyle = selectedWidget?.type === "weather" && activeTab === "Style";
     const editingNews = selectedWidget?.type === "news" && activeTab === "Content";
     const editingNewsStyle = selectedWidget?.type === "news" && activeTab === "Style";
+    const editingCountdown = selectedWidget?.type === "countdown" && activeTab === "Content";
+    const editingCountdownStyle = selectedWidget?.type === "countdown" && activeTab === "Style";
+    const editingQr = selectedWidget?.type === "qr" && activeTab === "Content";
+    const editingQrStyle = selectedWidget?.type === "qr" && activeTab === "Style";
     const editingImage = selectedWidget?.type === "image" && activeTab === "Content";
     const editingImageStyle = selectedWidget?.type === "image" && activeTab === "Style";
     const editingInformationCard = selectedWidget?.type === "information-card" && activeTab === "Content";
@@ -2694,6 +2720,10 @@ function PropertiesPanel({
         && !editingWeatherStyle
         && !editingNews
         && !editingNewsStyle
+        && !editingCountdown
+        && !editingCountdownStyle
+        && !editingQr
+        && !editingQrStyle
         && !editingImage
         && !editingImageStyle
         && !editingInformationCard
@@ -2810,6 +2840,36 @@ function PropertiesPanel({
                             settings={selectedWidget.settings}
                             frame={selectedWidget.layout}
                             onNewsSettingsChange={onNewsSettingsChange}
+                        />
+                    ) : null}
+                    {editingCountdown && selectedWidget.type === "countdown" ? (
+                        <CountdownContentFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onCountdownSettingsChange={onCountdownSettingsChange}
+                        />
+                    ) : null}
+                    {editingCountdownStyle && selectedWidget.type === "countdown" ? (
+                        <CountdownStyleFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onCountdownSettingsChange={onCountdownSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
+                        />
+                    ) : null}
+                    {editingQr && selectedWidget.type === "qr" ? (
+                        <QrContentFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onQrSettingsChange={onQrSettingsChange}
+                        />
+                    ) : null}
+                    {editingQrStyle && selectedWidget.type === "qr" ? (
+                        <QrStyleFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onQrSettingsChange={onQrSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
                         />
                     ) : null}
                     {editingNewsStyle && selectedWidget.type === "news" ? (

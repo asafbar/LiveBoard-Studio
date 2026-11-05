@@ -31,7 +31,32 @@ const MAX_ID_LENGTH = 80;
 const MAX_LAYER_NAME_LENGTH = 80;
 const MAX_COLOR_LENGTH = 200;
 
-const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker", "vertical-announcements", "weather", "news"];
+const WIDGET_TYPES = ["text", "clock", "image", "information-card", "announcements", "ticker", "vertical-announcements", "weather", "news", "countdown", "qr"];
+const COUNTDOWN_PRESETS = ["digital", "minimal"];
+const COUNTDOWN_TIME_ZONES = [
+    "Asia/Jerusalem",
+    "UTC",
+    "America/New_York",
+    "America/Chicago",
+    "America/Los_Angeles",
+    "Europe/London",
+    "Europe/Paris",
+    "Asia/Dubai",
+    "Asia/Tokyo",
+    "Australia/Sydney"
+];
+const MAX_COUNTDOWN_TITLE_LENGTH = 80;
+const MAX_COUNTDOWN_MESSAGE_LENGTH = 120;
+const QR_PRESETS = ["classic", "split"];
+const QR_DIRECTIONS = ["auto", "ltr", "rtl"];
+const QR_ALIGNS = ["start", "center", "end", "left", "right"];
+const QR_FONT_FAMILIES = ["sans", "serif", "mono"];
+const QR_FONT_WEIGHTS = [400, 500, 600, 700];
+const MAX_QR_CONTENT_LENGTH = 512;
+const MAX_QR_TITLE_LENGTH = 80;
+const MAX_QR_SUBTITLE_LENGTH = 120;
+const MIN_QR_CONTRAST = 7;
+const UNSAFE_QR_SCHEMES = new Set(["javascript", "data", "vbscript", "file", "blob"]);
 const WIDGET_KEYS = ["id", "type", "layout", "settings", "layerName", "visible", "locked"];
 const TEXT_TONES = ["default", "accent"];
 const TEXT_SIZES = ["title", "display"];
@@ -389,7 +414,450 @@ function sanitizeSettings(type, settings, path, errors) {
         return sanitizeNewsSettings(settings, path, errors);
     }
 
+    if (type === "countdown") {
+        return sanitizeCountdownSettings(settings, path, errors);
+    }
+
+    if (type === "qr") {
+        return sanitizeQrSettings(settings, path, errors);
+    }
+
     return null;
+}
+
+function sanitizeCountdownSettings(settings, path, errors) {
+    rejectUnknownKeys(settings, [
+        "title",
+        "targetDate",
+        "targetTime",
+        "timeZone",
+        "showDays",
+        "showHours",
+        "showMinutes",
+        "showSeconds",
+        "completionMessage",
+        "preset",
+        "direction",
+        "align",
+        "titleAlign",
+        "backgroundColor",
+        "backgroundOpacity",
+        "textColor",
+        "textOpacity",
+        "titleColor",
+        "titleOpacity",
+        "accentColor",
+        "accentOpacity",
+        "borderRadius",
+        "padding",
+        "titleSpacing",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "titleFontFamily",
+        "titleFontSize",
+        "titleFontWeight"
+    ], path, errors);
+
+    const targetDate = readCountdownDate(settings.targetDate, `${path}.targetDate`, errors);
+    const targetTime = readCountdownTime(settings.targetTime, `${path}.targetTime`, errors);
+    const showDays = readBoolean(settings.showDays, `${path}.showDays`, errors);
+    const showHours = readBoolean(settings.showHours, `${path}.showHours`, errors);
+    const showMinutes = readBoolean(settings.showMinutes, `${path}.showMinutes`, errors);
+    const showSeconds = readBoolean(settings.showSeconds, `${path}.showSeconds`, errors);
+
+    if (showDays === false && showHours === false && showMinutes === false && showSeconds === false) {
+        errors.push({
+            path: `${path}.showDays`,
+            message: "At least one countdown unit is required."
+        });
+    }
+
+    const nextSettings = {
+        targetDate,
+        targetTime,
+        timeZone: readChoice(settings.timeZone, `${path}.timeZone`, COUNTDOWN_TIME_ZONES, errors),
+        showDays,
+        showHours,
+        showMinutes,
+        showSeconds,
+        preset: readChoice(settings.preset, `${path}.preset`, COUNTDOWN_PRESETS, errors),
+        backgroundColor: readColor(settings.backgroundColor, `${path}.backgroundColor`, errors),
+        textColor: readColor(settings.textColor, `${path}.textColor`, errors),
+        accentColor: readColor(settings.accentColor, `${path}.accentColor`, errors),
+        borderRadius: readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors)
+    };
+
+    if (settings.title !== undefined) {
+        const title = readRequiredText(settings.title, `${path}.title`, MAX_COUNTDOWN_TITLE_LENGTH, errors, true);
+
+        if (title) {
+            nextSettings.title = title;
+        }
+    }
+
+    if (settings.completionMessage !== undefined) {
+        const completionMessage = readRequiredText(
+            settings.completionMessage,
+            `${path}.completionMessage`,
+            MAX_COUNTDOWN_MESSAGE_LENGTH,
+            errors,
+            true
+        );
+
+        if (completionMessage) {
+            nextSettings.completionMessage = completionMessage;
+        }
+    }
+
+    assignWeatherChoice(nextSettings, "direction", settings.direction, `${path}.direction`, WEATHER_DIRECTIONS, errors);
+    assignWeatherChoice(nextSettings, "align", settings.align, `${path}.align`, WEATHER_ALIGNS, errors);
+    assignWeatherChoice(nextSettings, "titleAlign", settings.titleAlign, `${path}.titleAlign`, WEATHER_ALIGNS, errors);
+    assignWeatherChoice(nextSettings, "fontFamily", settings.fontFamily, `${path}.fontFamily`, WEATHER_FONT_FAMILIES, errors);
+    assignWeatherChoice(nextSettings, "titleFontFamily", settings.titleFontFamily, `${path}.titleFontFamily`, WEATHER_FONT_FAMILIES, errors);
+    assignWeatherFontWeight(nextSettings, "fontWeight", settings.fontWeight, `${path}.fontWeight`, errors);
+    assignWeatherFontWeight(nextSettings, "titleFontWeight", settings.titleFontWeight, `${path}.titleFontWeight`, errors);
+    assignWeatherFontSize(
+        nextSettings,
+        "fontSize",
+        settings.fontSize,
+        `${path}.fontSize`,
+        MIN_WEATHER_FONT_SIZE,
+        MAX_WEATHER_FONT_SIZE,
+        errors
+    );
+    assignWeatherFontSize(
+        nextSettings,
+        "titleFontSize",
+        settings.titleFontSize,
+        `${path}.titleFontSize`,
+        MIN_WEATHER_TITLE_FONT_SIZE,
+        MAX_WEATHER_TITLE_FONT_SIZE,
+        errors
+    );
+    assignWeatherOpacity(nextSettings, settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "titleOpacity", settings.titleOpacity, `${path}.titleOpacity`, errors);
+    assignOptionalOpacity(nextSettings, "accentOpacity", settings.accentOpacity, `${path}.accentOpacity`, errors);
+    assignWeatherPadding(nextSettings, settings.padding, `${path}.padding`, errors);
+    assignWeatherTitleSpacing(nextSettings, settings.titleSpacing, `${path}.titleSpacing`, errors);
+
+    if (settings.titleColor !== undefined) {
+        nextSettings.titleColor = readColor(settings.titleColor, `${path}.titleColor`, errors);
+    }
+
+    if (
+        nextSettings.targetDate === null
+        || nextSettings.targetTime === null
+        || nextSettings.timeZone === null
+        || nextSettings.showDays === null
+        || nextSettings.showHours === null
+        || nextSettings.showMinutes === null
+        || nextSettings.showSeconds === null
+        || nextSettings.preset === null
+        || nextSettings.backgroundColor === null
+        || nextSettings.textColor === null
+        || nextSettings.accentColor === null
+        || nextSettings.borderRadius === null
+    ) {
+        return null;
+    }
+
+    return nextSettings;
+}
+
+function readCountdownDate(value, path, errors) {
+    if (typeof value !== "string" || !/^(\d{4})-(\d{2})-(\d{2})$/.test(value)) {
+        errors.push({
+            path,
+            message: "Target date must use YYYY-MM-DD."
+        });
+        return null;
+    }
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+    if (match === null) {
+        return null;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const probe = new Date(Date.UTC(year, month - 1, day));
+
+    if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) {
+        errors.push({
+            path,
+            message: "Target date must be a real calendar date."
+        });
+        return null;
+    }
+
+    return value;
+}
+
+function readCountdownTime(value, path, errors) {
+    if (typeof value !== "string" || !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value)) {
+        errors.push({
+            path,
+            message: "Target time must use HH:mm or HH:mm:ss."
+        });
+        return null;
+    }
+
+    return value.length === 5 ? `${value}:00` : value;
+}
+
+function sanitizeQrSettings(settings, path, errors) {
+    rejectUnknownKeys(settings, [
+        "content",
+        "title",
+        "subtitle",
+        "preset",
+        "direction",
+        "align",
+        "titleAlign",
+        "foregroundColor",
+        "codeBackgroundColor",
+        "backgroundColor",
+        "backgroundOpacity",
+        "textColor",
+        "textOpacity",
+        "titleColor",
+        "titleOpacity",
+        "borderRadius",
+        "padding",
+        "titleSpacing",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "titleFontFamily",
+        "titleFontSize",
+        "titleFontWeight"
+    ], path, errors);
+
+    const content = readQrContent(settings.content, `${path}.content`, errors);
+    const foregroundColor = readOpaqueHex(settings.foregroundColor, `${path}.foregroundColor`, errors);
+    const codeBackgroundColor = readOpaqueHex(settings.codeBackgroundColor, `${path}.codeBackgroundColor`, errors);
+    const backgroundColor = readColor(settings.backgroundColor, `${path}.backgroundColor`, errors);
+    const textColor = readColor(settings.textColor, `${path}.textColor`, errors);
+    const borderRadius = readNumberInRange(settings.borderRadius, `${path}.borderRadius`, 0, MAX_BORDER_RADIUS, errors);
+    const preset = readChoice(settings.preset, `${path}.preset`, QR_PRESETS, errors);
+
+    if (
+        content === null
+        || foregroundColor === null
+        || codeBackgroundColor === null
+        || backgroundColor === null
+        || textColor === null
+        || borderRadius === null
+        || preset === null
+    ) {
+        return null;
+    }
+
+    if (!qrColorsAreReadable(foregroundColor, codeBackgroundColor)) {
+        errors.push({
+            path: `${path}.foregroundColor`,
+            message: "QR colors need more contrast so the code stays scannable."
+        });
+        return null;
+    }
+
+    const sanitized = {
+        content,
+        preset,
+        foregroundColor,
+        codeBackgroundColor,
+        backgroundColor,
+        textColor,
+        borderRadius
+    };
+
+    if (settings.title !== undefined) {
+        const title = readRequiredText(settings.title, `${path}.title`, MAX_QR_TITLE_LENGTH, errors, true);
+
+        if (title) {
+            sanitized.title = title;
+        }
+    }
+
+    if (settings.subtitle !== undefined) {
+        const subtitle = readRequiredText(settings.subtitle, `${path}.subtitle`, MAX_QR_SUBTITLE_LENGTH, errors, true);
+
+        if (subtitle) {
+            sanitized.subtitle = subtitle;
+        }
+    }
+
+    assignWeatherChoice(sanitized, "direction", settings.direction, `${path}.direction`, QR_DIRECTIONS, errors);
+    assignWeatherChoice(sanitized, "align", settings.align, `${path}.align`, QR_ALIGNS, errors);
+    assignWeatherChoice(sanitized, "titleAlign", settings.titleAlign, `${path}.titleAlign`, QR_ALIGNS, errors);
+    assignWeatherChoice(sanitized, "fontFamily", settings.fontFamily, `${path}.fontFamily`, QR_FONT_FAMILIES, errors);
+    assignWeatherChoice(sanitized, "titleFontFamily", settings.titleFontFamily, `${path}.titleFontFamily`, QR_FONT_FAMILIES, errors);
+    assignWeatherFontWeight(sanitized, "fontWeight", settings.fontWeight, `${path}.fontWeight`, errors);
+    assignWeatherFontWeight(sanitized, "titleFontWeight", settings.titleFontWeight, `${path}.titleFontWeight`, errors);
+    assignWeatherFontSize(sanitized, "fontSize", settings.fontSize, `${path}.fontSize`, 12, 72, errors);
+    assignWeatherFontSize(sanitized, "titleFontSize", settings.titleFontSize, `${path}.titleFontSize`, 12, 72, errors);
+    assignWeatherPadding(sanitized, settings.padding, `${path}.padding`, errors);
+    assignWeatherTitleSpacing(sanitized, settings.titleSpacing, `${path}.titleSpacing`, errors);
+    assignOptionalOpacity(sanitized, "backgroundOpacity", settings.backgroundOpacity, `${path}.backgroundOpacity`, errors);
+    assignOptionalOpacity(sanitized, "textOpacity", settings.textOpacity, `${path}.textOpacity`, errors);
+    assignOptionalOpacity(sanitized, "titleOpacity", settings.titleOpacity, `${path}.titleOpacity`, errors);
+
+    if (settings.titleColor !== undefined) {
+        sanitized.titleColor = readColor(settings.titleColor, `${path}.titleColor`, errors);
+    }
+
+    return sanitized;
+}
+
+function readQrContent(value, path, errors) {
+    if (typeof value !== "string") {
+        errors.push({ path, message: "Add a URL or some text." });
+        return null;
+    }
+
+    const text = value.trim();
+
+    if (text.length === 0) {
+        errors.push({ path, message: "Add a URL or some text." });
+        return null;
+    }
+
+    if (text.length > MAX_QR_CONTENT_LENGTH) {
+        errors.push({
+            path,
+            message: "Use 512 characters or fewer so the code stays scannable."
+        });
+        return null;
+    }
+
+    if (qrContentHasIllegalControl(text)) {
+        errors.push({ path, message: "Enter a valid http or https link." });
+        return null;
+    }
+
+    const scheme = readQrScheme(text);
+
+    if (scheme === null) {
+        return text;
+    }
+
+    if (UNSAFE_QR_SCHEMES.has(scheme.scheme)) {
+        errors.push({ path, message: "Only http and https links are allowed." });
+        return null;
+    }
+
+    const looksLikeUrl = scheme.scheme === "http"
+        || scheme.scheme === "https"
+        || scheme.remainder.startsWith("//");
+
+    if (!looksLikeUrl) {
+        return text;
+    }
+
+    if (scheme.scheme !== "http" && scheme.scheme !== "https") {
+        errors.push({ path, message: "Only http and https links are allowed." });
+        return null;
+    }
+
+    let url;
+
+    try {
+        url = new URL(text);
+    } catch {
+        errors.push({ path, message: "Enter a valid http or https link." });
+        return null;
+    }
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+        errors.push({ path, message: "Only http and https links are allowed." });
+        return null;
+    }
+
+    if (url.hostname.trim().length === 0) {
+        errors.push({ path, message: "Enter a valid http or https link." });
+        return null;
+    }
+
+    if (url.username.length > 0 || url.password.length > 0) {
+        errors.push({ path, message: "Links with a username or password are not allowed." });
+        return null;
+    }
+
+    return text;
+}
+
+function readQrScheme(value) {
+    const match = /^([a-z][a-z0-9+.-]*):/i.exec(value);
+
+    if (match === null) {
+        return null;
+    }
+
+    return {
+        scheme: match[1].toLowerCase(),
+        remainder: value.slice(match[0].length)
+    };
+}
+
+function qrContentHasIllegalControl(value) {
+    for (let index = 0; index < value.length; index += 1) {
+        const code = value.charCodeAt(index);
+
+        if (code === 10 || code === 13) {
+            continue;
+        }
+
+        if (code <= 31 || code === 127) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function readOpaqueHex(value, path, errors) {
+    if (typeof value !== "string" || !/^#[0-9a-fA-F]{6}$/.test(value.trim())) {
+        errors.push({
+            path,
+            message: "QR colors must be an opaque six-digit color."
+        });
+        return null;
+    }
+
+    return value.trim().toLowerCase();
+}
+
+function channelLuminance(channel) {
+    const normalized = channel / 255;
+
+    if (normalized <= 0.03928) {
+        return normalized / 12.92;
+    }
+
+    return ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(hex) {
+    const red = Number.parseInt(hex.slice(1, 3), 16);
+    const green = Number.parseInt(hex.slice(3, 5), 16);
+    const blue = Number.parseInt(hex.slice(5, 7), 16);
+
+    return (0.2126 * channelLuminance(red))
+        + (0.7152 * channelLuminance(green))
+        + (0.0722 * channelLuminance(blue));
+}
+
+function qrColorsAreReadable(foreground, background) {
+    const first = relativeLuminance(foreground);
+    const second = relativeLuminance(background);
+    const lighter = Math.max(first, second);
+    const darker = Math.min(first, second);
+
+    return ((lighter + 0.05) / (darker + 0.05)) >= MIN_QR_CONTRAST;
 }
 
 function sanitizeNewsSettings(settings, path, errors) {

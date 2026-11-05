@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type K
 import type { Board, BoardBackground, Widget, WidgetLayout } from "../types/boardTypes.ts";
 import AnnouncementsWidget from "./AnnouncementsWidget.tsx";
 import ClockWidget from "./ClockWidget.tsx";
+import CountdownWidget from "./CountdownWidget.tsx";
+import QrWidget from "./QrWidget.tsx";
 import WeatherWidget from "./WeatherWidget.tsx";
 import NewsWidget from "./NewsWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
@@ -172,6 +174,10 @@ function widgetAccessibleName(widget: Widget): string {
                 || "Weather";
         case "news":
             return widget.settings.title?.trim() || "Sample headlines";
+        case "countdown":
+            return widget.settings.title?.trim() || "Countdown";
+        case "qr":
+            return widget.settings.title?.trim() || "QR code";
     }
 }
 
@@ -208,6 +214,10 @@ function renderWidget(widget: Widget, interactive: boolean) {
                     studioFrame={interactive ? widget.layout : undefined}
                 />
             );
+        case "countdown":
+            return <CountdownWidget settings={widget.settings} />;
+        case "qr":
+            return <QrWidget settings={widget.settings} />;
     }
 }
 
@@ -232,6 +242,8 @@ function selectionRadius(widget: Widget): string | undefined {
         case "vertical-announcements":
         case "weather":
         case "news":
+        case "countdown":
+        case "qr":
             return `${widget.settings.borderRadius}px`;
         case "text":
         case "clock":

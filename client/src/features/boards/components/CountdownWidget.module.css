@@ -1,0 +1,196 @@
+.root {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    container-type: size;
+    align-items: center;
+    justify-content: center;
+    padding: var(--countdown-padding, 24px);
+    background: transparent;
+    color: var(--countdown-text, var(--foreground));
+    font-family: var(--countdown-font, var(--font-sans));
+    font-weight: var(--countdown-weight, 600);
+}
+
+.root::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--countdown-background);
+    opacity: var(--countdown-background-opacity, 1);
+    pointer-events: none;
+}
+
+.content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--countdown-title-spacing, 12px);
+}
+
+.root[data-align="center"] .content {
+    align-items: center;
+    text-align: center;
+}
+
+.root[data-align="start"] .content,
+.root[data-align="left"] .content {
+    align-items: flex-start;
+    text-align: start;
+}
+
+.root[data-align="end"] .content,
+.root[data-align="right"] .content {
+    align-items: flex-end;
+    text-align: end;
+}
+
+.root[data-align="left"] .content {
+    text-align: left;
+}
+
+.root[data-align="right"] .content {
+    text-align: right;
+}
+
+.title {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    color: var(--countdown-title, inherit);
+    font-family: var(--countdown-title-font, inherit);
+    font-size: var(--countdown-title-size, 28px);
+    font-weight: var(--countdown-title-weight, 600);
+    line-height: 1.15;
+}
+
+.digitalRow,
+.minimalRow {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.55em;
+}
+
+.root[data-align="center"] .digitalRow,
+.root[data-align="center"] .minimalRow {
+    justify-content: center;
+}
+
+.root[data-align="end"] .digitalRow,
+.root[data-align="end"] .minimalRow {
+    justify-content: flex-end;
+}
+
+.root[data-align="left"] .digitalRow,
+.root[data-align="left"] .minimalRow {
+    justify-content: left;
+}
+
+.root[data-align="right"] .digitalRow,
+.root[data-align="right"] .minimalRow {
+    justify-content: right;
+}
+
+.block {
+    display: flex;
+    min-width: 4.6em;
+    flex: 1 1 4.6em;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55em;
+    padding: 0.42em 0.5em 0.38em;
+    border: 1px solid color-mix(in srgb, var(--countdown-accent) 55%, transparent);
+    border-radius: 0.42em;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--countdown-accent) 22%, #081018) 0%, #070b10 100%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 16%), 0 10px 22px rgb(0 0 0 / 28%);
+}
+
+.digitalValue,
+.minimalValue {
+    direction: ltr;
+    font-variant-numeric: tabular-nums;
+    unicode-bidi: isolate;
+}
+
+.digitalValue {
+    color: var(--countdown-text);
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: min(var(--countdown-digit-size, 72px), 16cqi);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 0.9;
+}
+
+.unit {
+    margin-top: 0.2em;
+    color: color-mix(in srgb, var(--countdown-accent) 58%, var(--countdown-text));
+    font-size: clamp(14px, 3.1cqi, 22px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.15;
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+
+.minimalRow {
+    align-items: baseline;
+    gap: 0.15em 0.85em;
+}
+
+.minimalValue {
+    color: var(--countdown-text);
+    font-size: min(var(--countdown-digit-size, 72px), 20cqi);
+    font-weight: var(--countdown-weight, 500);
+    letter-spacing: -0.045em;
+    line-height: 0.82;
+}
+
+.minimalUnit {
+    margin-inline-start: 0.45em;
+    color: color-mix(in srgb, var(--countdown-accent) 62%, var(--countdown-text));
+    font-size: clamp(16px, 3.4cqi, 28px);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    text-transform: lowercase;
+}
+
+.message {
+    max-width: 100%;
+    margin: 0;
+    color: var(--countdown-title, var(--countdown-text));
+    font-size: clamp(1rem, 4.5cqi, 1.8rem);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.root[data-preset="minimal"][data-complete="true"] .minimalRow {
+    opacity: 0.28;
+}
+
+.root[data-preset="minimal"][data-complete="true"] .message {
+    font-size: min(var(--countdown-digit-size, 72px), 12cqi);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+}
+
+.root[data-preset="digital"][data-complete="true"] .message {
+    padding: 0.35em 0.7em;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--countdown-accent) 18%, transparent);
+}

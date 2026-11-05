@@ -36,6 +36,8 @@ const styleSettingKeys = new Set([
     "titleFontFamily",
     "titleFontWeight",
     "borderRadius",
+    "foregroundColor",
+    "codeBackgroundColor",
     "descriptionFontSize",
     "fallbackBackgroundColor",
     "objectFit",

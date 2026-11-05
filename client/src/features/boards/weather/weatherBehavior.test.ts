@@ -117,7 +117,7 @@ test("location selection stores coordinates and timezone without a reading", () 
     assert.equal(saved.unit, "fahrenheit");
     assert.equal(saved.layout, "expanded");
     assert.equal(saved.showForecast, true);
-    assert.equal(saved.title, "Shore");
+    assert.equal(saved.title, "  Shore  ");
     assert.equal(saved.showFeelsLike, true);
     assert.equal("temperature" in saved, false);
 });

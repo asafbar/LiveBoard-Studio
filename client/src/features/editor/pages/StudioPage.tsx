@@ -47,6 +47,9 @@ import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.t
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
 import { createWidget } from "../createWidget.ts";
 import { updateWeatherSettings, type WeatherSettingsPatch } from "../weatherSettings.ts";
+import { updateCountdownSettings, type CountdownSettingsPatch } from "../countdownSettings.ts";
+import { updateQrSettings, type QrSettingsPatch } from "../qrSettings.ts";
+import { commitBoardEditableText } from "../editableText.ts";
 import { updateNewsSettings, type NewsSettingsPatch } from "../newsSettings.ts";
 import {
     isTickerDirection,
@@ -1155,10 +1158,16 @@ function StudioPage() {
             return;
         }
 
-        const snapshot = boardRef.current;
+        const live = boardRef.current;
 
-        if (snapshot === null) {
+        if (live === null) {
             return;
+        }
+
+        const snapshot = commitBoardEditableText(live);
+
+        if (snapshot !== live) {
+            commitDocument(snapshot);
         }
 
         const targetBoardId = loadedBoardId;
@@ -1492,6 +1501,34 @@ function StudioPage() {
 
         applyDocumentUpdate(
             (currentBoard) => updateNewsSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
+    function handleCountdownSettingsChange(
+        settings: CountdownSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateCountdownSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
+    function handleQrSettingsChange(
+        settings: QrSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateQrSettings(currentBoard, selectedWidgetId, settings),
             gesture,
         );
     }
@@ -1914,6 +1951,8 @@ function StudioPage() {
                             onClockSettingsChange={handleClockSettingsChange}
                             onWeatherSettingsChange={handleWeatherSettingsChange}
                             onNewsSettingsChange={handleNewsSettingsChange}
+                            onCountdownSettingsChange={handleCountdownSettingsChange}
+                            onQrSettingsChange={handleQrSettingsChange}
                             onImageSettingsChange={handleImageSettingsChange}
                             onInformationCardSettingsChange={handleInformationCardSettingsChange}
                             onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}

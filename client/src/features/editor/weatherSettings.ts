@@ -11,6 +11,7 @@ import type {
     WeatherWidgetSettings,
 } from "../boards/types/boardTypes.ts";
 import { normalizeCssColor } from "./cssColor.ts";
+import { readEditableText } from "./editableText.ts";
 import { radiusIsInRange } from "./imageSettings.ts";
 
 type WeatherSettingsPatch = Omit<
@@ -82,12 +83,12 @@ function applyWeatherSettings(
     }
 
     if (typeof patch.title === "string") {
-        const title = patch.title.trim();
+        const title = readEditableText(patch.title, maximumWeatherTitleLength);
 
-        if (title === "") {
+        if (title.action === "clear") {
             delete nextSettings.title;
-        } else if (title.length <= maximumWeatherTitleLength) {
-            nextSettings.title = title;
+        } else if (title.action === "replace") {
+            nextSettings.title = title.text;
         }
     }
 

@@ -14,6 +14,7 @@ import type {
 } from "../boards/types/boardTypes.ts";
 import { maximumNewsScrollSpeed, minimumNewsScrollSpeed } from "../boards/news/newsMotion.ts";
 import { normalizeCssColor } from "./cssColor.ts";
+import { readEditableText } from "./editableText.ts";
 import { radiusIsInRange } from "./imageSettings.ts";
 import { maximumNewsTitleSpacing } from "../boards/news/newsPresentation.ts";
 
@@ -83,12 +84,12 @@ function applyNewsSettings(settings: NewsWidgetSettings, patch: NewsSettingsPatc
     }
 
     if (typeof patch.title === "string") {
-        const title = patch.title.trim();
+        const title = readEditableText(patch.title, maximumNewsTitleLength);
 
-        if (title === "") {
+        if (title.action === "clear") {
             delete nextSettings.title;
-        } else if (title.length <= maximumNewsTitleLength) {
-            nextSettings.title = title;
+        } else if (title.action === "replace") {
+            nextSettings.title = title.text;
         }
     }
 

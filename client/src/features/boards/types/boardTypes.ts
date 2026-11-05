@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements" | "weather" | "news";
+export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements" | "weather" | "news" | "countdown" | "qr";
 
 export type WidgetLayout = {
     x: number;
@@ -207,6 +207,86 @@ export type WeatherWidgetSettings = {
     titleFontWeight?: WeatherFontWeight;
 };
 
+export type CountdownPreset = "digital" | "minimal";
+
+export type CountdownDirection = "auto" | "ltr" | "rtl";
+
+export type CountdownAlign = "start" | "center" | "end" | "left" | "right";
+
+export type CountdownFontFamily = "sans" | "serif" | "mono";
+
+export type CountdownFontWeight = 400 | 500 | 600 | 700;
+
+export type CountdownWidgetSettings = {
+    title?: string;
+    targetDate: string;
+    targetTime: string;
+    timeZone: string;
+    showDays: boolean;
+    showHours: boolean;
+    showMinutes: boolean;
+    showSeconds: boolean;
+    completionMessage?: string;
+    preset: CountdownPreset;
+    direction?: CountdownDirection;
+    align?: CountdownAlign;
+    titleAlign?: CountdownAlign;
+    backgroundColor: string;
+    backgroundOpacity?: number;
+    textColor: string;
+    textOpacity?: number;
+    titleColor?: string;
+    titleOpacity?: number;
+    accentColor: string;
+    accentOpacity?: number;
+    borderRadius: number;
+    padding?: number;
+    titleSpacing?: number;
+    fontFamily?: CountdownFontFamily;
+    fontSize?: number;
+    fontWeight?: CountdownFontWeight;
+    titleFontFamily?: CountdownFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: CountdownFontWeight;
+};
+
+export type QrPreset = "classic" | "split";
+
+export type QrDirection = "auto" | "ltr" | "rtl";
+
+export type QrAlign = "start" | "center" | "end" | "left" | "right";
+
+export type QrFontFamily = "sans" | "serif" | "mono";
+
+export type QrFontWeight = 400 | 500 | 600 | 700;
+
+export type QrWidgetSettings = {
+    content: string;
+    title?: string;
+    subtitle?: string;
+    preset: QrPreset;
+    direction?: QrDirection;
+    align?: QrAlign;
+    titleAlign?: QrAlign;
+    foregroundColor: string;
+    codeBackgroundColor: string;
+    backgroundColor: string;
+    backgroundOpacity?: number;
+    textColor: string;
+    textOpacity?: number;
+    titleColor?: string;
+    titleOpacity?: number;
+    borderRadius: number;
+    padding?: number;
+    titleSpacing?: number;
+    fontFamily?: QrFontFamily;
+    fontSize?: number;
+    fontWeight?: QrFontWeight;
+    titleFontFamily?: QrFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: QrFontWeight;
+};
+
 export type VerticalAnnouncementsWidgetSettings = {
     items: VerticalAnnouncementItem[];
     speed: number;
@@ -266,6 +346,14 @@ export type Widget = {
     | {
         type: "news";
         settings: NewsWidgetSettings;
+    }
+    | {
+        type: "countdown";
+        settings: CountdownWidgetSettings;
+    }
+    | {
+        type: "qr";
+        settings: QrWidgetSettings;
     }
 );
 

@@ -1,4 +1,6 @@
 import type { Board, Widget, WidgetLayout, WidgetType } from "../boards/types/boardTypes.ts";
+import { defaultCountdownSettings } from "../boards/countdown/countdownDefaults.ts";
+import { defaultQrSettings } from "../boards/qr/qrDefaults.ts";
 import { defaultNewsSettings } from "../boards/news/newsDefaults.ts";
 import { defaultWeatherSettings } from "../boards/weather/weatherDefaults.ts";
 import { newWeatherRefreshMinutes } from "../boards/weather/weatherSchedule.ts";
@@ -42,6 +44,10 @@ function defaultWidgetSize(type: WidgetType): WidgetSize {
             return { width: 480, height: 300 };
         case "news":
             return { width: 1200, height: 140 };
+        case "countdown":
+            return { width: 760, height: 280 };
+        case "qr":
+            return { width: 440, height: 560 };
     }
 }
 
@@ -239,6 +245,20 @@ function createWidget(type: WidgetType, board: Board): Widget {
                 settings: {
                     ...defaultNewsSettings,
                 },
+            };
+        case "countdown":
+            return {
+                id,
+                type,
+                layout,
+                settings: defaultCountdownSettings(),
+            };
+        case "qr":
+            return {
+                id,
+                type,
+                layout,
+                settings: defaultQrSettings(),
             };
         case "vertical-announcements": {
             const itemIds = new Set(existingIds);

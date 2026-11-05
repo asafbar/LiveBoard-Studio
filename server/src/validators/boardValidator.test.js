@@ -589,3 +589,156 @@ test("accepts the backed-up multiline descriptions unchanged", () => {
     assert.deepEqual(errors, []);
     assert.deepEqual(saved, original);
 });
+
+test("saves QR settings and trims Hebrew title text", () => {
+    const errors = [];
+    const draft = sanitizeDraft(boardWith([qrWidget({
+        title: "  סרוק את הקוד  ",
+        subtitle: "  כוונו את המצלמה  ",
+        content: "  https://example.com/lobby  ",
+        direction: "rtl",
+        preset: "split"
+    })]), errors);
+
+    assert.deepEqual(errors, []);
+    assert.equal(draft.widgets[0].settings.content, "https://example.com/lobby");
+    assert.equal(draft.widgets[0].settings.title, "סרוק את הקוד");
+    assert.equal(draft.widgets[0].settings.subtitle, "כוונו את המצלמה");
+    assert.equal(draft.widgets[0].settings.preset, "split");
+    assert.equal(draft.widgets[0].settings.direction, "rtl");
+    assert.equal(draft.widgets[0].settings.svg, undefined);
+});
+
+test("rejects unsafe, empty, oversized, low-contrast, and stored QR images", () => {
+    const rejected = [];
+
+    sanitizeDraft(boardWith([qrWidget({ content: "javascript:alert(1)" })]), rejected);
+    sanitizeDraft(boardWith([qrWidget({ content: "data:text/html,hello" })]), rejected);
+    sanitizeDraft(boardWith([qrWidget({ content: "   " })]), rejected);
+    sanitizeDraft(boardWith([qrWidget({ content: "a".repeat(513) })]), rejected);
+    sanitizeDraft(boardWith([qrWidget({ foregroundColor: "#777777" })]), rejected);
+    sanitizeDraft(boardWith([qrWidget({ codeBackgroundColor: "rgba(255,255,255,0.4)" })]), rejected);
+    sanitizeDraft(boardWith([qrWidget({ svg: "<svg></svg>" })]), rejected);
+
+    const plainNote = [];
+
+    sanitizeDraft(boardWith([qrWidget({ content: "note: bring a pen" })]), plainNote);
+    assert.deepEqual(plainNote, []);
+
+    assert.equal(rejected.some((error) => error.message === "Only http and https links are allowed."), true);
+    assert.equal(rejected.some((error) => error.message === "Add a URL or some text."), true);
+    assert.equal(rejected.some((error) => error.message === "Use 512 characters or fewer so the code stays scannable."), true);
+    assert.equal(rejected.some((error) => error.message === "QR colors need more contrast so the code stays scannable."), true);
+    assert.equal(rejected.some((error) => error.message === "QR colors must be an opaque six-digit color."), true);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.svg"), true);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.content" && error.message === "Only http and https links are allowed."), true);
+    assert.equal(rejected.filter((error) => error.message === "Only http and https links are allowed.").length >= 2, true);
+});
+
+test("accepts plain text and an http link in a QR widget", () => {
+    const plainErrors = [];
+    const httpErrors = [];
+    const plain = sanitizeDraft(boardWith([qrWidget({
+        content: "Meet at the lobby",
+        title: undefined,
+        subtitle: undefined
+    })]), plainErrors);
+    const http = sanitizeDraft(boardWith([qrWidget({ content: "http://example.com/welcome" })]), httpErrors);
+
+    assert.deepEqual(plainErrors, []);
+    assert.deepEqual(httpErrors, []);
+    assert.equal(plain.widgets[0].settings.content, "Meet at the lobby");
+    assert.equal(plain.widgets[0].settings.title, undefined);
+    assert.equal(http.widgets[0].settings.content, "http://example.com/welcome");
+});
+
+function qrWidget(settings = {}) {
+    return {
+        id: "qr-1",
+        type: "qr",
+        layout: { x: 40, y: 40, width: 440, height: 560 },
+        settings: {
+            content: "https://example.com",
+            title: "Scan the code",
+            subtitle: "Point your camera at the code",
+            preset: "classic",
+            foregroundColor: "#000000",
+            codeBackgroundColor: "#ffffff",
+            backgroundColor: "#102030",
+            textColor: "#ffffff",
+            borderRadius: 24,
+            ...settings
+        }
+    };
+}
+
+function countdownWidget(settings) {
+    return {
+        id: "countdown-1",
+        type: "countdown",
+        layout: { x: 40, y: 40, width: 760, height: 280 },
+        settings: {
+            targetDate: "2026-12-01",
+            targetTime: "18:00",
+            timeZone: "Asia/Jerusalem",
+            showDays: true,
+            showHours: true,
+            showMinutes: true,
+            showSeconds: false,
+            preset: "digital",
+            direction: "rtl",
+            align: "center",
+            title: "  פתיחה  ",
+            completionMessage: "  התחלנו  ",
+            backgroundColor: "#102030",
+            textColor: "var(--foreground)",
+            accentColor: "var(--cyan)",
+            borderRadius: 24,
+            backgroundOpacity: 40,
+            textOpacity: 80,
+            ...settings
+        }
+    };
+}
+
+test("accepts a countdown target and rejects unknown settings", () => {
+    const errors = [];
+    const draft = sanitizeDraft(boardWith([countdownWidget()]), errors);
+    const rejected = [];
+    const invalid = [];
+
+    sanitizeDraft(boardWith([countdownWidget({ remaining: 10 })]), rejected);
+    sanitizeDraft(boardWith([countdownWidget({
+        targetDate: "2026-02-31",
+        targetTime: "25:99",
+        timeZone: "Mars/Base",
+        showDays: false,
+        showHours: false,
+        showMinutes: false,
+        showSeconds: false
+    })]), invalid);
+
+    assert.deepEqual(errors, []);
+    assert.equal(draft.widgets[0].settings.targetTime, "18:00:00");
+    assert.equal(draft.widgets[0].settings.title, "פתיחה");
+    assert.equal(draft.widgets[0].settings.completionMessage, "התחלנו");
+    assert.equal(draft.widgets[0].settings.direction, "rtl");
+    assert.equal(draft.widgets[0].settings.backgroundOpacity, 40);
+    assert.equal(Object.hasOwn(draft.widgets[0].settings, "remaining"), false);
+    assert.equal(rejected.some((error) => error.path === "widgets.0.settings.remaining"), true);
+    assert.equal(invalid.some((error) => error.path === "widgets.0.settings.targetDate"), true);
+    assert.equal(invalid.some((error) => error.path === "widgets.0.settings.timeZone"), true);
+    assert.equal(invalid.some((error) => error.path === "widgets.0.settings.showDays"), true);
+});
+
+test("trims a countdown title on save and keeps the spaces between Hebrew words", () => {
+    const errors = [];
+    const draft = sanitizeDraft(boardWith([countdownWidget({
+        title: "  איפה הילד בהופעה  ",
+        completionMessage: "  האירוע התחיל  "
+    })]), errors);
+
+    assert.deepEqual(errors, []);
+    assert.equal(draft.widgets[0].settings.title, "איפה הילד בהופעה");
+    assert.equal(draft.widgets[0].settings.completionMessage, "האירוע התחיל");
+});
