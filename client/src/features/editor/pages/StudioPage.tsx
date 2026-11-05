@@ -45,6 +45,7 @@ import SavingOverlay from "../components/SavingOverlay.tsx";
 import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
+import type { BoardPoint } from "../../boards/boardCoordinates.ts";
 import { createWidget } from "../createWidget.ts";
 import { updateWeatherSettings, type WeatherSettingsPatch } from "../weatherSettings.ts";
 import { updateCountdownSettings, type CountdownSettingsPatch } from "../countdownSettings.ts";
@@ -1684,6 +1685,18 @@ function StudioPage() {
         revealAddedWidget(widget.id);
     }
 
+    function handleDropWidget(type: WidgetType, point: BoardPoint) {
+        if (board === null) {
+            return;
+        }
+
+        const widget = createWidget(type, board, point);
+
+        updateBoard((currentBoard) => appendWidget(currentBoard, widget));
+        setSelection({ boardId, widgetId: widget.id });
+        revealAddedWidget(widget.id);
+    }
+
     function handleDeleteSelectedWidget() {
         if (selectedWidgetId === null) {
             return;
@@ -1924,7 +1937,10 @@ function StudioPage() {
                             widgets={board.widgets}
                             selectedWidgetId={selectedWidgetId}
                             revealedWidgetId={revealedWidgetId}
+                            boardWidth={board.width}
+                            boardHeight={board.height}
                             onAddWidget={handleAddWidget}
+                            onDropWidget={handleDropWidget}
                             onSelectWidget={(widgetId) => {
                                 setSelection({ boardId, widgetId });
                             }}

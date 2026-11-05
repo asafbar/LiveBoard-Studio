@@ -8,6 +8,7 @@ import WeatherWidget from "./WeatherWidget.tsx";
 import NewsWidget from "./NewsWidget.tsx";
 import ImageWidget from "./ImageWidget.tsx";
 import InformationCardWidget from "./InformationCardWidget.tsx";
+import { boardPointFromClient, dragStartDistance } from "../boardCoordinates.ts";
 import styles from "./BoardRenderer.module.css";
 import TextWidget from "./TextWidget.tsx";
 import TickerWidget from "./TickerWidget.tsx";
@@ -221,7 +222,6 @@ function renderWidget(widget: Widget, interactive: boolean) {
     }
 }
 
-const dragStartDistance = 3;
 const minimumWidgetWidth = 100;
 const minimumWidgetHeight = 60;
 const resizeCorners: ResizeCorner[] = ["nw", "ne", "sw", "se"];
@@ -258,14 +258,13 @@ function logicalStagePoint(
     boardWidth: number,
     boardHeight: number,
 ): WidgetPosition {
-    const rect = stage.getBoundingClientRect();
-    const scaleX = rect.width === 0 ? 1 : boardWidth / rect.width;
-    const scaleY = rect.height === 0 ? 1 : boardHeight / rect.height;
-
-    return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY,
-    };
+    return boardPointFromClient(
+        clientX,
+        clientY,
+        stage.getBoundingClientRect(),
+        boardWidth,
+        boardHeight,
+    );
 }
 
 function stageElement(element: HTMLElement): HTMLElement | null {
@@ -818,6 +817,7 @@ function BoardRenderer({
                 <div
                     className={styles.stage}
                     style={stageStyle}
+                    data-board-stage={interactive ? "editor" : undefined}
                     onClick={interactive ? handleStageClick : undefined}
                 >
                     <BoardBackgroundLayer background={board.background} />

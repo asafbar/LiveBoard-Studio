@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { Widget } from "../../boards/types/boardTypes.ts";
+import { scrollTopForRevealedRow } from "../sidebarSections.ts";
 import {
     isWidgetLocked,
     isWidgetVisible,
@@ -109,8 +110,23 @@ function LayersPanel({
             return;
         }
 
-        const row = listRef.current?.querySelector<HTMLElement>(`[data-layer-id="${CSS.escape(revealedWidgetId)}"]`);
-        row?.scrollIntoView({ block: "nearest" });
+        const list = listRef.current;
+        const row = list?.querySelector<HTMLElement>(`[data-layer-id="${CSS.escape(revealedWidgetId)}"]`);
+
+        if (list === null || list === undefined || row === null || row === undefined) {
+            return;
+        }
+
+        const listRect = list.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+
+        list.scrollTop = scrollTopForRevealedRow(
+            list.scrollTop,
+            listRect.top,
+            listRect.bottom,
+            rowRect.top,
+            rowRect.bottom,
+        );
     }, [revealedWidgetId, widgets]);
 
     function updateIndicator(next: DropIndicator | null) {

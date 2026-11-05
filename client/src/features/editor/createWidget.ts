@@ -117,10 +117,13 @@ function placeWidget(board: Board, size: WidgetSize): WidgetLayout {
     return best;
 }
 
-function createWidget(type: WidgetType, board: Board): Widget {
+function createWidget(type: WidgetType, board: Board, dropPoint?: { x: number; y: number }): Widget {
     const existingIds = new Set(board.widgets.map((widget) => widget.id));
     const id = createWidgetId(existingIds);
-    const layout = placeWidget(board, defaultWidgetSize(type));
+    const size = defaultWidgetSize(type);
+    const layout = dropPoint === undefined
+        ? placeWidget(board, size)
+        : placeWidgetAtPoint(board.width, board.height, size, dropPoint);
 
     switch (type) {
         case "text":
@@ -288,4 +291,29 @@ function createWidget(type: WidgetType, board: Board): Widget {
     }
 }
 
-export { createWidget };
+// Center the widget on the drop point, then shift it inward so it stays
+// fully inside the board. Other widgets are left untouched.
+function placeWidgetAtPoint(
+    boardWidth: number,
+    boardHeight: number,
+    size: WidgetSize,
+    point: { x: number; y: number },
+): WidgetLayout {
+    const width = Math.min(size.width, boardWidth);
+    const height = Math.min(size.height, boardHeight);
+    const maximumX = Math.max(0, boardWidth - width);
+    const maximumY = Math.max(0, boardHeight - height);
+
+    return {
+        x: clampPlacement(Math.round(point.x - (width / 2)), 0, maximumX),
+        y: clampPlacement(Math.round(point.y - (height / 2)), 0, maximumY),
+        width,
+        height,
+    };
+}
+
+function clampPlacement(value: number, minimum: number, maximum: number): number {
+    return Math.min(Math.max(value, minimum), maximum);
+}
+
+export { createWidget, defaultWidgetSize, placeWidgetAtPoint };
