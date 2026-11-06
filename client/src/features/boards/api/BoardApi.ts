@@ -112,6 +112,7 @@ async function listBoardSummaries(): Promise<BoardSummary[]> {
 async function createBoard(
     name: string,
     size: { width: number; height: number } = { width: 1920, height: 1080 },
+    content?: Pick<Board, "background" | "widgets">,
 ): Promise<BoardWriteResult> {
     const apiBaseUrlProblem = readApiBaseUrlProblem();
 
@@ -124,6 +125,12 @@ async function createBoard(
             name,
             width: size.width,
             height: size.height,
+            ...(content === undefined
+                ? {}
+                : {
+                    background: content.background,
+                    widgets: content.widgets,
+                }),
         });
 
         const record = readBoardWriteResult(response.data.data);

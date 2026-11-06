@@ -219,11 +219,13 @@ function buildEmptyDraft(name, draftId, size) {
         name,
         width: size.width,
         height: size.height,
-        background: {
-            type: "solid",
-            color: "var(--canvas-board)"
-        },
-        widgets: []
+        background: size.background === undefined
+            ? {
+                type: "solid",
+                color: "var(--canvas-board)"
+            }
+            : size.background,
+        widgets: size.widgets === undefined ? [] : size.widgets
     });
 }
 

@@ -765,7 +765,9 @@ function runCreateBoard(body) {
                 error: error || null,
                 boardName: request.boardName,
                 boardWidth: request.boardWidth,
-                boardHeight: request.boardHeight
+                boardHeight: request.boardHeight,
+                boardBackground: request.boardBackground,
+                boardWidgets: request.boardWidgets
             });
         });
     });
@@ -833,4 +835,34 @@ test("creates a landscape board by default and a portrait board when requested",
     assert.equal(portrait.boardHeight, 1920);
     assert.equal(partial.error.statusCode, 400);
     assert.equal(unknown.error.statusCode, 400);
+});
+
+test("creates a board from template content and rejects a partial template body", async () => {
+    const created = await runCreateBoard({
+        name: "Lobby",
+        width: 1920,
+        height: 1080,
+        background: { type: "gradient", from: "#071525", to: "#16324d", angle: 155 },
+        widgets: [
+            {
+                id: "welcome-text",
+                type: "text",
+                layout: { x: 48, y: 48, width: 640, height: 140 },
+                settings: { text: "Welcome", tone: "default", size: "display" }
+            }
+        ]
+    });
+    const missingWidgets = await runCreateBoard({
+        name: "Lobby",
+        width: 1920,
+        height: 1080,
+        background: { type: "solid", color: "#071525" }
+    });
+
+    assert.equal(created.error, null);
+    assert.equal(created.boardWidth, 1920);
+    assert.equal(created.boardWidgets.length, 1);
+    assert.equal(created.boardWidgets[0].settings.text, "Welcome");
+    assert.equal(created.boardBackground.type, "gradient");
+    assert.equal(missingWidgets.error.statusCode, 400);
 });

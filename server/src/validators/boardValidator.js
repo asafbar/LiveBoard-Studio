@@ -125,7 +125,7 @@ function validateCreateBoard(req, res, next) {
 
     if (body !== null) {
         Object.keys(body).forEach((key) => {
-            if (key !== "name" && key !== "width" && key !== "height") {
+            if (key !== "name" && key !== "width" && key !== "height" && key !== "background" && key !== "widgets") {
                 errors.push({
                     path: key,
                     message: "Unknown field."
@@ -135,11 +135,14 @@ function validateCreateBoard(req, res, next) {
 
         const name = readRequiredText(body.name, "name", MAX_SHORT_TEXT_LENGTH, errors);
         const size = readCreateBoardSize(body, errors);
+        const content = readCreateBoardContent(body, name, size, errors);
 
-        if (errors.length === 0 && size !== null) {
+        if (errors.length === 0 && size !== null && content !== null) {
             req.boardName = name;
             req.boardWidth = size.width;
             req.boardHeight = size.height;
+            req.boardBackground = content.background;
+            req.boardWidgets = content.widgets;
         }
     }
 
@@ -1899,6 +1902,52 @@ function readBoardSize(width, height, errors) {
     return {
         width: boardWidth,
         height: boardHeight
+    };
+}
+
+function readCreateBoardContent(body, name, size, errors) {
+    const hasBackground = Object.prototype.hasOwnProperty.call(body, "background");
+    const hasWidgets = Object.prototype.hasOwnProperty.call(body, "widgets");
+
+    if (!hasBackground && !hasWidgets) {
+        return {
+            background: null,
+            widgets: null
+        };
+    }
+
+    if (!hasBackground || !hasWidgets || name === null || size === null || errors.length > 0) {
+        if (!hasBackground || !hasWidgets) {
+            errors.push({
+                path: hasBackground ? "widgets" : "background",
+                message: "Board background and widgets must be set together."
+            });
+        }
+
+        return null;
+    }
+
+    const draftErrors = [];
+    const draft = sanitizeDraft({
+        id: "template-draft",
+        name,
+        width: size.width,
+        height: size.height,
+        background: body.background,
+        widgets: body.widgets
+    }, draftErrors);
+
+    draftErrors.forEach((error) => {
+        errors.push(error);
+    });
+
+    if (draft === null || draftErrors.length > 0) {
+        return null;
+    }
+
+    return {
+        background: draft.background,
+        widgets: draft.widgets
     };
 }
 

@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import {
     boardSizeForOrientation,
     type BoardOrientation,
 } from "../boardOrientation.ts";
+import BoardRenderer from "./BoardRenderer.tsx";
+import {
+    boardTemplateById,
+    boardTemplates,
+    type BoardTemplateId,
+} from "../templates/boardTemplates.ts";
+import type { Board } from "../types/boardTypes.ts";
 import {
     BoardRequestError,
     createBoard,
@@ -20,6 +27,11 @@ const fieldClassName = "h-9 w-full rounded-control border border-border bg-surfa
 function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
     const [name, setName] = useState("");
     const [orientation, setOrientation] = useState<BoardOrientation>("landscape");
+    const [templateId, setTemplateId] = useState<BoardTemplateId | "blank">("blank");
+    const templatePreviews = useMemo(() => boardTemplates.map((template) => ({
+        template,
+        board: template.createDraft(template.name),
+    })), []);
     const [nameError, setNameError] = useState<string | null>(null);
     const [formError, setFormError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -111,7 +123,9 @@ function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
         setSubmitting(true);
 
         try {
-            const created = await createBoard(name.trim(), boardSizeForOrientation(orientation));
+            const created = templateId === "blank"
+                ? await createBoard(name.trim(), boardSizeForOrientation(orientation))
+                : await createFromTemplate(name.trim(), templateId);
             onCreated(created);
         } catch (error: unknown) {
             const editorError = readCreateError(error);
@@ -134,15 +148,43 @@ function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
                 aria-labelledby="create-board-title"
                 tabIndex={-1}
                 onKeyDown={handleKeyDown}
-                className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-panel outline-none"
+                className="max-h-[min(920px,calc(100vh-2rem))] w-full max-w-5xl overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-panel outline-none"
             >
                 <h2 id="create-board-title" className="text-base font-semibold text-foreground">
                     New Board
                 </h2>
                 <p className="mt-2 text-sm leading-5 text-secondary">
-                    The new board starts unpublished and empty.
+                    The new board starts unpublished. Choose a blank board or a ready-made template.
                 </p>
                 <form className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+                    <fieldset disabled={submitting}>
+                        <legend className="text-xs text-muted">Template</legend>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Board template">
+                            <TemplateChoice
+                                name="Blank Board"
+                                description="Start with an empty board."
+                                detail={orientation === "portrait" ? "Portrait 1080 × 1920" : "Landscape 1920 × 1080"}
+                                selected={templateId === "blank"}
+                                preview={blankPreview(orientation)}
+                                onSelect={() => setTemplateId("blank")}
+                            />
+                            {templatePreviews.map(({ template, board }) => (
+                                <TemplateChoice
+                                    key={template.id}
+                                    name={template.name}
+                                    description={template.description}
+                                    detail={template.orientation === "portrait" ? "Portrait 1080 × 1920" : "Landscape 1920 × 1080"}
+                                    selected={templateId === template.id}
+                                    preview={board}
+                                    onSelect={() => {
+                                        setTemplateId(template.id);
+                                        setOrientation(template.orientation);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </fieldset>
+                    {templateId === "blank" ? (
                     <fieldset className="flex flex-col gap-2" disabled={submitting}>
                         <legend className="text-xs text-muted">Orientation</legend>
                         <div className="grid grid-cols-2 gap-2">
@@ -160,6 +202,11 @@ function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
                             />
                         </div>
                     </fieldset>
+                    ) : (
+                        <p className="text-xs text-muted">
+                            The selected template sets the board orientation.
+                        </p>
+                    )}
                     <div className="flex flex-col gap-1.5">
                         <label htmlFor="board-name" className="text-xs text-muted">
                             Board name
@@ -220,6 +267,74 @@ function CreateBoardDialog({ onClose, onCreated }: CreateBoardDialogProps) {
             </div>
         </div>
     );
+}
+
+type TemplateChoiceProps = {
+    name: string;
+    description: string;
+    detail: string;
+    selected: boolean;
+    preview: Board;
+    onSelect: () => void;
+};
+
+function TemplateChoice({
+    name,
+    description,
+    detail,
+    selected,
+    preview,
+    onSelect,
+}: TemplateChoiceProps) {
+    return (
+        <button
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={onSelect}
+            className={
+                selected
+                    ? "flex flex-col gap-2 rounded-md border border-cyan/70 bg-surface-raised p-2 text-left"
+                    : "flex flex-col gap-2 rounded-md border border-border bg-surface-raised/40 p-2 text-left transition-colors duration-150 hover:border-border-strong hover:bg-surface-hover"
+            }
+        >
+            <span inert aria-hidden="true" className="pointer-events-none flex h-36 w-full overflow-hidden rounded-md border border-border bg-canvas">
+                <BoardRenderer board={preview} framed={false} />
+            </span>
+            <span className="block text-sm font-medium text-foreground">{name}</span>
+            <span className="block text-xs leading-4 text-secondary">{description}</span>
+            <span className="block text-xs text-muted">{detail}</span>
+        </button>
+    );
+}
+
+function blankPreview(orientation: BoardOrientation): Board {
+    const size = boardSizeForOrientation(orientation);
+
+    return {
+        id: "blank-preview",
+        name: "Blank board",
+        width: size.width,
+        height: size.height,
+        background: {
+            type: "solid",
+            color: "#0b1220",
+        },
+        widgets: [],
+    };
+}
+
+async function createFromTemplate(name: string, templateId: BoardTemplateId): Promise<BoardWriteResult> {
+    const template = boardTemplateById(templateId);
+    const draft = template.createDraft(name);
+
+    return createBoard(name, {
+        width: draft.width,
+        height: draft.height,
+    }, {
+        background: draft.background,
+        widgets: draft.widgets,
+    });
 }
 
 type OrientationChoiceProps = {
