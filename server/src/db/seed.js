@@ -1,4 +1,6 @@
 const { pool, closeDatabase } = require("../config/db");
+const { sanitizeDraft } = require("../validators/boardValidator");
+const { TECH_SUMMIT_SHOWCASE_ID, buildTechSummitShowcase } = require("./techSummitShowcase");
 const {
     TECH_SUMMIT_BOARD_ID,
     techSummitBoard
@@ -64,26 +66,25 @@ function validateTechSummitBoard(board) {
     }
 }
 
-async function seedTechSummitBoard() {
-    validateTechSummitBoard(techSummitBoard);
+async function insertSeedBoard(id, draft) {
 
     const result = await pool.query(
         `INSERT INTO boards (id, name, draft, published)
          VALUES ($1::uuid, $2, $3::jsonb, NULL)
          ON CONFLICT (id) DO NOTHING`,
         [
-            TECH_SUMMIT_BOARD_ID,
-            techSummitBoard.name,
-            JSON.stringify(techSummitBoard)
+            id,
+            draft.name,
+            JSON.stringify(draft)
         ]
     );
 
     if (result.rowCount === 1) {
-        console.log("Tech Summit board inserted.");
+        console.log(`${draft.name} board inserted.`);
         return;
     }
 
-    console.log("Tech Summit board already exists. Draft was left unchanged.");
+    console.log(`${draft.name} board already exists. Draft was left unchanged.`);
 }
 
 function logDatabaseError(prefix, error) {
@@ -104,7 +105,15 @@ async function main() {
     let failed = false;
 
     try {
-        await seedTechSummitBoard();
+        if (process.argv[2] === "--showcase") {
+            const errors = [];
+            const draft = sanitizeDraft(buildTechSummitShowcase(), errors);
+            assertSeed(draft !== null, JSON.stringify(errors));
+            await insertSeedBoard(TECH_SUMMIT_SHOWCASE_ID, draft);
+        } else {
+            validateTechSummitBoard(techSummitBoard);
+            await insertSeedBoard(TECH_SUMMIT_BOARD_ID, techSummitBoard);
+        }
     } catch (error) {
         failed = true;
 
