@@ -71,7 +71,7 @@ function getPublicMessage(err, statusCode) {
         return "Request body is too large.";
     }
 
-    if (statusCode >= 500) {
+    if (statusCode >= 500 && err.expose !== true) {
         return "Internal server error.";
     }
 

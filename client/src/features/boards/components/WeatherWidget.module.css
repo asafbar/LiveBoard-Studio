@@ -1,0 +1,456 @@
+.root {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.45em;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    container-type: size;
+    padding: var(--weather-padding, 0.7em 0.85em);
+    border: 2px solid color-mix(in srgb, var(--weather-accent) 62%, transparent);
+    background: transparent;
+    color: var(--weather-text-paint, var(--weather-text));
+    font-family: var(--font-sans);
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.root::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--weather-background);
+    opacity: var(--weather-background-opacity, 1);
+    pointer-events: none;
+}
+
+.body,
+.attribution,
+.fitNote {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    min-height: 0;
+}
+
+.titleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--weather-title-gap, 0.4em);
+    min-width: 0;
+    max-width: 100%;
+}
+
+.familySerif {
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.familyMono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.titleFamilySans {
+    font-family: var(--font-sans);
+}
+
+.titleFamilySerif {
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.titleFamilyMono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.alignLeft {
+    text-align: left;
+}
+
+.alignCenter {
+    text-align: center;
+}
+
+.alignRight {
+    text-align: right;
+}
+
+.alignLeft .main,
+.alignLeft .summary {
+    justify-content: flex-start;
+}
+
+.alignCenter .main,
+.alignCenter .summary {
+    justify-content: center;
+}
+
+.alignRight .main,
+.alignRight .summary {
+    justify-content: flex-end;
+}
+
+.root[dir="rtl"].alignLeft .main,
+.root[dir="rtl"].alignLeft .summary {
+    justify-content: flex-end;
+}
+
+.root[dir="rtl"].alignRight .main,
+.root[dir="rtl"].alignRight .summary {
+    justify-content: flex-start;
+}
+
+.heading {
+    margin: 0;
+    color: var(--weather-title-paint, var(--weather-title-color, var(--weather-text)));
+    font-size: var(--weather-title-size, 0.82em);
+    font-weight: var(--weather-title-weight, 600);
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+    overflow-wrap: anywhere;
+}
+
+.main,
+.summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    min-width: 0;
+}
+
+.reading {
+    min-width: 0;
+}
+
+.icon,
+.dayIcon {
+    display: block;
+    flex: 0 0 auto;
+    transform: none;
+    fill: none;
+    color: var(--weather-accent-paint, var(--weather-accent));
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.icon {
+    width: 2.6em;
+    height: 2.6em;
+}
+
+.temperature,
+.condition,
+.feels,
+.dayName,
+.dayRange,
+.dayHigh,
+.dayLow,
+.placeholder,
+.status {
+    font-weight: inherit;
+}
+
+.temperature {
+    margin: 0;
+    font-size: clamp(1.45em, 16cqw, 2.35em);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 1;
+}
+
+.visualExpanded .temperature {
+    font-size: clamp(1.7em, 18cqw, 2.7em);
+}
+
+.condition {
+    margin: 0.18em 0 0;
+    font-size: 0.78em;
+    overflow-wrap: anywhere;
+}
+
+.feels {
+    margin: 0.16em 0 0;
+    font-size: 0.68em;
+    opacity: 0.82;
+}
+
+.numeric {
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+
+.forecast {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4em;
+    width: 100%;
+    margin: 0;
+}
+
+.day {
+    min-width: 0;
+}
+
+.dayName,
+.dayRange,
+.dayHigh,
+.dayLow {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.dayName {
+    font-size: 0.68em;
+    opacity: 0.82;
+}
+
+.dayRange {
+    font-size: clamp(0.68em, 7cqw, 0.84em);
+    font-variant-numeric: tabular-nums;
+}
+
+.presetMinimal {
+    justify-content: center;
+}
+
+.presetMinimal .body {
+    align-items: stretch;
+    justify-content: center;
+    gap: 0.2em;
+}
+
+.presetMinimal .titleGroup {
+    gap: var(--weather-title-gap, 0.2em);
+}
+
+.presetMinimal .main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.05em;
+}
+
+.alignCenter.presetMinimal .main {
+    align-items: center;
+}
+
+.alignRight.presetMinimal .main {
+    align-items: flex-end;
+}
+
+.root[dir="rtl"].alignLeft.presetMinimal .main {
+    align-items: flex-end;
+}
+
+.root[dir="rtl"].alignRight.presetMinimal .main {
+    align-items: flex-start;
+}
+
+.presetMinimal .icon {
+    width: 3.5em;
+    height: 3.5em;
+}
+
+.presetMinimal .temperature {
+    font-size: clamp(2em, 22cqw, 3.1em);
+}
+
+.presetMinimal .heading {
+    font-size: var(--weather-title-size, 0.95em);
+}
+
+.presetMinimal .forecast {
+    margin-top: 0.35em;
+}
+
+.presetHorizontal {
+    justify-content: center;
+}
+
+.presetHorizontal .body {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.85em;
+}
+
+.presetHorizontal .titleGroup {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--weather-title-gap, 0.85em);
+}
+
+.alignCenter.presetHorizontal .body {
+    justify-content: center;
+}
+
+.alignRight.presetHorizontal .body {
+    justify-content: flex-end;
+}
+
+.root[dir="rtl"].alignLeft.presetHorizontal .body {
+    justify-content: flex-end;
+}
+
+.root[dir="rtl"].alignRight.presetHorizontal .body {
+    justify-content: flex-start;
+}
+
+.presetHorizontal .copy {
+    flex: 0 1 12em;
+    min-width: 0;
+}
+
+.presetHorizontal .main {
+    flex: 0 0 auto;
+}
+
+.presetHorizontal .temperature {
+    font-size: clamp(1.35em, 8cqw, 1.9em);
+    white-space: nowrap;
+}
+
+.presetHorizontal .icon {
+    width: 2em;
+    height: 2em;
+}
+
+.presetHorizontal .heading,
+.presetHorizontal .condition,
+.presetHorizontal .feels {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.presetHorizontal .condition,
+.presetHorizontal .feels {
+    margin-top: 0.08em;
+}
+
+.presetHorizontal .forecast {
+    display: none;
+    flex: 1 1 16em;
+    align-self: stretch;
+    align-items: center;
+}
+
+/* 680 matches horizontalForecastMinWidth. */
+@container (min-width: 680px) {
+    .presetHorizontal .forecast {
+        display: grid;
+    }
+}
+
+.presetForecast .body {
+    flex: 1 1 auto;
+}
+
+.presetForecast .titleGroup {
+    gap: var(--weather-title-gap, 0px);
+}
+
+.presetForecast .summary {
+    flex: 0 0 auto;
+}
+
+.presetForecast .icon {
+    width: 1.7em;
+    height: 1.7em;
+}
+
+.presetForecast .temperature {
+    font-size: clamp(1.15em, 8cqw, 1.55em);
+}
+
+.presetForecast .forecast {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0.15em;
+}
+
+.presetForecast .day {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.18em;
+    min-height: 0;
+    padding: 0.45em 0.4em;
+    border-radius: 0.55em;
+    background: color-mix(in srgb, var(--weather-accent) 18%, transparent);
+}
+
+.alignCenter.presetForecast .day {
+    align-items: center;
+}
+
+.alignRight.presetForecast .day {
+    align-items: flex-end;
+}
+
+.root[dir="rtl"].alignLeft.presetForecast .day {
+    align-items: flex-end;
+}
+
+.root[dir="rtl"].alignRight.presetForecast .day {
+    align-items: flex-start;
+}
+
+.presetForecast .dayName {
+    font-size: clamp(0.68em, 5cqw, 0.82em);
+}
+
+.presetForecast .dayIcon {
+    width: 1.55em;
+    height: 1.55em;
+}
+
+.presetForecast .dayHigh {
+    font-size: clamp(0.9em, 7cqw, 1.2em);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.presetForecast .dayLow {
+    font-size: clamp(0.68em, 5cqw, 0.82em);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.75;
+}
+
+.status,
+.fitNote {
+    margin: 0;
+    font-size: 0.58em;
+    opacity: 0.78;
+}
+
+.attribution {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 0.58em;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    opacity: 0.9;
+}
+
+.attribution a {
+    color: inherit;
+}
+
+.placeholder {
+    margin: 0;
+    font-size: 0.9em;
+}

@@ -109,7 +109,11 @@ async function listBoardSummaries(): Promise<BoardSummary[]> {
     return response.data.data;
 }
 
-async function createBoard(name: string): Promise<BoardWriteResult> {
+async function createBoard(
+    name: string,
+    size: { width: number; height: number } = { width: 1920, height: 1080 },
+    content?: Pick<Board, "background" | "widgets">,
+): Promise<BoardWriteResult> {
     const apiBaseUrlProblem = readApiBaseUrlProblem();
 
     if (apiBaseUrlProblem !== null) {
@@ -119,6 +123,14 @@ async function createBoard(name: string): Promise<BoardWriteResult> {
     try {
         const response = await apiClient.post<ApiResponse<unknown>>("/api/boards", {
             name,
+            width: size.width,
+            height: size.height,
+            ...(content === undefined
+                ? {}
+                : {
+                    background: content.background,
+                    widgets: content.widgets,
+                }),
         });
 
         const record = readBoardWriteResult(response.data.data);

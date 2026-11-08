@@ -1,6 +1,9 @@
 const { pipeline } = require("stream");
 const mediaService = require("../services/mediaService");
-const { successResponse } = require("../utils/apiResponse");
+const {
+    errorResponse,
+    successResponse
+} = require("../utils/apiResponse");
 const {
     toMediaAsset,
     toMediaAssetList
@@ -36,6 +39,58 @@ async function listMedia(req, res, next) {
                 toMediaAssetList(assets)
             )
         );
+    } catch (error) {
+        next(error);
+    }
+}
+
+async function renameMedia(req, res, next) {
+    try {
+        const asset = await mediaService.renameMediaAsset(
+            req.params.id,
+            req.mediaFilename
+        );
+
+        res.status(200).json(
+            successResponse(
+                "Media asset renamed successfully.",
+                toMediaAsset(asset)
+            )
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
+async function deleteMedia(req, res, next) {
+    try {
+        await mediaService.deleteMediaAsset(req.params.id);
+
+        res.status(200).json(successResponse(
+            "Media asset deleted successfully.",
+            null
+        ));
+    } catch (error) {
+        if (error.statusCode === 409 && error.usage !== undefined) {
+            res.status(409).json({
+                ...errorResponse(error.message),
+                data: error.usage
+            });
+            return;
+        }
+
+        next(error);
+    }
+}
+
+async function getMediaUsage(req, res, next) {
+    try {
+        const usage = await mediaService.getMediaUsage(req.params.id);
+
+        res.status(200).json(successResponse(
+            "Media usage loaded successfully.",
+            usage
+        ));
     } catch (error) {
         next(error);
     }
@@ -86,5 +141,8 @@ module.exports = {
     uploadMedia,
     listMedia,
     getMedia,
-    getMediaFile
+    getMediaUsage,
+    deleteMedia,
+    getMediaFile,
+    renameMedia
 };

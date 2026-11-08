@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 export type StudioIconName =
     | "text"
     | "clock"
+    | "weather"
+    | "news"
     | "image"
     | "information-card"
     | "video"
@@ -52,6 +54,19 @@ const iconPaths: Record<StudioIconName, ReactNode> = {
         <>
             <circle cx="12" cy="12" r="8" />
             <path d="M12 8v4l3 2" />
+        </>
+    ),
+    weather: (
+        <>
+            <circle cx="8" cy="9" r="2.5" />
+            <path d="M8 4.5v1.2M4.8 6.2l.9.8M4.5 9H5.7" />
+            <path d="M9 18h8.5a3.2 3.2 0 0 0 .4-6.4 4.6 4.6 0 0 0-8.8-.4" />
+        </>
+    ),
+    news: (
+        <>
+            <path d="M5 6.5h14v11H5z" />
+            <path d="M8 10h8M8 13h8M8 16h5" />
         </>
     ),
     image: (

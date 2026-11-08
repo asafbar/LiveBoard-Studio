@@ -2,18 +2,18 @@
 
 LiveBoard Studio is a full-stack application for designing, managing, and publishing digital signage. An administrator edits a private draft, publishes it explicitly, and public screens render that published snapshot. After the publish is stored, Socket.IO notifies connected displays, and each display loads the snapshot from the API.
 
-The scenes below are concept mockups for this portfolio. They are not photographs of customer installations.
+![Tech Summit Showcase running in Display with live weather, a countdown, announcements, a QR code, and a scrolling ticker](docs/screenshots/showcase-tech-summit.png)
 
-![Concept mockup of a conference display for Tech Summit 2026](docs/showcase/tech-summit-hero.png)
+*Tech Summit Showcase running in LiveBoard Studio. [Create this demo board](#optional-tech-summit-showcase) after installation.*
 
 ## Features
 
-- Edit 1920 x 1080 boards and place widgets by dragging and resizing them.
-- Add text, clocks, images, information cards, announcement lists, a horizontal ticker, and a vertical announcement feed.
+- Edit landscape (1920 × 1080) or portrait (1080 × 1920) boards and place widgets by dragging and resizing them.
+- Add text, clocks, images, information cards, announcements, tickers, weather, countdowns, QR codes, sample headlines, and live USGS earthquake data.
 - Rename, reorder, show, hide, and lock layers. Undo and redo cover the current editing session, up to 50 steps.
 - Save the draft without changing what screens show. Publish copies the stored draft into the public snapshot.
 - Preview the current draft in Studio with the same renderer used by public displays.
-- Create, rename, and duplicate boards. A duplicate copies the saved draft onto a new unpublished board.
+- Create a blank board or start from one of five built-in templates. Rename or duplicate an existing board from the board list.
 - Register displays, assign a published board, and see which screens are currently connected.
 - Upload JPEG, PNG, and WebP images, then search and sort them in the media library.
 - Open a board at `/display/:boardId`, or open an assigned screen at `/screens/:displayId`. Neither route requires a session.
@@ -22,7 +22,7 @@ The scenes below are concept mockups for this portfolio. They are not photograph
 
 ### Conference program
 
-A welcome screen can combine the event title, a live clock, the current session, a schedule, and a ticker. The mockup at the top of this page shows that layout. Publishing the board updates every display that is open on that board.
+A welcome screen can combine a clock, weather, a countdown, session details, a QR code, and a ticker. The Tech Summit Showcase above demonstrates this layout. Publishing the board updates the connected displays that show it.
 
 ### Corporate lobby
 
@@ -40,7 +40,9 @@ A room screen can show the current reservation, the next booking, and a short vi
 
 Studio is the board editor at `/studio/:boardId`. The canvas, component list, layers, and properties stay in one workspace. Changes stay in the draft until the administrator saves and then publishes.
 
-![Studio editor with a 1920 x 1080 board, widget properties, and the layers panel](docs/screenshots/studio-editor.png)
+![Welcome Lobby in Studio with the components panel, canvas, layers, and properties panel](docs/screenshots/studio-welcome-lobby.png)
+
+*Welcome Lobby in Studio, created from a built-in template.*
 
 The properties panel edits the selected widget. The layers panel changes stacking order, visibility, lock state, and the layer name. Preview shows the board open in Studio, including edits that have not been saved yet, using the shared board renderer. Publish stays unavailable until the draft is saved. The publish request sends no canvas. The API copies the draft already stored in PostgreSQL.
 
@@ -49,6 +51,23 @@ The properties panel edits the selected widget. The layers panel changes stackin
 `/boards` lists every board with its name, widget count, and published or unpublished status. From here an administrator can create a board, rename it, or duplicate it.
 
 ![Boards page listing saved boards and their published state](docs/screenshots/boards-management.png)
+
+**New Board** offers a blank board in either orientation and five editable templates:
+
+| Orientation | Templates |
+| --- | --- |
+| Landscape | Welcome Lobby, Conference & Events, Office Dashboard |
+| Portrait | Portrait Welcome, Event Schedule |
+
+A template sets the board orientation and creates an unpublished draft with its own widgets. The templates are available on a fresh installation without running the optional seed.
+
+![New Board dialog showing Blank Board and all five built-in templates](docs/screenshots/board-template-picker.png)
+
+*Choose a template or a blank landscape or portrait board.*
+
+<img src="docs/screenshots/template-event-schedule-portrait.png" alt="Portrait Event Schedule template showing session times, attendee information, and a QR code" width="320">
+
+*Event Schedule in Preview, with a scrolling agenda and a program QR code.*
 
 `/displays` lists screens, the assigned board, and whether a client is currently registered as that screen. A display can be renamed, assigned to a board, or left unassigned.
 
@@ -64,7 +83,7 @@ Image bytes live on disk. PostgreSQL stores metadata in `media_assets`. In local
 
 ## Public displays
 
-These are screenshots of the running application, using the same renderer as Studio preview. They are not the concept mockups above.
+These screenshots show the running application, using the same renderer as Studio Preview. The lobby and meeting room concept mockups in the use cases illustrate possible installations.
 
 A direct display shows the published snapshot for one board:
 
@@ -116,7 +135,7 @@ A publish writes the snapshot first and then emits the Socket.IO update. Studio 
 
 ## Fresh Docker installation
 
-Use this path for a new, empty installation. It does not read a development database, an existing production database, or an existing media volume. Do not point `compose.fresh.yaml` at `liveboard-studio_liveboard_studio_db` or `liveboard-studio_liveboard_studio_media`.
+Start Docker and run the commands below from the root of a Git clone. The first run creates dedicated database and media volumes. If the fresh volumes already exist on your machine, Compose will reuse their data even from a new clone. To test an empty installation alongside an existing one, use a separate Compose project and unique names for both volumes, the network, and the web and API images. Choose a free web port. Keep the existing volumes in place.
 
 The Compose project name is `liveboard-studio-fresh`. Its database volume is `liveboard-studio-fresh_db`, mounted at `/var/lib/postgresql`. Its media volume is `liveboard-studio-fresh_media`, mounted at `/app/storage/media`. Web is published on `127.0.0.1` only. The API and PostgreSQL stay on the `liveboard-studio-fresh` network. Images are tagged `liveboard-studio-web:fresh` and `liveboard-studio-api:fresh`.
 
@@ -135,7 +154,7 @@ docker compose --env-file .env.fresh -f compose.fresh.yaml build
 Start only PostgreSQL and wait until `liveboard-studio-fresh-db-1` is healthy:
 
 ```bash
-docker compose --env-file .env.fresh -f compose.fresh.yaml up -d db
+docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --wait db
 ```
 
 Apply migrations once. This creates the schema. It does not insert boards, displays, media, or an administrator:
@@ -163,16 +182,22 @@ unset ADMIN_PASSWORD
 Start the web and API containers:
 
 ```bash
-docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --no-build
+docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --no-build --wait
 ```
 
-Open `http://127.0.0.1:8080` when `WEB_PORT` is 8080, or the origin stored in `CLIENT_URL`. Sign in with the account just created.
+Open `http://127.0.0.1:8080` when `WEB_PORT` is 8080, or the origin stored in `CLIENT_URL`. Sign in with the account just created. On an empty installation, the board list starts empty. To verify the setup, create a board from Event Schedule, edit its title, and confirm the saved title survives a reload and appears in Preview. Publish the board and open its Display link in a private window. Save another title change and confirm the display keeps the published title until the next Publish.
 
-The sample board is optional. Run it only after migrations, and only with `compose.fresh.yaml`. It inserts the Tech Summit sample when that board id is absent, leaves an existing row unchanged, and does not publish the board. Its images are the static files built into the web image.
+### Optional Tech Summit Showcase
+
+After completing the fresh Docker installation, run this command from the repository root to create the demo board shown at the top of this README.
 
 ```bash
-docker compose --env-file .env.fresh -f compose.fresh.yaml run --rm --no-deps --entrypoint node api src/db/seed.js
+docker compose --env-file .env.fresh -f compose.fresh.yaml run --rm --no-deps --entrypoint node api src/db/seed.js --showcase
 ```
+
+Open **Tech Summit Showcase** from the boards list, click **Publish**, and open its **Display** link. The command creates an editable draft with a countdown set one week ahead. Running it again leaves the existing board intact. The background and images are bundled with the web image.
+
+Run the same command without `--showcase` to create the original **Tech Summit 2026** sample.
 
 Stop the fresh stack with `stop`. The named volumes remain, and the next start does not need another migration or bootstrap:
 
@@ -234,7 +259,7 @@ npm run db:migrate
 npm run dev
 ```
 
-The API listens on port 4002. `npm start` runs the same server without nodemon. Create the administrator with `npm run admin:bootstrap` before signing in. `npm run db:seed` is optional. It inserts the unpublished Tech Summit sample and does not replace an existing row.
+The API listens on port 4002. `npm start` runs the same server without nodemon. Create the administrator with `npm run admin:bootstrap` before signing in. For a local demo draft, run `npm run db:seed -- --showcase`. Run `npm run db:seed` for the original sample.
 
 Install and start the client from `client/`:
 
@@ -266,14 +291,13 @@ Any client that knows a display UUID can register as that screen and appear onli
 ## Known limitations
 
 - One administrator. No organizations, roles, or public registration.
-- No board, display, or media deletion.
+- Board and display deletion are unavailable. Media assets can be deleted when no saved board references them.
 - No device pairing. Knowing a display id is enough to appear online.
-- No weather, news, or external calendar feeds. Clocks and schedules are board content.
+- Weather uses Open-Meteo. The live news source is the USGS earthquake feed. General headlines use sample content, and schedules are entered on the board.
 - No production HTTPS deployment. The current Compose files bind web to loopback HTTP.
 - Login throttling is per process and uses the connecting IP. The API does not enable `trust proxy`.
 - A storage quota is not enforced. A crash after the file is written and before the metadata insert can leave an unreferenced file. A failed insert removes the file it just wrote.
 - Replacing an uploaded image under the same id is not implemented. Existing boards keep the file URL they stored.
-- The optional seed inserts one unpublished Tech Summit draft. It is not a full demo of every widget.
 - This repository does not document a customer deployment. The mockups are design concepts.
 
 ## Existing local data

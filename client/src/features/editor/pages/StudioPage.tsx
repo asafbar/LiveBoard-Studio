@@ -2,6 +2,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlocker, useParams, type BlockerFunction } from "react-router-dom";
 import { useAuthSession } from "../../auth/session/authSessionContext.ts";
 import { BoardRequestError, getBoard, publishBoard, saveBoardDraft } from "../../boards/api/BoardApi.ts";
+import {
+    boardOrientation,
+    boardSizeForOrientation,
+    widgetExtendsOutsideBoard,
+    widgetsOutsideBoard,
+    type BoardOrientation,
+} from "../../boards/boardOrientation.ts";
+import {
+    constrainDragPosition,
+    fitWidgetInside,
+    layoutWithinOriginOverflow,
+    moveAllInside,
+    moveWidgetInside,
+    type ZoomMode,
+} from "../../boards/canvasView.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -20,6 +35,7 @@ import type {
 import { clockTimeZones } from "../clockTimeZones.ts";
 import { mapDraftFieldIssues, saveFailureSummary, type DraftFieldIssue } from "../draftFieldIssues.ts";
 import { normalizeCssColor } from "../cssColor.ts";
+import type { ColorOpacityPatch, SettingsWithColorOpacity } from "../colorAlpha.ts";
 import {
     imageObjectFitOptions,
     normalizeImageSource,
@@ -34,7 +50,8 @@ import {
     type LayerMove,
 } from "../widgetOrder.ts";
 import DeleteWidgetDialog from "../components/DeleteWidgetDialog.tsx";
-import EditorCanvas from "../components/EditorCanvas.tsx";
+import OrientationWarningDialog from "../components/OrientationWarningDialog.tsx";
+import EditorCanvas, { type CanvasZoomApi } from "../components/EditorCanvas.tsx";
 import PropertiesPanel from "../components/PropertiesPanel.tsx";
 import PublishBoardDialog from "../components/PublishBoardDialog.tsx";
 import RevertDraftDialog from "../components/RevertDraftDialog.tsx";
@@ -44,7 +61,13 @@ import SavingOverlay from "../components/SavingOverlay.tsx";
 import StudioPreview from "../components/StudioPreview.tsx";
 import StudioTopBar, { type DraftSaveStatus } from "../components/StudioTopBar.tsx";
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.tsx";
+import type { BoardPoint } from "../../boards/boardCoordinates.ts";
 import { createWidget } from "../createWidget.ts";
+import { updateWeatherSettings, type WeatherSettingsPatch } from "../weatherSettings.ts";
+import { updateCountdownSettings, type CountdownSettingsPatch } from "../countdownSettings.ts";
+import { updateQrSettings, type QrSettingsPatch } from "../qrSettings.ts";
+import { commitBoardEditableText } from "../editableText.ts";
+import { updateNewsSettings, type NewsSettingsPatch } from "../newsSettings.ts";
 import {
     isTickerDirection,
     isTickerFontFamily,
@@ -141,6 +164,33 @@ function updateClockSettings(
     };
 }
 
+function assignColorOpacity(target: object, settings: ColorOpacityPatch) {
+    const record = target as Record<string, unknown>;
+    const keys: Array<keyof ColorOpacityPatch> = [
+        "backgroundOpacity",
+        "textOpacity",
+        "titleOpacity",
+        "accentOpacity",
+    ];
+
+    keys.forEach((key) => {
+        const value = settings[key];
+
+        if (value === undefined) {
+            return;
+        }
+
+        if (value === null) {
+            delete record[key];
+            return;
+        }
+
+        if (Number.isInteger(value) && value >= 0 && value <= 100) {
+            record[key] = value;
+        }
+    });
+}
+
 function updateImageSettings(
     board: Board,
     widgetId: string,
@@ -194,7 +244,7 @@ function updateImageSettings(
 function updateInformationCardSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<InformationCardWidgetSettings>,
+    settings: SettingsWithColorOpacity<InformationCardWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -246,6 +296,8 @@ function updateInformationCardSettings(
                     nextSettings.textColor = color;
                 }
             }
+
+            assignColorOpacity(nextSettings, settings);
 
             if (
                 typeof settings.borderRadius === "number"
@@ -321,7 +373,7 @@ function normalizeAnnouncementItems(items: AnnouncementItem[]): AnnouncementItem
 function updateAnnouncementsSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<AnnouncementsWidgetSettings>,
+    settings: SettingsWithColorOpacity<AnnouncementsWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -362,6 +414,8 @@ function updateAnnouncementsSettings(
                 }
             }
 
+            assignColorOpacity(nextSettings, settings);
+
             if (
                 typeof settings.borderRadius === "number"
                 && radiusIsInRange(settings.borderRadius)
@@ -380,7 +434,7 @@ function updateAnnouncementsSettings(
 function updateTickerSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<TickerWidgetSettings>,
+    settings: SettingsWithColorOpacity<TickerWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -433,6 +487,8 @@ function updateTickerSettings(
                 }
             }
 
+            assignColorOpacity(nextSettings, settings);
+
             if (
                 typeof settings.borderRadius === "number"
                 && radiusIsInRange(settings.borderRadius)
@@ -463,7 +519,7 @@ function updateTickerSettings(
 function updateVerticalAnnouncementsSettings(
     board: Board,
     widgetId: string,
-    settings: Partial<VerticalAnnouncementsWidgetSettings>,
+    settings: SettingsWithColorOpacity<VerticalAnnouncementsWidgetSettings>,
 ): Board {
     return {
         ...board,
@@ -519,6 +575,8 @@ function updateVerticalAnnouncementsSettings(
                 }
             }
 
+            assignColorOpacity(nextSettings, settings);
+
             if (
                 typeof settings.borderRadius === "number"
                 && radiusIsInRange(settings.borderRadius)
@@ -559,12 +617,6 @@ function updateVerticalAnnouncementsSettings(
 const minimumWidgetWidth = 100;
 const minimumWidgetHeight = 60;
 
-function clampAxis(value: number, boardSize: number, widgetSize: number): number {
-    const maximum = Math.max(0, boardSize - widgetSize);
-
-    return Math.min(maximum, Math.max(0, value));
-}
-
 function updateWidgetPosition(
     board: Board,
     widgetId: string,
@@ -582,8 +634,9 @@ function updateWidgetPosition(
                 return widget;
             }
 
-            const nextX = clampAxis(Math.round(x), board.width, widget.layout.width);
-            const nextY = clampAxis(Math.round(y), board.height, widget.layout.height);
+            const next = constrainDragPosition(widget.layout, x, y, board.width, board.height);
+            const nextX = next.x;
+            const nextY = next.y;
 
             if (nextX === widget.layout.x && nextY === widget.layout.y) {
                 return widget;
@@ -615,33 +668,42 @@ function updateWidgetLayout(
         return board;
     }
 
-    let width = Math.max(minimumWidgetWidth, Math.round(layout.width));
-    let height = Math.max(minimumWidgetHeight, Math.round(layout.height));
+    const currentWidget = board.widgets.find((widget) => widget.id === widgetId);
     let x = Math.round(layout.x);
     let y = Math.round(layout.y);
+    let width = Math.max(minimumWidgetWidth, Math.round(layout.width));
+    let height = Math.max(minimumWidgetHeight, Math.round(layout.height));
 
-    if (width > board.width) {
-        width = board.width;
-    }
+    if (currentWidget !== undefined && widgetExtendsOutsideBoard(currentWidget.layout, board.width, board.height)) {
+        const limited = layoutWithinOriginOverflow(currentWidget.layout, layout, board.width, board.height);
+        x = limited.x;
+        y = limited.y;
+        width = limited.width;
+        height = limited.height;
+    } else {
+        if (width > board.width) {
+            width = board.width;
+        }
 
-    if (height > board.height) {
-        height = board.height;
-    }
+        if (height > board.height) {
+            height = board.height;
+        }
 
-    if (x < 0) {
-        x = 0;
-    }
+        if (x < 0) {
+            x = 0;
+        }
 
-    if (y < 0) {
-        y = 0;
-    }
+        if (y < 0) {
+            y = 0;
+        }
 
-    if (x + width > board.width) {
-        x = Math.max(0, board.width - width);
-    }
+        if (x + width > board.width) {
+            x = Math.max(0, board.width - width);
+        }
 
-    if (y + height > board.height) {
-        y = Math.max(0, board.height - height);
+        if (y + height > board.height) {
+            y = Math.max(0, board.height - height);
+        }
     }
 
     return {
@@ -826,6 +888,12 @@ function StudioPage() {
     const selectedWidgetId = selection.boardId === boardId ? selection.widgetId : null;
     const revealedWidgetId = reveal.boardId === boardId ? reveal.widgetId : null;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [pendingOrientation, setPendingOrientation] = useState<BoardOrientation | null>(null);
+    const canvasZoomRef = useRef<CanvasZoomApi>(null);
+    const [canvasZoom, setCanvasZoom] = useState<{ mode: ZoomMode; scale: number }>({
+        mode: "fit-board",
+        scale: 1,
+    });
     const [previewOpen, setPreviewOpen] = useState(false);
     const [loadedBoardId, setLoadedBoardId] = useState<string | null>(null);
     const [publishPhase, setPublishPhase] = useState<"confirm" | "publishing" | "failed" | null>(null);
@@ -862,6 +930,7 @@ function StudioPage() {
     const blocker = useBlocker(shouldBlockNavigation);
     const navigationLocked = blocker.state === "blocked";
     historyLockRef.current = deleteDialogOpen
+        || pendingOrientation !== null
         || saveState === "saving"
         || saveInFlightRef.current
         || publishPhase !== null
@@ -1117,10 +1186,16 @@ function StudioPage() {
             return;
         }
 
-        const snapshot = boardRef.current;
+        const live = boardRef.current;
 
-        if (snapshot === null) {
+        if (live === null) {
             return;
+        }
+
+        const snapshot = commitBoardEditableText(live);
+
+        if (snapshot !== live) {
+            commitDocument(snapshot);
         }
 
         const targetBoardId = loadedBoardId;
@@ -1430,6 +1505,62 @@ function StudioPage() {
         updateBoard((currentBoard) => updateClockSettings(currentBoard, selectedWidgetId, settings));
     }
 
+    function handleWeatherSettingsChange(
+        settings: WeatherSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateWeatherSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
+    function handleNewsSettingsChange(
+        settings: NewsSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateNewsSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
+    function handleCountdownSettingsChange(
+        settings: CountdownSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateCountdownSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
+    function handleQrSettingsChange(
+        settings: QrSettingsPatch,
+        gesture: "color" | null = null,
+    ) {
+        if (selectedWidgetId === null) {
+            return;
+        }
+
+        applyDocumentUpdate(
+            (currentBoard) => updateQrSettings(currentBoard, selectedWidgetId, settings),
+            gesture,
+        );
+    }
+
     function handleImageSettingsChange(settings: Partial<ImageWidgetSettings>) {
         if (selectedWidgetId === null) {
             return;
@@ -1439,7 +1570,7 @@ function StudioPage() {
     }
 
     function handleInformationCardSettingsChange(
-        settings: Partial<InformationCardWidgetSettings>,
+        settings: SettingsWithColorOpacity<InformationCardWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1453,7 +1584,7 @@ function StudioPage() {
     }
 
     function handleAnnouncementsSettingsChange(
-        settings: Partial<AnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<AnnouncementsWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1467,7 +1598,7 @@ function StudioPage() {
     }
 
     function handleTickerSettingsChange(
-        settings: Partial<TickerWidgetSettings>,
+        settings: SettingsWithColorOpacity<TickerWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1481,7 +1612,7 @@ function StudioPage() {
     }
 
     function handleVerticalAnnouncementsSettingsChange(
-        settings: Partial<VerticalAnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<VerticalAnnouncementsWidgetSettings>,
         gesture: "color" | null = null,
     ) {
         if (selectedWidgetId === null) {
@@ -1506,6 +1637,20 @@ function StudioPage() {
             (currentBoard) => updateWidgetLayout(currentBoard, widgetId, layout),
             "layout",
         );
+    }
+
+    function handleMoveIntoBoard(widgetId: string) {
+        updateBoard((currentBoard) => moveWidgetInside(currentBoard, widgetId));
+        setSelection({ boardId, widgetId });
+    }
+
+    function handleFitWidget(widgetId: string) {
+        updateBoard((currentBoard) => fitWidgetInside(currentBoard, widgetId));
+        setSelection({ boardId, widgetId });
+    }
+
+    function handleMoveAllInside() {
+        updateBoard((currentBoard) => moveAllInside(currentBoard));
     }
 
     function handleMoveWidget(widgetId: string, move: LayerMove) {
@@ -1575,6 +1720,43 @@ function StudioPage() {
         }
 
         const widget = createWidget(type, board);
+
+        updateBoard((currentBoard) => appendWidget(currentBoard, widget));
+        setSelection({ boardId, widgetId: widget.id });
+        revealAddedWidget(widget.id);
+    }
+
+    function applyOrientation(next: BoardOrientation) {
+        const size = boardSizeForOrientation(next);
+        setPendingOrientation(null);
+        updateBoard((current) => ({
+            ...current,
+            width: size.width,
+            height: size.height,
+        }));
+    }
+
+    function handleOrientationChange(next: BoardOrientation) {
+        if (board === null || boardOrientation(board.width, board.height) === next) {
+            return;
+        }
+
+        const size = boardSizeForOrientation(next);
+
+        if (widgetsOutsideBoard(board.widgets, size.width, size.height).length > 0) {
+            setPendingOrientation(next);
+            return;
+        }
+
+        applyOrientation(next);
+    }
+
+    function handleDropWidget(type: WidgetType, point: BoardPoint) {
+        if (board === null) {
+            return;
+        }
+
+        const widget = createWidget(type, board, point);
 
         updateBoard((currentBoard) => appendWidget(currentBoard, widget));
         setSelection({ boardId, widgetId: widget.id });
@@ -1821,16 +2003,28 @@ function StudioPage() {
                             widgets={board.widgets}
                             selectedWidgetId={selectedWidgetId}
                             revealedWidgetId={revealedWidgetId}
+                            boardWidth={board.width}
+                            boardHeight={board.height}
                             onAddWidget={handleAddWidget}
+                            onDropWidget={handleDropWidget}
                             onSelectWidget={(widgetId) => {
                                 setSelection({ boardId, widgetId });
                             }}
                             onMoveWidget={handleMoveWidget}
                             onReorderWidget={handleReorderWidget}
                             onLayerChange={handleLayerChange}
+                            onMoveIntoBoard={handleMoveIntoBoard}
+                            onFitWidget={handleFitWidget}
+                            onMoveAllInside={handleMoveAllInside}
                         />
                         <EditorCanvas
                             board={board}
+                            zoomRef={canvasZoomRef}
+                            onZoomChange={(mode, scale) => {
+                                setCanvasZoom((current) => (
+                                    current.mode === mode && current.scale === scale ? current : { mode, scale }
+                                ));
+                            }}
                             selectedWidgetId={selectedWidgetId}
                             onSelectWidget={(widgetId) => {
                                 setSelection({ boardId, widgetId });
@@ -1846,6 +2040,10 @@ function StudioPage() {
                             onTextToneChange={handleTextToneChange}
                             onTextSizeChange={handleTextSizeChange}
                             onClockSettingsChange={handleClockSettingsChange}
+                            onWeatherSettingsChange={handleWeatherSettingsChange}
+                            onNewsSettingsChange={handleNewsSettingsChange}
+                            onCountdownSettingsChange={handleCountdownSettingsChange}
+                            onQrSettingsChange={handleQrSettingsChange}
                             onImageSettingsChange={handleImageSettingsChange}
                             onInformationCardSettingsChange={handleInformationCardSettingsChange}
                             onAnnouncementsSettingsChange={handleAnnouncementsSettingsChange}
@@ -1859,9 +2057,57 @@ function StudioPage() {
                         />
                     </div>
                 )}
-                <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border bg-surface px-4 text-xs text-muted">
-                    <p>Board resolution: 1920 x 1080</p>
-                    <p>Zoom 100%</p>
+                <footer className="flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border bg-surface px-4 py-1 text-xs text-muted">
+                    <div className="flex items-center gap-3">
+                        <p>
+                            Board resolution: {board === null ? "1920 x 1080" : `${board.width} x ${board.height}`}
+                        </p>
+                        <div className="inline-flex overflow-hidden rounded-control border border-border" role="group" aria-label="Board orientation">
+                            <OrientationButton
+                                label="Landscape"
+                                selected={board !== null && boardOrientation(board.width, board.height) === "landscape"}
+                                disabled={board === null}
+                                onSelect={() => handleOrientationChange("landscape")}
+                            />
+                            <OrientationButton
+                                label="Portrait"
+                                selected={board !== null && boardOrientation(board.width, board.height) === "portrait"}
+                                disabled={board === null}
+                                onSelect={() => handleOrientationChange("portrait")}
+                            />
+                        </div>
+                    </div>
+                    <div className="inline-flex items-center gap-1" role="group" aria-label="Canvas zoom">
+                        <ZoomButton label="Zoom out" onSelect={() => canvasZoomRef.current?.zoomOut()} disabled={board === null}>−</ZoomButton>
+                        <span className="min-w-10 text-center tabular-nums text-foreground" aria-live="polite">
+                            {board === null ? "100%" : `${Math.round(canvasZoom.scale * 100)}%`}
+                        </span>
+                        <ZoomButton label="Zoom in" onSelect={() => canvasZoomRef.current?.zoomIn()} disabled={board === null}>+</ZoomButton>
+                        <ZoomButton
+                            label="Fit board"
+                            pressed={canvasZoom.mode === "fit-board"}
+                            onSelect={() => canvasZoomRef.current?.fitBoard()}
+                            disabled={board === null}
+                        >
+                            Fit Board
+                        </ZoomButton>
+                        <ZoomButton
+                            label="Fit workspace"
+                            pressed={canvasZoom.mode === "fit-workspace"}
+                            onSelect={() => canvasZoomRef.current?.fitWorkspace()}
+                            disabled={board === null}
+                        >
+                            Fit Workspace
+                        </ZoomButton>
+                        <ZoomButton
+                            label="Reset to 100%"
+                            pressed={canvasZoom.mode === "manual" && Math.round(canvasZoom.scale * 100) === 100}
+                            onSelect={() => canvasZoomRef.current?.reset()}
+                            disabled={board === null}
+                        >
+                            100%
+                        </ZoomButton>
+                    </div>
                     <p className="inline-flex items-center gap-2">
                         <span className="size-1.5 rounded-full bg-cyan" aria-hidden="true" />
                         Editing Draft
@@ -1906,8 +2152,83 @@ function StudioPage() {
                     onConfirm={handleConfirmDelete}
                 />
             ) : null}
+            {pendingOrientation !== null && board !== null ? (
+                <OrientationWarningDialog
+                    orientation={pendingOrientation}
+                    outsideCount={widgetsOutsideBoard(
+                        board.widgets,
+                        boardSizeForOrientation(pendingOrientation).width,
+                        boardSizeForOrientation(pendingOrientation).height,
+                    ).length}
+                    onCancel={() => setPendingOrientation(null)}
+                    onConfirm={() => applyOrientation(pendingOrientation)}
+                />
+            ) : null}
             {leaveDialog}
         </>
+    );
+}
+
+type ZoomButtonProps = {
+    label: string;
+    disabled: boolean;
+    pressed?: boolean;
+    onSelect: () => void;
+    children: string;
+};
+
+function ZoomButton({
+    label,
+    disabled,
+    pressed = false,
+    onSelect,
+    children,
+}: ZoomButtonProps) {
+    return (
+        <button
+            type="button"
+            aria-label={label}
+            aria-pressed={pressed}
+            disabled={disabled}
+            onClick={onSelect}
+            className={
+                pressed
+                    ? "h-6 rounded-control bg-surface-hover px-2 text-xs font-medium text-foreground"
+                    : "h-6 rounded-control px-2 text-xs text-muted transition-colors duration-150 hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            }
+        >
+            {children}
+        </button>
+    );
+}
+
+type OrientationButtonProps = {
+    label: string;
+    selected: boolean;
+    disabled: boolean;
+    onSelect: () => void;
+};
+
+function OrientationButton({
+    label,
+    selected,
+    disabled,
+    onSelect,
+}: OrientationButtonProps) {
+    return (
+        <button
+            type="button"
+            aria-pressed={selected}
+            disabled={disabled}
+            onClick={onSelect}
+            className={
+                selected
+                    ? "h-6 bg-surface-hover px-2 text-xs font-medium text-foreground"
+                    : "h-6 px-2 text-xs text-muted transition-colors duration-150 hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            }
+        >
+            {label}
+        </button>
     );
 }
 

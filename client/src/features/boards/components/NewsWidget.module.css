@@ -1,0 +1,383 @@
+.root {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.4em;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    container-type: size;
+    padding: var(--news-padding, 0.7em 0.85em);
+    border: 2px solid color-mix(in srgb, var(--news-accent) 62%, transparent);
+    background: transparent;
+    color: var(--news-text);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.root::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--news-background);
+    opacity: var(--news-background-opacity, 1);
+    pointer-events: none;
+}
+
+.body,
+.footer,
+.fitNote {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+.body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+}
+
+.titleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--news-title-gap, 0.35em);
+    min-width: 0;
+    max-width: 100%;
+}
+
+.heading {
+    margin: 0;
+    overflow: hidden;
+    color: var(--news-title-paint, var(--news-title-color, inherit));
+    font-family: inherit;
+    font-size: var(--news-title-size, 0.85em);
+    font-weight: var(--news-title-weight, 600);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.headline,
+.rowTitle,
+.status {
+    margin: 0;
+    overflow: hidden;
+    color: var(--news-text-paint, inherit);
+    font-weight: inherit;
+    overflow-wrap: anywhere;
+}
+
+.headline {
+    font-size: 1em;
+    line-height: 1.35;
+}
+
+.meta,
+.rowMeta,
+.footer {
+    color: color-mix(in srgb, var(--news-text) calc(var(--news-text-opacity, 1) * 78%), transparent);
+    font-size: 0.72em;
+}
+
+.meta,
+.rowMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45em;
+    margin: 0.35em 0 0;
+}
+
+.numeric {
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+
+.sampleLabel {
+    margin: 0;
+    color: var(--news-accent-paint, var(--news-accent));
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.attribution,
+.creditLink,
+.stale {
+    margin: 0.15em 0 0;
+}
+
+.creditLink {
+    color: var(--news-accent-paint, var(--news-accent));
+    font-size: 0.72em;
+    text-decoration: underline;
+}
+
+.footer {
+    flex: 0 0 auto;
+}
+
+.alignLeft,
+.alignLeft .headline,
+.alignLeft .rowTitle {
+    text-align: left;
+}
+
+.alignCenter,
+.alignCenter .headline,
+.alignCenter .rowTitle {
+    text-align: center;
+}
+
+.alignRight,
+.alignRight .headline,
+.alignRight .rowTitle {
+    text-align: right;
+}
+
+.heading.titleLeft {
+    text-align: left;
+}
+
+.heading.titleCenter {
+    text-align: center;
+}
+
+.heading.titleRight {
+    text-align: right;
+}
+
+.alignLeft .meta,
+.alignLeft .rowMeta {
+    justify-content: flex-start;
+}
+
+.alignCenter .meta,
+.alignCenter .rowMeta {
+    justify-content: center;
+}
+
+.alignRight .meta,
+.alignRight .rowMeta {
+    justify-content: flex-end;
+}
+
+.familySerif {
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.familyMono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.titleFamilySerif {
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.titleFamilyMono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.presetTicker .headline {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.scrollViewport {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 1.35em;
+    overflow: hidden;
+    direction: ltr;
+}
+
+.scrollSample {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    width: max-content;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.scrollTrack,
+.scrollStatic,
+.scrollHalf,
+.scrollSequence,
+.scrollItem {
+    display: flex;
+    flex: none;
+    align-items: center;
+}
+
+.scrollTrack {
+    width: max-content;
+    direction: ltr;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.scrollTrackRtl {
+    animation-name: newsScrollRtl;
+}
+
+.scrollTrackLtr {
+    animation-name: newsScrollLtr;
+}
+
+.scrollStatic {
+    width: 100%;
+    overflow: hidden;
+}
+
+.scrollItem {
+    color: var(--news-text-paint, inherit);
+    white-space: nowrap;
+    unicode-bidi: isolate;
+}
+
+.scrollGap {
+    flex: none;
+    width: 0.38em;
+    height: 0.38em;
+    margin-inline: 0.9em;
+    background-color: var(--news-accent-paint, var(--news-accent));
+    transform: rotate(45deg);
+}
+
+.tickerMotion {
+    animation: newsTickerIn 0.7s ease;
+}
+
+.root[dir="rtl"] .tickerMotion {
+    animation-name: newsTickerInRtl;
+}
+
+.presetCards .titleGroup {
+    gap: var(--news-title-gap, 0.45em);
+}
+
+.presetCards .headline {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-height: 1.45;
+    white-space: normal;
+}
+
+.cardMotion {
+    animation: newsFade 0.9s ease;
+}
+
+.presetList .titleGroup {
+    gap: var(--news-title-gap, 0.3em);
+    height: 100%;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.row {
+    min-width: 0;
+    padding: 0.35em 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--news-accent) 45%, transparent);
+}
+
+.row:last-child {
+    border-bottom: 0;
+}
+
+.rowTitle {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+}
+
+.fitNote {
+    margin: 0.3em 0 0;
+    color: color-mix(in srgb, var(--news-text) calc(var(--news-text-opacity, 1) * 70%), transparent);
+    font-size: 0.62em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tickerMotion,
+    .cardMotion,
+    .scrollTrack {
+        animation: none;
+    }
+}
+
+@keyframes newsTickerIn {
+    from {
+        opacity: 0;
+        transform: translateX(-28%);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes newsTickerInRtl {
+    from {
+        opacity: 0;
+        transform: translateX(28%);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes newsFade {
+    from {
+        opacity: 0;
+        transform: translateY(0.55em);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes newsScrollRtl {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+@keyframes newsScrollLtr {
+    from {
+        transform: translate3d(-50%, 0, 0);
+    }
+
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}

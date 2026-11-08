@@ -25,7 +25,16 @@ import type {
     Widget,
 } from "../../boards/types/boardTypes.ts";
 import { clockTimeZones } from "../clockTimeZones.ts";
-import ColorField from "./ColorField.tsx";
+import ColorAlphaField from "./ColorAlphaField.tsx";
+import type { SettingsWithColorOpacity } from "../colorAlpha.ts";
+import { WeatherContentFields, WeatherStyleFields } from "./WeatherFields.tsx";
+import { NewsContentFields, NewsStyleFields } from "./NewsFields.tsx";
+import { CountdownContentFields, CountdownStyleFields } from "./CountdownFields.tsx";
+import { QrContentFields, QrStyleFields } from "./QrFields.tsx";
+import type { NewsSettingsPatch } from "../newsSettings.ts";
+import type { CountdownSettingsPatch } from "../countdownSettings.ts";
+import type { QrSettingsPatch } from "../qrSettings.ts";
+import type { WeatherSettingsPatch } from "../weatherSettings.ts";
 import {
     imageObjectFitOptions,
     maximumImageBorderRadius,
@@ -81,21 +90,37 @@ type PropertiesPanelProps = {
     onTextToneChange: (tone: TextWidgetSettings["tone"]) => void;
     onTextSizeChange: (size: TextWidgetSettings["size"]) => void;
     onClockSettingsChange: (settings: Partial<ClockWidgetSettings>) => void;
+    onWeatherSettingsChange: (
+        settings: WeatherSettingsPatch,
+        gesture?: "color" | null,
+    ) => void;
+    onNewsSettingsChange: (
+        settings: NewsSettingsPatch,
+        gesture?: "color" | null,
+    ) => void;
+    onCountdownSettingsChange: (
+        settings: CountdownSettingsPatch,
+        gesture?: "color" | null,
+    ) => void;
+    onQrSettingsChange: (
+        settings: QrSettingsPatch,
+        gesture?: "color" | null,
+    ) => void;
     onImageSettingsChange: (settings: Partial<ImageWidgetSettings>) => void;
     onInformationCardSettingsChange: (
-        settings: Partial<InformationCardWidgetSettings>,
+        settings: SettingsWithColorOpacity<InformationCardWidgetSettings>,
         gesture?: "color",
     ) => void;
     onAnnouncementsSettingsChange: (
-        settings: Partial<AnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<AnnouncementsWidgetSettings>,
         gesture?: "color",
     ) => void;
     onTickerSettingsChange: (
-        settings: Partial<TickerWidgetSettings>,
+        settings: SettingsWithColorOpacity<TickerWidgetSettings>,
         gesture?: "color",
     ) => void;
     onVerticalAnnouncementsSettingsChange: (
-        settings: Partial<VerticalAnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<VerticalAnnouncementsWidgetSettings>,
         gesture?: "color",
     ) => void;
     onColorSessionEnd: () => void;
@@ -158,10 +183,12 @@ type InformationCardContentFieldsProps = {
 
 type InformationCardStyleFieldsProps = {
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     borderRadius: number;
     onInformationCardSettingsChange: (
-        settings: Partial<InformationCardWidgetSettings>,
+        settings: SettingsWithColorOpacity<InformationCardWidgetSettings>,
         gesture?: "color",
     ) => void;
     onColorSessionEnd: () => void;
@@ -187,10 +214,12 @@ type AnnouncementsContentFieldsProps = {
 
 type AnnouncementsStyleFieldsProps = {
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     borderRadius: number;
     onAnnouncementsSettingsChange: (
-        settings: Partial<AnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<AnnouncementsWidgetSettings>,
         gesture?: "color",
     ) => void;
     onColorSessionEnd: () => void;
@@ -222,14 +251,17 @@ type TickerMessageFieldsProps = {
 
 type TickerStyleFieldsProps = {
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     accentColor: string;
+    accentOpacity?: number;
     borderRadius: number;
     fontFamily: TickerFontFamily;
     fontSize: number;
     fontWeight: TickerFontWeight;
     onTickerSettingsChange: (
-        settings: Partial<TickerWidgetSettings>,
+        settings: SettingsWithColorOpacity<TickerWidgetSettings>,
         gesture?: "color",
     ) => void;
     onColorSessionEnd: () => void;
@@ -320,6 +352,14 @@ function widgetTypeLabel(type: Widget["type"]): string {
             return "Ticker";
         case "vertical-announcements":
             return "Vertical Announcements";
+        case "weather":
+            return "Weather";
+        case "news":
+            return "News";
+        case "countdown":
+            return "Countdown";
+        case "qr":
+            return "QR Code";
     }
 }
 
@@ -364,6 +404,10 @@ function contentProperties(widget: Widget): Property[] {
             ];
         case "ticker":
         case "vertical-announcements":
+        case "weather":
+        case "news":
+        case "countdown":
+        case "qr":
             return [];
     }
 }
@@ -388,6 +432,10 @@ function styleProperties(widget: Widget): Property[] {
         case "announcements":
         case "ticker":
         case "vertical-announcements":
+        case "weather":
+        case "news":
+        case "countdown":
+        case "qr":
             return [];
     }
 }
@@ -1001,7 +1049,9 @@ function InformationCardContentFields({
 
 function InformationCardStyleFields({
     backgroundColor,
+    backgroundOpacity,
     textColor,
+    textOpacity,
     borderRadius,
     onInformationCardSettingsChange,
     onColorSessionEnd,
@@ -1032,19 +1082,27 @@ function InformationCardStyleFields({
 
     return (
         <>
-            <ColorField
+            <ColorAlphaField
                 label="Background color"
                 value={backgroundColor}
+                opacity={backgroundOpacity}
                 onColorChange={(color) => {
                     onInformationCardSettingsChange({ backgroundColor: color }, "color");
                 }}
+                onOpacityChange={(opacity) => {
+                    onInformationCardSettingsChange({ backgroundOpacity: opacity }, "color");
+                }}
                 onSessionEnd={onColorSessionEnd}
             />
-            <ColorField
+            <ColorAlphaField
                 label="Text color"
                 value={textColor}
+                opacity={textOpacity}
                 onColorChange={(color) => {
                     onInformationCardSettingsChange({ textColor: color }, "color");
+                }}
+                onOpacityChange={(opacity) => {
+                    onInformationCardSettingsChange({ textOpacity: opacity }, "color");
                 }}
                 onSessionEnd={onColorSessionEnd}
             />
@@ -1248,7 +1306,9 @@ function AnnouncementsContentFields({
 
 function AnnouncementsStyleFields({
     backgroundColor,
+    backgroundOpacity,
     textColor,
+    textOpacity,
     borderRadius,
     onAnnouncementsSettingsChange,
     onColorSessionEnd,
@@ -1279,19 +1339,27 @@ function AnnouncementsStyleFields({
 
     return (
         <>
-            <ColorField
+            <ColorAlphaField
                 label="Background color"
                 value={backgroundColor}
+                opacity={backgroundOpacity}
                 onColorChange={(color) => {
                     onAnnouncementsSettingsChange({ backgroundColor: color }, "color");
                 }}
+                onOpacityChange={(opacity) => {
+                    onAnnouncementsSettingsChange({ backgroundOpacity: opacity }, "color");
+                }}
                 onSessionEnd={onColorSessionEnd}
             />
-            <ColorField
+            <ColorAlphaField
                 label="Text color"
                 value={textColor}
+                opacity={textOpacity}
                 onColorChange={(color) => {
                     onAnnouncementsSettingsChange({ textColor: color }, "color");
+                }}
+                onOpacityChange={(opacity) => {
+                    onAnnouncementsSettingsChange({ textOpacity: opacity }, "color");
                 }}
                 onSessionEnd={onColorSessionEnd}
             />
@@ -1637,8 +1705,11 @@ const tickerFontWeightLabels: Record<TickerFontWeight, string> = {
 
 function TickerStyleFields({
     backgroundColor,
+    backgroundOpacity,
     textColor,
+    textOpacity,
     accentColor,
+    accentOpacity,
     borderRadius,
     fontFamily,
     fontSize,
@@ -1707,27 +1778,39 @@ function TickerStyleFields({
 
     return (
         <>
-            <ColorField
+            <ColorAlphaField
                 label="Background color"
                 value={backgroundColor}
+                opacity={backgroundOpacity}
                 onColorChange={(color) => {
                     onTickerSettingsChange({ backgroundColor: color }, "color");
                 }}
-                onSessionEnd={onColorSessionEnd}
-            />
-            <ColorField
-                label="Text color"
-                value={textColor}
-                onColorChange={(color) => {
-                    onTickerSettingsChange({ textColor: color }, "color");
+                onOpacityChange={(opacity) => {
+                    onTickerSettingsChange({ backgroundOpacity: opacity }, "color");
                 }}
                 onSessionEnd={onColorSessionEnd}
             />
-            <ColorField
+            <ColorAlphaField
+                label="Text color"
+                value={textColor}
+                opacity={textOpacity}
+                onColorChange={(color) => {
+                    onTickerSettingsChange({ textColor: color }, "color");
+                }}
+                onOpacityChange={(opacity) => {
+                    onTickerSettingsChange({ textOpacity: opacity }, "color");
+                }}
+                onSessionEnd={onColorSessionEnd}
+            />
+            <ColorAlphaField
                 label="Accent color"
                 value={accentColor}
+                opacity={accentOpacity}
                 onColorChange={(color) => {
                     onTickerSettingsChange({ accentColor: color }, "color");
+                }}
+                onOpacityChange={(opacity) => {
+                    onTickerSettingsChange({ accentOpacity: opacity }, "color");
                 }}
                 onSessionEnd={onColorSessionEnd}
             />
@@ -1899,15 +1982,18 @@ type VerticalAnnouncementsContentFieldsProps = {
 
 type VerticalAnnouncementsStyleFieldsProps = {
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     accentColor: string;
+    accentOpacity?: number;
     borderRadius: number;
     fontFamily: TickerFontFamily;
     titleFontSize: number;
     descriptionFontSize: number;
     fontWeight: TickerFontWeight;
     onVerticalAnnouncementsSettingsChange: (
-        settings: Partial<VerticalAnnouncementsWidgetSettings>,
+        settings: SettingsWithColorOpacity<VerticalAnnouncementsWidgetSettings>,
         gesture?: "color",
     ) => void;
     onColorSessionEnd: () => void;
@@ -2256,8 +2342,11 @@ function VerticalAnnouncementsContentFields({
 
 function VerticalAnnouncementsStyleFields({
     backgroundColor,
+    backgroundOpacity,
     textColor,
+    textOpacity,
     accentColor,
+    accentOpacity,
     borderRadius,
     fontFamily,
     titleFontSize,
@@ -2346,34 +2435,46 @@ function VerticalAnnouncementsStyleFields({
 
     return (
         <>
-            <ColorField
+            <ColorAlphaField
                 label="Background color"
                 value={backgroundColor}
+                opacity={backgroundOpacity}
                 validationPath="backgroundColor"
                 issueMessage={backgroundIssue}
                 onColorChange={(color) => {
                     onVerticalAnnouncementsSettingsChange({ backgroundColor: color }, "color");
                 }}
+                onOpacityChange={(opacity) => {
+                    onVerticalAnnouncementsSettingsChange({ backgroundOpacity: opacity }, "color");
+                }}
                 onSessionEnd={onColorSessionEnd}
             />
-            <ColorField
+            <ColorAlphaField
                 label="Text color"
                 value={textColor}
+                opacity={textOpacity}
                 validationPath="textColor"
                 issueMessage={textIssue}
                 onColorChange={(color) => {
                     onVerticalAnnouncementsSettingsChange({ textColor: color }, "color");
                 }}
+                onOpacityChange={(opacity) => {
+                    onVerticalAnnouncementsSettingsChange({ textOpacity: opacity }, "color");
+                }}
                 onSessionEnd={onColorSessionEnd}
             />
-            <ColorField
+            <ColorAlphaField
                 label="Accent"
                 hint="Marker beside each announcement."
                 value={accentColor}
+                opacity={accentOpacity}
                 validationPath="accentColor"
                 issueMessage={accentIssue}
                 onColorChange={(color) => {
                     onVerticalAnnouncementsSettingsChange({ accentColor: color }, "color");
+                }}
+                onOpacityChange={(opacity) => {
+                    onVerticalAnnouncementsSettingsChange({ accentOpacity: opacity }, "color");
                 }}
                 onSessionEnd={onColorSessionEnd}
             />
@@ -2538,6 +2639,10 @@ function PropertiesPanel({
     onTextToneChange,
     onTextSizeChange,
     onClockSettingsChange,
+    onWeatherSettingsChange,
+    onNewsSettingsChange,
+    onCountdownSettingsChange,
+    onQrSettingsChange,
     onImageSettingsChange,
     onInformationCardSettingsChange,
     onAnnouncementsSettingsChange,
@@ -2589,6 +2694,14 @@ function PropertiesPanel({
     const editingTextStyle = selectedWidget?.type === "text" && activeTab === "Style";
     const editingClock = selectedWidget?.type === "clock" && activeTab === "Content";
     const editingClockStyle = selectedWidget?.type === "clock" && activeTab === "Style";
+    const editingWeather = selectedWidget?.type === "weather" && activeTab === "Content";
+    const editingWeatherStyle = selectedWidget?.type === "weather" && activeTab === "Style";
+    const editingNews = selectedWidget?.type === "news" && activeTab === "Content";
+    const editingNewsStyle = selectedWidget?.type === "news" && activeTab === "Style";
+    const editingCountdown = selectedWidget?.type === "countdown" && activeTab === "Content";
+    const editingCountdownStyle = selectedWidget?.type === "countdown" && activeTab === "Style";
+    const editingQr = selectedWidget?.type === "qr" && activeTab === "Content";
+    const editingQrStyle = selectedWidget?.type === "qr" && activeTab === "Style";
     const editingImage = selectedWidget?.type === "image" && activeTab === "Content";
     const editingImageStyle = selectedWidget?.type === "image" && activeTab === "Style";
     const editingInformationCard = selectedWidget?.type === "information-card" && activeTab === "Content";
@@ -2603,6 +2716,14 @@ function PropertiesPanel({
         && !editingTextStyle
         && !editingClock
         && !editingClockStyle
+        && !editingWeather
+        && !editingWeatherStyle
+        && !editingNews
+        && !editingNewsStyle
+        && !editingCountdown
+        && !editingCountdownStyle
+        && !editingQr
+        && !editingQrStyle
         && !editingImage
         && !editingImageStyle
         && !editingInformationCard
@@ -2696,6 +2817,70 @@ function PropertiesPanel({
                             onClockSettingsChange={onClockSettingsChange}
                         />
                     ) : null}
+                    {editingWeather && selectedWidget.type === "weather" ? (
+                        <WeatherContentFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            frame={selectedWidget.layout}
+                            onWeatherSettingsChange={onWeatherSettingsChange}
+                        />
+                    ) : null}
+                    {editingWeatherStyle && selectedWidget.type === "weather" ? (
+                        <WeatherStyleFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            frame={selectedWidget.layout}
+                            onWeatherSettingsChange={onWeatherSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
+                        />
+                    ) : null}
+                    {editingNews && selectedWidget.type === "news" ? (
+                        <NewsContentFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            frame={selectedWidget.layout}
+                            onNewsSettingsChange={onNewsSettingsChange}
+                        />
+                    ) : null}
+                    {editingCountdown && selectedWidget.type === "countdown" ? (
+                        <CountdownContentFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onCountdownSettingsChange={onCountdownSettingsChange}
+                        />
+                    ) : null}
+                    {editingCountdownStyle && selectedWidget.type === "countdown" ? (
+                        <CountdownStyleFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onCountdownSettingsChange={onCountdownSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
+                        />
+                    ) : null}
+                    {editingQr && selectedWidget.type === "qr" ? (
+                        <QrContentFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onQrSettingsChange={onQrSettingsChange}
+                        />
+                    ) : null}
+                    {editingQrStyle && selectedWidget.type === "qr" ? (
+                        <QrStyleFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            onQrSettingsChange={onQrSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
+                        />
+                    ) : null}
+                    {editingNewsStyle && selectedWidget.type === "news" ? (
+                        <NewsStyleFields
+                            key={selectedWidget.id}
+                            settings={selectedWidget.settings}
+                            frame={selectedWidget.layout}
+                            onNewsSettingsChange={onNewsSettingsChange}
+                            onColorSessionEnd={onColorSessionEnd}
+                        />
+                    ) : null}
                     {editingImage && selectedWidget.type === "image" ? (
                         <ImageContentFields
                             key={selectedWidget.id}
@@ -2727,7 +2912,9 @@ function PropertiesPanel({
                         <InformationCardStyleFields
                             key={selectedWidget.id}
                             backgroundColor={selectedWidget.settings.backgroundColor}
+                            backgroundOpacity={selectedWidget.settings.backgroundOpacity}
                             textColor={selectedWidget.settings.textColor}
+                            textOpacity={selectedWidget.settings.textOpacity}
                             borderRadius={selectedWidget.settings.borderRadius}
                             onInformationCardSettingsChange={onInformationCardSettingsChange}
                             onColorSessionEnd={onColorSessionEnd}
@@ -2745,7 +2932,9 @@ function PropertiesPanel({
                         <AnnouncementsStyleFields
                             key={selectedWidget.id}
                             backgroundColor={selectedWidget.settings.backgroundColor}
+                            backgroundOpacity={selectedWidget.settings.backgroundOpacity}
                             textColor={selectedWidget.settings.textColor}
+                            textOpacity={selectedWidget.settings.textOpacity}
                             borderRadius={selectedWidget.settings.borderRadius}
                             onAnnouncementsSettingsChange={onAnnouncementsSettingsChange}
                             onColorSessionEnd={onColorSessionEnd}
@@ -2764,8 +2953,11 @@ function PropertiesPanel({
                         <TickerStyleFields
                             key={selectedWidget.id}
                             backgroundColor={selectedWidget.settings.backgroundColor}
+                            backgroundOpacity={selectedWidget.settings.backgroundOpacity}
                             textColor={selectedWidget.settings.textColor}
+                            textOpacity={selectedWidget.settings.textOpacity}
                             accentColor={selectedWidget.settings.accentColor}
+                            accentOpacity={selectedWidget.settings.accentOpacity}
                             borderRadius={selectedWidget.settings.borderRadius}
                             fontFamily={selectedWidget.settings.fontFamily ?? defaultTickerFontFamily}
                             fontSize={selectedWidget.settings.fontSize ?? defaultTickerFontSize}
@@ -2787,8 +2979,11 @@ function PropertiesPanel({
                         <VerticalAnnouncementsStyleFields
                             key={selectedWidget.id}
                             backgroundColor={selectedWidget.settings.backgroundColor}
+                            backgroundOpacity={selectedWidget.settings.backgroundOpacity}
                             textColor={selectedWidget.settings.textColor}
+                            textOpacity={selectedWidget.settings.textOpacity}
                             accentColor={selectedWidget.settings.accentColor}
+                            accentOpacity={selectedWidget.settings.accentOpacity}
                             borderRadius={selectedWidget.settings.borderRadius}
                             fontFamily={selectedWidget.settings.fontFamily ?? defaultVerticalAnnouncementFontFamily}
                             titleFontSize={selectedWidget.settings.titleFontSize ?? defaultVerticalAnnouncementTitleFontSize}

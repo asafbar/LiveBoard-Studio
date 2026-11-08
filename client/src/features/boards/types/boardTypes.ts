@@ -1,4 +1,4 @@
-export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements";
+export type WidgetType = "text" | "clock" | "image" | "information-card" | "announcements" | "ticker" | "vertical-announcements" | "weather" | "news" | "countdown" | "qr";
 
 export type WidgetLayout = {
     x: number;
@@ -35,7 +35,9 @@ export type InformationCardWidgetSettings = {
     badge?: string;
     imageSrc?: string;
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     borderRadius: number;
 };
 
@@ -53,7 +55,9 @@ export type AnnouncementsWidgetSettings = {
     title: string;
     items: AnnouncementItem[];
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     borderRadius: number;
 };
 
@@ -73,8 +77,11 @@ export type TickerWidgetSettings = {
     direction: TickerDirection;
     speed: number;
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     accentColor: string;
+    accentOpacity?: number;
     borderRadius: number;
     fontFamily?: TickerFontFamily;
     fontSize?: number;
@@ -88,12 +95,207 @@ export type VerticalAnnouncementItem = {
     label?: string;
 };
 
+export type WeatherTemperatureUnit = "celsius" | "fahrenheit";
+
+export type WeatherLayoutName = "compact" | "expanded";
+
+export type WeatherPreset = "classic" | "minimal" | "horizontal" | "forecast";
+
+export type WeatherDirection = "auto" | "ltr" | "rtl";
+
+export type WeatherAlign = "start" | "center" | "end" | "left" | "right";
+
+export type WeatherFontFamily = "sans" | "serif" | "mono";
+
+export type WeatherFontWeight = 400 | 500 | 600 | 700;
+
+export type WeatherRefreshMinutes = 10 | 30 | 60 | 1440;
+
+export type WeatherLocationSettings = {
+    id?: string;
+    name: string;
+    label: string;
+    latitude: number;
+    longitude: number;
+    timezone: string;
+    country?: string;
+    countryCode?: string;
+    admin1?: string;
+};
+
+export type NewsSource = "sample" | "usgs";
+
+export type NewsCategory = "israel" | "breaking" | "business" | "technology" | "earthquakes";
+
+export type NewsPreset = "ticker" | "cards" | "list";
+
+export type NewsTickerMotion = "scroll" | "slide";
+
+export type NewsScrollDirection = "ltr" | "rtl";
+
+export type NewsDirection = "auto" | "ltr" | "rtl";
+
+export type NewsAlign = "start" | "center" | "end" | "left" | "right";
+
+export type NewsFontFamily = "sans" | "serif" | "mono";
+
+export type NewsFontWeight = 400 | 500 | 600 | 700;
+
+export type NewsRefreshMinutes = 10 | 30 | 60 | 1440;
+
+export type NewsWidgetSettings = {
+    source: NewsSource;
+    category: NewsCategory;
+    preset: NewsPreset;
+    maxHeadlines: number;
+    rotationSeconds: number;
+    tickerMotion?: NewsTickerMotion;
+    scrollDirection?: NewsScrollDirection;
+    scrollSpeed?: number;
+    refreshIntervalMinutes?: NewsRefreshMinutes;
+    backgroundColor: string;
+    textColor: string;
+    accentColor: string;
+    borderRadius: number;
+    title?: string;
+    direction?: NewsDirection;
+    align?: NewsAlign;
+    titleAlign?: NewsAlign;
+    backgroundOpacity?: number;
+    padding?: number;
+    titleSpacing?: number;
+    titleColor?: string;
+    textOpacity?: number;
+    titleOpacity?: number;
+    accentOpacity?: number;
+    fontFamily?: NewsFontFamily;
+    fontSize?: number;
+    fontWeight?: NewsFontWeight;
+    titleFontFamily?: NewsFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: NewsFontWeight;
+};
+
+export type WeatherWidgetSettings = {
+    location: WeatherLocationSettings;
+    unit: WeatherTemperatureUnit;
+    layout: WeatherLayoutName;
+    showFeelsLike: boolean;
+    showForecast: boolean;
+    title?: string;
+    preset?: WeatherPreset;
+    backgroundColor: string;
+    backgroundOpacity?: number;
+    textColor: string;
+    textOpacity?: number;
+    titleColor?: string;
+    titleOpacity?: number;
+    accentColor: string;
+    accentOpacity?: number;
+    borderRadius: number;
+    padding?: number;
+    titleSpacing?: number;
+    refreshIntervalMinutes?: WeatherRefreshMinutes;
+    direction?: WeatherDirection;
+    align?: WeatherAlign;
+    titleAlign?: WeatherAlign;
+    fontFamily?: WeatherFontFamily;
+    fontSize?: number;
+    fontWeight?: WeatherFontWeight;
+    titleFontFamily?: WeatherFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: WeatherFontWeight;
+};
+
+export type CountdownPreset = "digital" | "minimal";
+
+export type CountdownDirection = "auto" | "ltr" | "rtl";
+
+export type CountdownAlign = "start" | "center" | "end" | "left" | "right";
+
+export type CountdownFontFamily = "sans" | "serif" | "mono";
+
+export type CountdownFontWeight = 400 | 500 | 600 | 700;
+
+export type CountdownWidgetSettings = {
+    title?: string;
+    targetDate: string;
+    targetTime: string;
+    timeZone: string;
+    showDays: boolean;
+    showHours: boolean;
+    showMinutes: boolean;
+    showSeconds: boolean;
+    completionMessage?: string;
+    preset: CountdownPreset;
+    direction?: CountdownDirection;
+    align?: CountdownAlign;
+    titleAlign?: CountdownAlign;
+    backgroundColor: string;
+    backgroundOpacity?: number;
+    textColor: string;
+    textOpacity?: number;
+    titleColor?: string;
+    titleOpacity?: number;
+    accentColor: string;
+    accentOpacity?: number;
+    borderRadius: number;
+    padding?: number;
+    titleSpacing?: number;
+    fontFamily?: CountdownFontFamily;
+    fontSize?: number;
+    fontWeight?: CountdownFontWeight;
+    titleFontFamily?: CountdownFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: CountdownFontWeight;
+};
+
+export type QrPreset = "classic" | "split";
+
+export type QrDirection = "auto" | "ltr" | "rtl";
+
+export type QrAlign = "start" | "center" | "end" | "left" | "right";
+
+export type QrFontFamily = "sans" | "serif" | "mono";
+
+export type QrFontWeight = 400 | 500 | 600 | 700;
+
+export type QrWidgetSettings = {
+    content: string;
+    title?: string;
+    subtitle?: string;
+    preset: QrPreset;
+    direction?: QrDirection;
+    align?: QrAlign;
+    titleAlign?: QrAlign;
+    foregroundColor: string;
+    codeBackgroundColor: string;
+    backgroundColor: string;
+    backgroundOpacity?: number;
+    textColor: string;
+    textOpacity?: number;
+    titleColor?: string;
+    titleOpacity?: number;
+    borderRadius: number;
+    padding?: number;
+    titleSpacing?: number;
+    fontFamily?: QrFontFamily;
+    fontSize?: number;
+    fontWeight?: QrFontWeight;
+    titleFontFamily?: QrFontFamily;
+    titleFontSize?: number;
+    titleFontWeight?: QrFontWeight;
+};
+
 export type VerticalAnnouncementsWidgetSettings = {
     items: VerticalAnnouncementItem[];
     speed: number;
     backgroundColor: string;
+    backgroundOpacity?: number;
     textColor: string;
+    textOpacity?: number;
     accentColor: string;
+    accentOpacity?: number;
     borderRadius: number;
     pauseSeconds?: number;
     fontFamily?: TickerFontFamily;
@@ -136,6 +338,22 @@ export type Widget = {
     | {
         type: "vertical-announcements";
         settings: VerticalAnnouncementsWidgetSettings;
+    }
+    | {
+        type: "weather";
+        settings: WeatherWidgetSettings;
+    }
+    | {
+        type: "news";
+        settings: NewsWidgetSettings;
+    }
+    | {
+        type: "countdown";
+        settings: CountdownWidgetSettings;
+    }
+    | {
+        type: "qr";
+        settings: QrWidgetSettings;
     }
 );
 

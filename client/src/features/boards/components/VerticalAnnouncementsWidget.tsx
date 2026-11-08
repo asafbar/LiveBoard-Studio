@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { paintColor } from "../../editor/colorAlpha.ts";
 import type {
     VerticalAnnouncementItem,
     VerticalAnnouncementsWidgetSettings,
@@ -43,6 +44,7 @@ type LoopMeasure = {
 
 type PanelStyle = CSSProperties & {
     "--vertical-accent": string;
+    "--vertical-accent-paint"?: string;
     "--vertical-radius": string;
 };
 
@@ -178,12 +180,16 @@ function VerticalAnnouncementsWidget({ settings }: VerticalAnnouncementsWidgetPr
         descriptionSize,
         items.map((item) => `${item.id}\u0000${item.title}\u0000${item.description ?? ""}\u0000${item.label ?? ""}`).join("\u0001"),
     ].join("\u0002");
+    const accentPaint = paintColor(settings.accentColor, settings.accentOpacity);
     const panelStyle: PanelStyle = {
-        backgroundColor: settings.backgroundColor,
-        color: settings.textColor,
+        backgroundColor: paintColor(settings.backgroundColor, settings.backgroundOpacity),
+        color: paintColor(settings.textColor, settings.textOpacity),
         borderRadius: settings.borderRadius,
         "--vertical-accent": settings.accentColor,
         "--vertical-radius": `${settings.borderRadius}px`,
+        ...(accentPaint === settings.accentColor
+            ? {}
+            : { "--vertical-accent-paint": accentPaint }),
     };
     const speed = resolvedVerticalAnnouncementSpeed(settings.speed);
     const pauseMs = resolvedVerticalAnnouncementPauseSeconds(settings.pauseSeconds) * 1000;

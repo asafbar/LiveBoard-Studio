@@ -9,6 +9,9 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { Widget } from "../../boards/types/boardTypes.ts";
+import { widgetExtendsOutsideBoard } from "../../boards/boardOrientation.ts";
+import { widgetCanMoveInside, widgetExceedsBoard } from "../../boards/canvasView.ts";
+import { scrollTopForRevealedRow } from "../sidebarSections.ts";
 import {
     isWidgetLocked,
     isWidgetVisible,
@@ -26,9 +29,14 @@ type LayersPanelProps = {
     selectedWidgetId: string | null;
     revealedWidgetId: string | null;
     onSelectWidget: (widgetId: string) => void;
+    boardWidth: number;
+    boardHeight: number;
     onMoveWidget: (widgetId: string, move: LayerMove) => void;
     onReorderWidget: (widgetId: string, targetId: string, placement: LayerDropPlacement) => void;
     onLayerChange: (widgetId: string, change: WidgetLayerChange) => void;
+    onMoveIntoBoard: (widgetId: string) => void;
+    onFitWidget: (widgetId: string) => void;
+    onMoveAllInside: () => void;
 };
 
 type DropIndicator = {
@@ -59,6 +67,10 @@ const typeLabels: Record<Widget["type"], string> = {
     announcements: "Announcements",
     ticker: "Ticker",
     "vertical-announcements": "Vertical Announcements",
+    weather: "Weather",
+    news: "News",
+    countdown: "Countdown",
+    qr: "QR Code",
 };
 
 const typeIcons: Record<Widget["type"], StudioIconName> = {
@@ -69,6 +81,10 @@ const typeIcons: Record<Widget["type"], StudioIconName> = {
     announcements: "announcements",
     ticker: "ticker",
     "vertical-announcements": "vertical-announcements",
+    weather: "weather",
+    news: "news",
+    countdown: "countdown",
+    qr: "qr",
 };
 
 const layerMenuWidth = 168;
@@ -83,9 +99,14 @@ function LayersPanel({
     selectedWidgetId,
     revealedWidgetId,
     onSelectWidget,
+    boardWidth,
+    boardHeight,
     onMoveWidget,
     onReorderWidget,
     onLayerChange,
+    onMoveIntoBoard,
+    onFitWidget,
+    onMoveAllInside,
 }: LayersPanelProps) {
     const listRef = useRef<HTMLUListElement>(null);
     const dragRef = useRef<LayerDrag | null>(null);
@@ -95,14 +116,30 @@ function LayersPanel({
     const [indicator, setIndicator] = useState<DropIndicator | null>(null);
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const layers = [...widgets].reverse();
+    const recoverableCount = widgets.filter((widget) => widgetCanMoveInside(widget.layout, boardWidth, boardHeight)).length;
 
     useLayoutEffect(() => {
         if (revealedWidgetId === null) {
             return;
         }
 
-        const row = listRef.current?.querySelector<HTMLElement>(`[data-layer-id="${CSS.escape(revealedWidgetId)}"]`);
-        row?.scrollIntoView({ block: "nearest" });
+        const list = listRef.current;
+        const row = list?.querySelector<HTMLElement>(`[data-layer-id="${CSS.escape(revealedWidgetId)}"]`);
+
+        if (list === null || list === undefined || row === null || row === undefined) {
+            return;
+        }
+
+        const listRect = list.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+
+        list.scrollTop = scrollTopForRevealedRow(
+            list.scrollTop,
+            listRect.top,
+            listRect.bottom,
+            rowRect.top,
+            rowRect.bottom,
+        );
     }, [revealedWidgetId, widgets]);
 
     function updateIndicator(next: DropIndicator | null) {
@@ -189,11 +226,25 @@ function LayersPanel({
                     No widgets on this board.
                 </p>
             ) : (
+                <>
+                {recoverableCount > 0 ? (
+                    <div className="px-2 pb-1">
+                        <button
+                            type="button"
+                            onClick={onMoveAllInside}
+                            className="h-7 w-full rounded-control border border-border px-2 text-left text-[13px] font-medium text-secondary transition-colors duration-150 hover:bg-surface-hover hover:text-foreground"
+                        >
+                            Move all inside
+                        </button>
+                    </div>
+                ) : null}
                 <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-1" aria-label="Layers">
                     {layers.map((widget) => (
                         <LayerRow
                             key={widget.id}
                             widget={widget}
+                            boardWidth={boardWidth}
+                            boardHeight={boardHeight}
                             widgets={widgets}
                             selected={widget.id === selectedWidgetId}
                             revealed={widget.id === revealedWidgetId}
@@ -205,6 +256,8 @@ function LayersPanel({
                             indicator={indicator?.widgetId === widget.id ? indicator.placement : null}
                             onSelectWidget={onSelectWidget}
                             onMoveWidget={onMoveWidget}
+                            onMoveIntoBoard={onMoveIntoBoard}
+                            onFitWidget={onFitWidget}
                             onLayerChange={onLayerChange}
                             onGripPointerDown={handleGripPointerDown}
                             onGripPointerMove={handleGripPointerMove}
@@ -228,6 +281,7 @@ function LayersPanel({
                         />
                     ))}
                 </ul>
+                </>
             )}
         </div>
     );
@@ -236,6 +290,8 @@ function LayersPanel({
 type LayerRowProps = {
     widget: Widget;
     widgets: readonly Widget[];
+    boardWidth: number;
+    boardHeight: number;
     selected: boolean;
     revealed: boolean;
     hidden: boolean;
@@ -246,6 +302,8 @@ type LayerRowProps = {
     indicator: LayerDropPlacement | null;
     onSelectWidget: (widgetId: string) => void;
     onMoveWidget: (widgetId: string, move: LayerMove) => void;
+    onMoveIntoBoard: (widgetId: string) => void;
+    onFitWidget: (widgetId: string) => void;
     onLayerChange: (widgetId: string, change: WidgetLayerChange) => void;
     onGripPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, widgetId: string) => void;
     onGripPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -256,9 +314,33 @@ type LayerRowProps = {
     onEndRename: () => void;
 };
 
+type OutsideBoardMarkProps = {
+    label: string;
+};
+
+function OutsideBoardMark({ label }: OutsideBoardMarkProps) {
+    return (
+        <span
+            role="img"
+            title="This widget is outside the board"
+            aria-label={`${label} is outside the board`}
+            className="inline-flex size-4 shrink-0 items-center justify-center"
+            style={{ color: "var(--warning)" }}
+        >
+            <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden="true">
+                <path d="M8 2.4 14.2 13.6H1.8L8 2.4Z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M8 6.4v3.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                <circle cx="8" cy="11.5" r="0.7" fill="currentColor" />
+            </svg>
+        </span>
+    );
+}
+
 function LayerRow({
     widget,
     widgets,
+    boardWidth,
+    boardHeight,
     selected,
     revealed,
     hidden,
@@ -269,6 +351,8 @@ function LayerRow({
     indicator,
     onSelectWidget,
     onMoveWidget,
+    onMoveIntoBoard,
+    onFitWidget,
     onLayerChange,
     onGripPointerDown,
     onGripPointerMove,
@@ -279,6 +363,7 @@ function LayerRow({
     onEndRename,
 }: LayerRowProps) {
     const label = layerLabel(widget, widgets);
+    const outsideBoard = widgetExtendsOutsideBoard(widget.layout, boardWidth, boardHeight);
     const fallbackLabel = defaultLayerLabel(widget, widgets);
     const rowClassName = [
         "relative flex h-10 items-center gap-px rounded-control px-0.5",
@@ -336,6 +421,7 @@ function LayerRow({
                         </span>
                     </button>
                 )}
+                {outsideBoard ? <OutsideBoardMark label={label} /> : null}
                 <button
                     type="button"
                     aria-label={hidden ? `Show ${label}` : `Hide ${label}`}
@@ -364,12 +450,22 @@ function LayerRow({
                     label={label}
                     widget={widget}
                     widgets={widgets}
+                    boardWidth={boardWidth}
+                    boardHeight={boardHeight}
                     open={menuOpen}
                     onOpen={onOpenMenu}
                     onClose={onCloseMenu}
                     onRename={onBeginRename}
                     onMove={(move) => {
                         onMoveWidget(widget.id, move);
+                        onCloseMenu();
+                    }}
+                    onMoveIntoBoard={() => {
+                        onMoveIntoBoard(widget.id);
+                        onCloseMenu();
+                    }}
+                    onFitWidget={() => {
+                        onFitWidget(widget.id);
                         onCloseMenu();
                     }}
                 />
@@ -446,28 +542,38 @@ type LayerActionsMenuProps = {
     label: string;
     widget: Widget;
     widgets: readonly Widget[];
+    boardWidth: number;
+    boardHeight: number;
     open: boolean;
     onOpen: () => void;
     onClose: () => void;
     onRename: () => void;
     onMove: (move: LayerMove) => void;
+    onMoveIntoBoard: () => void;
+    onFitWidget: () => void;
 };
 
 function LayerActionsMenu({
     label,
     widget,
     widgets,
+    boardWidth,
+    boardHeight,
     open,
     onOpen,
     onClose,
     onRename,
     onMove,
+    onMoveIntoBoard,
+    onFitWidget,
 }: LayerActionsMenuProps) {
     const menuId = useId();
     const triggerRef = useRef<HTMLButtonElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const [placement, setPlacement] = useState<{ top: number; left: number } | null>(null);
     const index = widgetLayerIndex(widgets, widget.id);
+    const canMoveInside = widgetCanMoveInside(widget.layout, boardWidth, boardHeight);
+    const exceedsBoard = widgetExceedsBoard(widget.layout, boardWidth, boardHeight);
     const front = widgets.length - 1;
     const actions = layerActions(index >= 0, index === front, index === 0);
 
@@ -605,6 +711,25 @@ function LayerActionsMenu({
                     >
                         Rename
                     </button>
+                    <button
+                        type="button"
+                        disabled={!canMoveInside}
+                        title={moveInsideReason(canMoveInside, exceedsBoard)}
+                        onClick={onMoveIntoBoard}
+                        className={canMoveInside ? menuItemClassName : menuItemDisabledClassName}
+                    >
+                        Move into Board
+                    </button>
+                    {exceedsBoard ? (
+                        <button
+                            type="button"
+                            title="Fit to board"
+                            onClick={onFitWidget}
+                            className={menuItemClassName}
+                        >
+                            Fit to board
+                        </button>
+                    ) : null}
                     {actions.map((action) => (
                         <button
                             key={action.move}
@@ -717,6 +842,18 @@ function layerActions(hasSelection: boolean, atFront: boolean, atBack: boolean):
     ];
 }
 
+function moveInsideReason(canMoveInside: boolean, exceedsBoard: boolean): string {
+    if (canMoveInside) {
+        return "Move into Board";
+    }
+
+    if (exceedsBoard) {
+        return "This widget is larger than the board";
+    }
+
+    return "Already inside the board";
+}
+
 function disabledReason(
     hasSelection: boolean,
     atBoundary: boolean,
@@ -774,6 +911,14 @@ function widgetContentLabel(widget: Widget): string | null {
 
             return message === undefined ? null : message.text.trim();
         }
+        case "weather":
+            return nonempty(widget.settings.title ?? "") ?? nonempty(widget.settings.location.label);
+        case "news":
+            return nonempty(widget.settings.title ?? "");
+        case "countdown":
+            return nonempty(widget.settings.title ?? "") ?? nonempty(widget.settings.completionMessage ?? "");
+        case "qr":
+            return nonempty(widget.settings.title ?? "") ?? nonempty(widget.settings.content);
         case "vertical-announcements": {
             const item = widget.settings.items.find((entry) => {
                 return entry.title.trim().length > 0

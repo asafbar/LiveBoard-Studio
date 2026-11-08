@@ -5,6 +5,8 @@ const healthRoutes = require("./routes/healthRoutes");
 const boardRoutes = require("./routes/boardRoutes");
 const displayRoutes = require("./routes/displayRoutes");
 const mediaRoutes = require("./routes/mediaRoutes");
+const weatherRoutes = require("./routes/weatherRoutes");
+const newsRoutes = require("./routes/newsRoutes");
 const authRoutes = require("./routes/authRoutes");
 const {
     notFoundHandler,
@@ -35,6 +37,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/boards", boardRoutes);
 app.use("/api/displays", displayRoutes);
 app.use("/api/media", mediaRoutes);
+app.use("/api/weather", weatherRoutes);
+app.use("/api/news", newsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

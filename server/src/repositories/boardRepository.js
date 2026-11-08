@@ -1,4 +1,7 @@
 const { pool } = require("../config/db");
+const { collectReferencedMediaIds } = require("../services/mediaUsage");
+
+const MEDIA_REFERENCE_MISSING = "MEDIA_REFERENCE_MISSING";
 
 async function listBoards() {
     // Count draft widgets and publication in SQL so the list does not load full documents.
@@ -15,6 +18,16 @@ async function listBoards() {
                 END AS widget_count
          FROM boards
          ORDER BY created_at ASC, id ASC`
+    );
+
+    return result.rows;
+}
+
+async function listBoardDocuments() {
+    const result = await pool.query(
+        `SELECT id, name, draft, published
+         FROM boards
+         ORDER BY name ASC, id ASC`
     );
 
     return result.rows;
@@ -52,14 +65,18 @@ async function findBoardById(id) {
 }
 
 async function insertBoard(name, draft) {
-    const result = await pool.query(
-        `INSERT INTO boards (name, draft, published)
-         VALUES ($1, $2::jsonb, NULL)
-         RETURNING id, name, draft, published, created_at, updated_at`,
-        [name, JSON.stringify(draft)]
-    );
+    return withBoardDocumentWrite(async (client) => {
+        await assertMediaReferencesAvailable(client, draft);
 
-    return result.rows[0];
+        const result = await client.query(
+            `INSERT INTO boards (name, draft, published)
+             VALUES ($1, $2::jsonb, NULL)
+             RETURNING id, name, draft, published, created_at, updated_at`,
+            [name, JSON.stringify(draft)]
+        );
+
+        return result.rows[0];
+    });
 }
 
 async function renameBoard(id, name) {
@@ -77,16 +94,20 @@ async function renameBoard(id, name) {
 }
 
 async function replaceDraft(id, draft) {
-    const result = await pool.query(
-        `UPDATE boards
-         SET draft = $2::jsonb,
-             updated_at = NOW()
-         WHERE id = $1::uuid
-         RETURNING id, name, draft, published, created_at, updated_at`,
-        [id, JSON.stringify(draft)]
-    );
+    return withBoardDocumentWrite(async (client) => {
+        await assertMediaReferencesAvailable(client, draft);
 
-    return result.rows[0] || null;
+        const result = await client.query(
+            `UPDATE boards
+             SET draft = $2::jsonb,
+                 updated_at = NOW()
+             WHERE id = $1::uuid
+             RETURNING id, name, draft, published, created_at, updated_at`,
+            [id, JSON.stringify(draft)]
+        );
+
+        return result.rows[0] || null;
+    });
 }
 
 async function publishDraft(id) {
@@ -103,8 +124,56 @@ async function publishDraft(id) {
     return result.rows[0] || null;
 }
 
+async function withBoardDocumentWrite(write) {
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+        // Take the table lock before media row locks. Deletion uses the same
+        // order, so a save cannot store a media URL while that asset is being removed.
+        await client.query("LOCK TABLE boards IN ROW EXCLUSIVE MODE");
+        const result = await write(client);
+        await client.query("COMMIT");
+        return result;
+    } catch (error) {
+        try {
+            await client.query("ROLLBACK");
+        } catch (rollbackError) {
+            console.error("Board write rollback failed.");
+        }
+
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function assertMediaReferencesAvailable(client, document) {
+    const mediaIds = collectReferencedMediaIds(document);
+
+    if (mediaIds.length === 0) {
+        return;
+    }
+
+    const result = await client.query(
+        `SELECT id
+         FROM media_assets
+         WHERE id = ANY($1::uuid[])
+         FOR SHARE`,
+        [mediaIds]
+    );
+
+    if (result.rows.length !== mediaIds.length) {
+        const error = new Error("Referenced media is no longer available.");
+        error.code = MEDIA_REFERENCE_MISSING;
+        throw error;
+    }
+}
+
 module.exports = {
+    MEDIA_REFERENCE_MISSING,
     listBoards,
+    listBoardDocuments,
     listBoardIdentities,
     findBoardById,
     findPublishedBoardById,

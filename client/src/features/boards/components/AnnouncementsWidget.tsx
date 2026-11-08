@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { paintColor } from "../../editor/colorAlpha.ts";
 import type {
     AnnouncementIconName,
     AnnouncementItem,
@@ -99,8 +100,8 @@ function AnnouncementsWidget({ settings }: AnnouncementsWidgetProps) {
         <section
             className={styles.panel}
             style={{
-                backgroundColor: settings.backgroundColor,
-                color: settings.textColor,
+                backgroundColor: paintColor(settings.backgroundColor, settings.backgroundOpacity),
+                color: paintColor(settings.textColor, settings.textOpacity),
                 borderRadius: settings.borderRadius,
             }}
             aria-label={settings.title}

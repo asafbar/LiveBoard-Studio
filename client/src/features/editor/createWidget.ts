@@ -1,4 +1,9 @@
 import type { Board, Widget, WidgetLayout, WidgetType } from "../boards/types/boardTypes.ts";
+import { defaultCountdownSettings } from "../boards/countdown/countdownDefaults.ts";
+import { defaultQrSettings } from "../boards/qr/qrDefaults.ts";
+import { defaultNewsSettings } from "../boards/news/newsDefaults.ts";
+import { defaultWeatherSettings } from "../boards/weather/weatherDefaults.ts";
+import { newWeatherRefreshMinutes } from "../boards/weather/weatherSchedule.ts";
 
 const placementStep = 40;
 
@@ -35,6 +40,14 @@ function defaultWidgetSize(type: WidgetType): WidgetSize {
             return { width: 1440, height: 88 };
         case "vertical-announcements":
             return { width: 440, height: 720 };
+        case "weather":
+            return { width: 480, height: 300 };
+        case "news":
+            return { width: 1200, height: 140 };
+        case "countdown":
+            return { width: 760, height: 280 };
+        case "qr":
+            return { width: 440, height: 560 };
     }
 }
 
@@ -104,10 +117,13 @@ function placeWidget(board: Board, size: WidgetSize): WidgetLayout {
     return best;
 }
 
-function createWidget(type: WidgetType, board: Board): Widget {
+function createWidget(type: WidgetType, board: Board, dropPoint?: { x: number; y: number }): Widget {
     const existingIds = new Set(board.widgets.map((widget) => widget.id));
     const id = createWidgetId(existingIds);
-    const layout = placeWidget(board, defaultWidgetSize(type));
+    const size = defaultWidgetSize(type);
+    const layout = dropPoint === undefined
+        ? placeWidget(board, size)
+        : placeWidgetAtPoint(board.width, board.height, size, dropPoint);
 
     switch (type) {
         case "text":
@@ -213,6 +229,40 @@ function createWidget(type: WidgetType, board: Board): Widget {
                 },
             };
         }
+        case "weather":
+            return {
+                id,
+                type,
+                layout,
+                settings: {
+                    ...defaultWeatherSettings,
+                    location: { ...defaultWeatherSettings.location },
+                    refreshIntervalMinutes: newWeatherRefreshMinutes,
+                },
+            };
+        case "news":
+            return {
+                id,
+                type,
+                layout,
+                settings: {
+                    ...defaultNewsSettings,
+                },
+            };
+        case "countdown":
+            return {
+                id,
+                type,
+                layout,
+                settings: defaultCountdownSettings(),
+            };
+        case "qr":
+            return {
+                id,
+                type,
+                layout,
+                settings: defaultQrSettings(),
+            };
         case "vertical-announcements": {
             const itemIds = new Set(existingIds);
             itemIds.add(id);
@@ -241,4 +291,29 @@ function createWidget(type: WidgetType, board: Board): Widget {
     }
 }
 
-export { createWidget };
+// Center the widget on the drop point, then shift it inward so it stays
+// fully inside the board. Other widgets are left untouched.
+function placeWidgetAtPoint(
+    boardWidth: number,
+    boardHeight: number,
+    size: WidgetSize,
+    point: { x: number; y: number },
+): WidgetLayout {
+    const width = Math.min(size.width, boardWidth);
+    const height = Math.min(size.height, boardHeight);
+    const maximumX = Math.max(0, boardWidth - width);
+    const maximumY = Math.max(0, boardHeight - height);
+
+    return {
+        x: clampPlacement(Math.round(point.x - (width / 2)), 0, maximumX),
+        y: clampPlacement(Math.round(point.y - (height / 2)), 0, maximumY),
+        width,
+        height,
+    };
+}
+
+function clampPlacement(value: number, minimum: number, maximum: number): number {
+    return Math.min(Math.max(value, minimum), maximum);
+}
+
+export { createWidget, defaultWidgetSize, placeWidgetAtPoint };

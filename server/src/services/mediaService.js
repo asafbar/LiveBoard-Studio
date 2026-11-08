@@ -1,4 +1,6 @@
+const boardRepository = require("../repositories/boardRepository");
 const mediaRepository = require("../repositories/mediaRepository");
+const { collectMediaUsage } = require("./mediaUsage");
 const { sanitizeDisplayFilename } = require("./mediaFilename");
 const { processUploadedImage } = require("./mediaImageProcessor");
 const {
@@ -82,6 +84,59 @@ async function listMediaAssets() {
     return mediaRepository.listMediaAssets();
 }
 
+async function renameMediaAsset(id, originalFilename) {
+    const asset = await mediaRepository.updateMediaFilename(id, originalFilename);
+
+    if (asset === null) {
+        throw createHttpError(404, "Media asset not found.");
+    }
+
+    return asset;
+}
+
+async function deleteMediaAsset(id) {
+    const result = await mediaRepository.deleteUnreferencedMediaAsset(id);
+
+    if (result.outcome === "missing") {
+        throw createHttpError(404, "Media asset not found.");
+    }
+
+    if (result.outcome === "referenced") {
+        const error = createHttpError(
+            409,
+            "This image is used by a board and cannot be deleted."
+        );
+        error.usage = result.usage;
+        throw error;
+    }
+
+    try {
+        await removeStoredFile(result.asset.storage_key);
+    } catch (error) {
+        console.error(
+            `Media file cleanup failed after the record was deleted. assetId=${result.asset.id} storageKey=${result.asset.storage_key}`
+        );
+        throw createHttpError(
+            422,
+            `The media record was deleted, but the file remains on disk. Remove the stored file manually: ${result.asset.storage_key}.`
+        );
+    }
+
+    return result.asset;
+}
+
+async function getMediaUsage(id) {
+    const asset = await mediaRepository.findMediaAssetById(id);
+
+    if (asset === null) {
+        throw createHttpError(404, "Media asset not found.");
+    }
+
+    const boards = await boardRepository.listBoardDocuments();
+
+    return collectMediaUsage(asset.id, boards);
+}
+
 async function getMediaAsset(id) {
     const asset = await mediaRepository.findMediaAssetById(id);
 
@@ -143,5 +198,8 @@ module.exports = {
     createMediaAsset,
     listMediaAssets,
     getMediaAsset,
-    openMediaFile
+    getMediaUsage,
+    deleteMediaAsset,
+    openMediaFile,
+    renameMediaAsset
 };

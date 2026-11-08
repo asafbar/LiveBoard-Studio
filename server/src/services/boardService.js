@@ -1,5 +1,6 @@
 const { randomUUID } = require("crypto");
 const boardRepository = require("../repositories/boardRepository");
+const { MEDIA_REFERENCE_MISSING } = boardRepository;
 const { notifyBoardPublished } = require("../realtime/boardRealtime");
 const { sanitizeDraft } = require("../validators/boardValidator");
 const { createHttpError } = require("../utils/httpError");
@@ -70,26 +71,30 @@ async function renameBoard(id, name) {
 }
 
 async function replaceDraft(id, draft) {
-    const board = await boardRepository.replaceDraft(id, draft);
+    try {
+        const board = await boardRepository.replaceDraft(id, draft);
 
-    if (board === null) {
-        throw createHttpError(404, "Board not found.");
+        if (board === null) {
+            throw createHttpError(404, "Board not found.");
+        }
+
+        return board;
+    } catch (error) {
+        throw mapBoardWriteError(error);
     }
-
-    return board;
 }
 
-async function createBoard(name) {
+async function createBoard(name, size = { width: 1920, height: 1080 }) {
     const identities = await boardRepository.listBoardIdentities();
 
     assertBoardNameAvailable(name, identities);
 
-    const draft = buildEmptyDraft(name, createDraftId(identities));
+    const draft = buildEmptyDraft(name, createDraftId(identities), size);
 
     try {
         return await boardRepository.insertBoard(name, draft);
     } catch (error) {
-        throw mapBoardNameConflict(error);
+        throw mapBoardWriteError(error);
     }
 }
 
@@ -109,8 +114,8 @@ async function duplicateBoard(id) {
         try {
             return await boardRepository.insertBoard(name, draft);
         } catch (error) {
-            if (!isBoardNameConflict(error) || attempt === DUPLICATE_INSERT_ATTEMPTS) {
-                throw mapBoardNameConflict(error);
+            if (isMediaReferenceMissing(error) || !isBoardNameConflict(error) || attempt === DUPLICATE_INSERT_ATTEMPTS) {
+                throw mapBoardWriteError(error);
             }
 
             identities = await boardRepository.listBoardIdentities();
@@ -122,6 +127,21 @@ function isBoardNameConflict(error) {
     return Boolean(error)
         && error.code === "23505"
         && error.constraint === BOARD_NAME_CONSTRAINT;
+}
+
+function mapBoardWriteError(error) {
+    if (isMediaReferenceMissing(error)) {
+        throw createHttpError(409, "A media asset used by this board is no longer available.", [{
+            path: "draft",
+            message: "A media asset used by this board is no longer available."
+        }]);
+    }
+
+    return mapBoardNameConflict(error);
+}
+
+function isMediaReferenceMissing(error) {
+    return Boolean(error) && error.code === MEDIA_REFERENCE_MISSING;
 }
 
 function mapBoardNameConflict(error) {
@@ -193,17 +213,19 @@ function createCopyName(sourceName, identities) {
     }]);
 }
 
-function buildEmptyDraft(name, draftId) {
+function buildEmptyDraft(name, draftId, size) {
     return requireValidDraft({
         id: draftId,
         name,
-        width: 1920,
-        height: 1080,
-        background: {
-            type: "solid",
-            color: "var(--canvas-board)"
-        },
-        widgets: []
+        width: size.width,
+        height: size.height,
+        background: size.background === undefined
+            ? {
+                type: "solid",
+                color: "var(--canvas-board)"
+            }
+            : size.background,
+        widgets: size.widgets === undefined ? [] : size.widgets
     });
 }
 

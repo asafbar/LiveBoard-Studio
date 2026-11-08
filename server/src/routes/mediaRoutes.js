@@ -10,6 +10,7 @@ const {
 } = require("../middleware/mediaUpload");
 const {
     validateMediaId,
+    validateMediaRename,
     validateUploadedFile
 } = require("../validators/mediaValidator");
 
@@ -18,8 +19,8 @@ const router = express.Router();
 // Metadata requires an administrator session.
 // File bytes stay public so a published display can load an image
 // whose file URL is already stored in the board.
-// Deletion is not implemented. The upload gate bounds decode work
-// before the multipart parser writes a temporary file.
+// The upload gate bounds decode work before the multipart parser
+// writes a temporary file.
 router.post(
     "/",
     requireAdmin,
@@ -34,6 +35,30 @@ router.get(
     "/",
     requireAdmin,
     mediaController.listMedia
+);
+
+router.patch(
+    "/:id",
+    requireAdmin,
+    requireCsrf,
+    validateMediaId,
+    validateMediaRename,
+    mediaController.renameMedia
+);
+
+router.get(
+    "/:id/usage",
+    requireAdmin,
+    validateMediaId,
+    mediaController.getMediaUsage
+);
+
+router.delete(
+    "/:id",
+    requireAdmin,
+    requireCsrf,
+    validateMediaId,
+    mediaController.deleteMedia
 );
 
 router.get(
