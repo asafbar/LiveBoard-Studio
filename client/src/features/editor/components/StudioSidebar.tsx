@@ -1,7 +1,13 @@
 import { useState, type ReactNode } from "react";
+import type { BoardPoint } from "../../boards/boardCoordinates.ts";
 import type { Widget, WidgetType } from "../../boards/types/boardTypes.ts";
 import type { LayerDropPlacement, LayerMove } from "../widgetOrder.ts";
 import type { WidgetLayerChange } from "../widgetLayer.ts";
+import {
+    sidebarSectionsAfterEditorAction,
+    toggleSidebarSection,
+    type SidebarSections,
+} from "../sidebarSections.ts";
 import ComponentsPanel from "./ComponentsPanel.tsx";
 import LayersPanel from "./LayersPanel.tsx";
 import StudioIcon from "./StudioIcon.tsx";
@@ -10,11 +16,17 @@ type StudioSidebarProps = {
     widgets: Widget[];
     selectedWidgetId: string | null;
     revealedWidgetId: string | null;
+    boardWidth: number;
+    boardHeight: number;
     onAddWidget: (type: WidgetType) => void;
+    onDropWidget: (type: WidgetType, point: BoardPoint) => void;
     onSelectWidget: (widgetId: string) => void;
     onMoveWidget: (widgetId: string, move: LayerMove) => void;
     onReorderWidget: (widgetId: string, targetId: string, placement: LayerDropPlacement) => void;
     onLayerChange: (widgetId: string, change: WidgetLayerChange) => void;
+    onMoveIntoBoard: (widgetId: string) => void;
+    onFitWidget: (widgetId: string) => void;
+    onMoveAllInside: () => void;
 };
 
 type SidebarSectionProps = {
@@ -30,23 +42,25 @@ function StudioSidebar({
     widgets,
     selectedWidgetId,
     revealedWidgetId,
+    boardWidth,
+    boardHeight,
     onAddWidget,
+    onDropWidget,
     onSelectWidget,
     onMoveWidget,
     onReorderWidget,
     onLayerChange,
+    onMoveIntoBoard,
+    onFitWidget,
+    onMoveAllInside,
 }: StudioSidebarProps) {
-    const [componentsOpen, setComponentsOpen] = useState(true);
-    const [layersOpen, setLayersOpen] = useState(true);
-    const [seenRevealId, setSeenRevealId] = useState<string | null>(null);
-
-    if (revealedWidgetId !== null && revealedWidgetId !== seenRevealId) {
-        setSeenRevealId(revealedWidgetId);
-
-        if (!layersOpen) {
-            setLayersOpen(true);
-        }
-    }
+    const [sections, setSections] = useState<SidebarSections>({
+        componentsOpen: true,
+        layersOpen: true,
+    });
+    const visibleSections = sidebarSectionsAfterEditorAction(sections);
+    const componentsOpen = visibleSections.componentsOpen;
+    const layersOpen = visibleSections.layersOpen;
 
     const componentsClassName = componentsOpen
         ? layersOpen
@@ -62,21 +76,26 @@ function StudioSidebar({
             <SidebarSection
                 title="Components"
                 panelId="sidebar-components"
-                expanded={componentsOpen}
+                expanded={visibleSections.componentsOpen}
                 className={componentsClassName}
                 onToggle={() => {
-                    setComponentsOpen((open) => !open);
+                    setSections((current) => toggleSidebarSection(current, "components"));
                 }}
             >
-                <ComponentsPanel onAddWidget={onAddWidget} />
+                <ComponentsPanel
+                    boardWidth={boardWidth}
+                    boardHeight={boardHeight}
+                    onAddWidget={onAddWidget}
+                    onDropWidget={onDropWidget}
+                />
             </SidebarSection>
             <SidebarSection
                 title="Layers"
                 panelId="sidebar-layers"
-                expanded={layersOpen}
+                expanded={visibleSections.layersOpen}
                 className={layersClassName}
                 onToggle={() => {
-                    setLayersOpen((open) => !open);
+                    setSections((current) => toggleSidebarSection(current, "layers"));
                 }}
             >
                 <LayersPanel
@@ -87,6 +106,11 @@ function StudioSidebar({
                     onMoveWidget={onMoveWidget}
                     onReorderWidget={onReorderWidget}
                     onLayerChange={onLayerChange}
+                    boardWidth={boardWidth}
+                    boardHeight={boardHeight}
+                    onMoveIntoBoard={onMoveIntoBoard}
+                    onFitWidget={onFitWidget}
+                    onMoveAllInside={onMoveAllInside}
                 />
             </SidebarSection>
         </aside>

@@ -84,12 +84,12 @@ async function replaceDraft(id, draft) {
     }
 }
 
-async function createBoard(name) {
+async function createBoard(name, size = { width: 1920, height: 1080 }) {
     const identities = await boardRepository.listBoardIdentities();
 
     assertBoardNameAvailable(name, identities);
 
-    const draft = buildEmptyDraft(name, createDraftId(identities));
+    const draft = buildEmptyDraft(name, createDraftId(identities), size);
 
     try {
         return await boardRepository.insertBoard(name, draft);
@@ -213,17 +213,19 @@ function createCopyName(sourceName, identities) {
     }]);
 }
 
-function buildEmptyDraft(name, draftId) {
+function buildEmptyDraft(name, draftId, size) {
     return requireValidDraft({
         id: draftId,
         name,
-        width: 1920,
-        height: 1080,
-        background: {
-            type: "solid",
-            color: "var(--canvas-board)"
-        },
-        widgets: []
+        width: size.width,
+        height: size.height,
+        background: size.background === undefined
+            ? {
+                type: "solid",
+                color: "var(--canvas-board)"
+            }
+            : size.background,
+        widgets: size.widgets === undefined ? [] : size.widgets
     });
 }
 

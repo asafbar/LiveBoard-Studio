@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const test = require("node:test");
-const { sanitizeDraft } = require("./boardValidator");
+const { sanitizeDraft, validateCreateBoard } = require("./boardValidator");
 
 function layout(x, y) {
     return { x, y, width: 440, height: 720 };
@@ -741,4 +741,128 @@ test("trims a countdown title on save and keeps the spaces between Hebrew words"
     assert.deepEqual(errors, []);
     assert.equal(draft.widgets[0].settings.title, "איפה הילד בהופעה");
     assert.equal(draft.widgets[0].settings.completionMessage, "האירוע התחיל");
+});
+
+function textWidget(layout) {
+    return {
+        id: "text-1",
+        type: "text",
+        layout,
+        settings: {
+            text: "Hello",
+            tone: "default",
+            size: "title"
+        }
+    };
+}
+
+function runCreateBoard(body) {
+    return new Promise((resolve) => {
+        const request = { body };
+
+        validateCreateBoard(request, {}, (error) => {
+            resolve({
+                error: error || null,
+                boardName: request.boardName,
+                boardWidth: request.boardWidth,
+                boardHeight: request.boardHeight,
+                boardBackground: request.boardBackground,
+                boardWidgets: request.boardWidgets
+            });
+        });
+    });
+}
+
+test("accepts landscape and portrait board sizes and rejects other dimensions", () => {
+    const landscapeErrors = [];
+    const portraitErrors = [];
+    const rejected = [];
+    const landscape = sanitizeDraft(boardWith([]), landscapeErrors);
+    const portrait = sanitizeDraft({
+        ...boardWith([]),
+        width: 1080,
+        height: 1920
+    }, portraitErrors);
+
+    sanitizeDraft({
+        ...boardWith([]),
+        width: 800,
+        height: 600
+    }, rejected);
+
+    assert.deepEqual(landscapeErrors, []);
+    assert.equal(landscape.width, 1920);
+    assert.equal(landscape.height, 1080);
+    assert.deepEqual(portraitErrors, []);
+    assert.equal(portrait.width, 1080);
+    assert.equal(portrait.height, 1920);
+    assert.equal(rejected.some((error) => error.path === "width"), true);
+});
+
+test("keeps a landscape widget that extends past a portrait board", () => {
+    const kept = [];
+    const rejected = [];
+    const portrait = {
+        ...boardWith([textWidget({ x: 1400, y: 40, width: 480, height: 100 })]),
+        width: 1080,
+        height: 1920
+    };
+    const outsideSquare = {
+        ...boardWith([textWidget({ x: 1600, y: 40, width: 400, height: 100 })]),
+        width: 1080,
+        height: 1920
+    };
+    const saved = sanitizeDraft(portrait, kept);
+
+    sanitizeDraft(outsideSquare, rejected);
+
+    assert.deepEqual(kept, []);
+    assert.deepEqual(saved.widgets[0].layout, { x: 1400, y: 40, width: 480, height: 100 });
+    assert.equal(rejected.some((error) => error.message === "Widget must fit inside the board."), true);
+});
+
+test("creates a landscape board by default and a portrait board when requested", async () => {
+    const landscape = await runCreateBoard({ name: "Lobby" });
+    const portrait = await runCreateBoard({ name: "Door", width: 1080, height: 1920 });
+    const partial = await runCreateBoard({ name: "Door", width: 1080 });
+    const unknown = await runCreateBoard({ name: "Door", orientation: "portrait" });
+
+    assert.equal(landscape.error, null);
+    assert.equal(landscape.boardWidth, 1920);
+    assert.equal(landscape.boardHeight, 1080);
+    assert.equal(portrait.error, null);
+    assert.equal(portrait.boardWidth, 1080);
+    assert.equal(portrait.boardHeight, 1920);
+    assert.equal(partial.error.statusCode, 400);
+    assert.equal(unknown.error.statusCode, 400);
+});
+
+test("creates a board from template content and rejects a partial template body", async () => {
+    const created = await runCreateBoard({
+        name: "Lobby",
+        width: 1920,
+        height: 1080,
+        background: { type: "gradient", from: "#071525", to: "#16324d", angle: 155 },
+        widgets: [
+            {
+                id: "welcome-text",
+                type: "text",
+                layout: { x: 48, y: 48, width: 640, height: 140 },
+                settings: { text: "Welcome", tone: "default", size: "display" }
+            }
+        ]
+    });
+    const missingWidgets = await runCreateBoard({
+        name: "Lobby",
+        width: 1920,
+        height: 1080,
+        background: { type: "solid", color: "#071525" }
+    });
+
+    assert.equal(created.error, null);
+    assert.equal(created.boardWidth, 1920);
+    assert.equal(created.boardWidgets.length, 1);
+    assert.equal(created.boardWidgets[0].settings.text, "Welcome");
+    assert.equal(created.boardBackground.type, "gradient");
+    assert.equal(missingWidgets.error.statusCode, 400);
 });

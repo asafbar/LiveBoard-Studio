@@ -2,6 +2,11 @@ const { createHttpError } = require("../utils/httpError");
 
 const BOARD_WIDTH = 1920;
 const BOARD_HEIGHT = 1080;
+const BOARD_SIZES = [
+    [BOARD_WIDTH, BOARD_HEIGHT],
+    [BOARD_HEIGHT, BOARD_WIDTH]
+];
+const MAX_BOARD_SPAN = Math.max(BOARD_WIDTH, BOARD_HEIGHT);
 const MIN_WIDGET_WIDTH = 100;
 const MIN_WIDGET_HEIGHT = 60;
 const MAX_WIDGETS = 100;
@@ -120,7 +125,7 @@ function validateCreateBoard(req, res, next) {
 
     if (body !== null) {
         Object.keys(body).forEach((key) => {
-            if (key !== "name") {
+            if (key !== "name" && key !== "width" && key !== "height" && key !== "background" && key !== "widgets") {
                 errors.push({
                     path: key,
                     message: "Unknown field."
@@ -129,9 +134,15 @@ function validateCreateBoard(req, res, next) {
         });
 
         const name = readRequiredText(body.name, "name", MAX_SHORT_TEXT_LENGTH, errors);
+        const size = readCreateBoardSize(body, errors);
+        const content = readCreateBoardContent(body, name, size, errors);
 
-        if (errors.length === 0) {
+        if (errors.length === 0 && size !== null && content !== null) {
             req.boardName = name;
+            req.boardWidth = size.width;
+            req.boardHeight = size.height;
+            req.boardBackground = content.background;
+            req.boardWidgets = content.widgets;
         }
     }
 
@@ -168,11 +179,12 @@ function sanitizeDraft(body, errors) {
     rejectForbiddenKeys(body, errors);
     rejectUnknownKeys(body, BOARD_KEYS, "", errors);
 
+    const size = readBoardSize(body.width, body.height, errors);
     const draft = {
         id: readId(body.id, "id", errors),
         name: readRequiredText(body.name, "name", MAX_SHORT_TEXT_LENGTH, errors),
-        width: readExactInteger(body.width, "width", BOARD_WIDTH, errors),
-        height: readExactInteger(body.height, "height", BOARD_HEIGHT, errors),
+        width: size === null ? null : size.width,
+        height: size === null ? null : size.height,
         background: sanitizeBackground(body.background, errors),
         widgets: sanitizeWidgets(body.widgets, errors)
     };
@@ -359,7 +371,10 @@ function sanitizeLayout(layout, path, errors) {
         });
     }
 
-    if (x + width > BOARD_WIDTH || y + height > BOARD_HEIGHT) {
+    // Widgets may extend past the active orientation so a landscape layout can
+    // be saved after switching to portrait, and the reverse. They still have
+    // to stay inside the 1920 square shared by both sizes.
+    if (x + width > MAX_BOARD_SPAN || y + height > MAX_BOARD_SPAN) {
         errors.push({
             path,
             message: "Widget must fit inside the board."
@@ -1864,21 +1879,98 @@ function readInteger(value, path, errors) {
     return value;
 }
 
-function readExactInteger(value, path, expected, errors) {
-    const integer = readInteger(value, path, errors);
+function readBoardSize(width, height, errors) {
+    const boardWidth = readInteger(width, "width", errors);
+    const boardHeight = readInteger(height, "height", errors);
 
-    if (integer === null) {
+    if (boardWidth === null || boardHeight === null) {
         return null;
     }
 
-    if (integer !== expected) {
+    const supported = BOARD_SIZES.some(([supportedWidth, supportedHeight]) => {
+        return supportedWidth === boardWidth && supportedHeight === boardHeight;
+    });
+
+    if (!supported) {
         errors.push({
-            path,
-            message: `Value must be ${expected}.`
+            path: "width",
+            message: "Board size must be 1920 by 1080 or 1080 by 1920."
         });
+        return null;
     }
 
-    return integer;
+    return {
+        width: boardWidth,
+        height: boardHeight
+    };
+}
+
+function readCreateBoardContent(body, name, size, errors) {
+    const hasBackground = Object.prototype.hasOwnProperty.call(body, "background");
+    const hasWidgets = Object.prototype.hasOwnProperty.call(body, "widgets");
+
+    if (!hasBackground && !hasWidgets) {
+        return {
+            background: null,
+            widgets: null
+        };
+    }
+
+    if (!hasBackground || !hasWidgets || name === null || size === null || errors.length > 0) {
+        if (!hasBackground || !hasWidgets) {
+            errors.push({
+                path: hasBackground ? "widgets" : "background",
+                message: "Board background and widgets must be set together."
+            });
+        }
+
+        return null;
+    }
+
+    const draftErrors = [];
+    const draft = sanitizeDraft({
+        id: "template-draft",
+        name,
+        width: size.width,
+        height: size.height,
+        background: body.background,
+        widgets: body.widgets
+    }, draftErrors);
+
+    draftErrors.forEach((error) => {
+        errors.push(error);
+    });
+
+    if (draft === null || draftErrors.length > 0) {
+        return null;
+    }
+
+    return {
+        background: draft.background,
+        widgets: draft.widgets
+    };
+}
+
+function readCreateBoardSize(body, errors) {
+    const hasWidth = Object.prototype.hasOwnProperty.call(body, "width");
+    const hasHeight = Object.prototype.hasOwnProperty.call(body, "height");
+
+    if (!hasWidth && !hasHeight) {
+        return {
+            width: BOARD_WIDTH,
+            height: BOARD_HEIGHT
+        };
+    }
+
+    if (!hasWidth || !hasHeight) {
+        errors.push({
+            path: hasWidth ? "height" : "width",
+            message: "Board width and height must be set together."
+        });
+        return null;
+    }
+
+    return readBoardSize(body.width, body.height, errors);
 }
 
 function readNumberInRange(value, path, minimum, maximum, errors) {
