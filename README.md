@@ -8,12 +8,12 @@ The scenes below are concept mockups for this portfolio. They are not photograph
 
 ## Features
 
-- Edit 1920 x 1080 boards and place widgets by dragging and resizing them.
-- Add text, clocks, images, information cards, announcement lists, a horizontal ticker, and a vertical announcement feed.
+- Edit landscape (1920 × 1080) or portrait (1080 × 1920) boards and place widgets by dragging and resizing them.
+- Add text, clocks, images, information cards, announcements, tickers, weather, countdowns, QR codes, sample headlines, and live USGS earthquake data.
 - Rename, reorder, show, hide, and lock layers. Undo and redo cover the current editing session, up to 50 steps.
 - Save the draft without changing what screens show. Publish copies the stored draft into the public snapshot.
 - Preview the current draft in Studio with the same renderer used by public displays.
-- Create, rename, and duplicate boards. A duplicate copies the saved draft onto a new unpublished board.
+- Create a blank board or start from one of five built-in templates. Rename or duplicate an existing board from the board list.
 - Register displays, assign a published board, and see which screens are currently connected.
 - Upload JPEG, PNG, and WebP images, then search and sort them in the media library.
 - Open a board at `/display/:boardId`, or open an assigned screen at `/screens/:displayId`. Neither route requires a session.
@@ -49,6 +49,15 @@ The properties panel edits the selected widget. The layers panel changes stackin
 `/boards` lists every board with its name, widget count, and published or unpublished status. From here an administrator can create a board, rename it, or duplicate it.
 
 ![Boards page listing saved boards and their published state](docs/screenshots/boards-management.png)
+
+**New Board** offers a blank board in either orientation and five editable templates:
+
+| Orientation | Templates |
+| --- | --- |
+| Landscape | Welcome Lobby, Conference & Events, Office Dashboard |
+| Portrait | Portrait Welcome, Event Schedule |
+
+A template sets the board orientation and creates an unpublished draft with its own widgets. The templates are available on a fresh installation without running the optional seed.
 
 `/displays` lists screens, the assigned board, and whether a client is currently registered as that screen. A display can be renamed, assigned to a board, or left unassigned.
 
@@ -116,7 +125,7 @@ A publish writes the snapshot first and then emits the Socket.IO update. Studio 
 
 ## Fresh Docker installation
 
-Use this path for a new, empty installation. It does not read a development database, an existing production database, or an existing media volume. Do not point `compose.fresh.yaml` at `liveboard-studio_liveboard_studio_db` or `liveboard-studio_liveboard_studio_media`.
+Start Docker and run the commands below from the root of a Git clone. The first run creates dedicated database and media volumes. If the fresh volumes already exist on your machine, Compose will reuse their data even from a new clone. To test an empty installation alongside an existing one, use a separate Compose project and unique names for both volumes, the network, and the web and API images. Choose a free web port. Keep the existing volumes in place.
 
 The Compose project name is `liveboard-studio-fresh`. Its database volume is `liveboard-studio-fresh_db`, mounted at `/var/lib/postgresql`. Its media volume is `liveboard-studio-fresh_media`, mounted at `/app/storage/media`. Web is published on `127.0.0.1` only. The API and PostgreSQL stay on the `liveboard-studio-fresh` network. Images are tagged `liveboard-studio-web:fresh` and `liveboard-studio-api:fresh`.
 
@@ -135,7 +144,7 @@ docker compose --env-file .env.fresh -f compose.fresh.yaml build
 Start only PostgreSQL and wait until `liveboard-studio-fresh-db-1` is healthy:
 
 ```bash
-docker compose --env-file .env.fresh -f compose.fresh.yaml up -d db
+docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --wait db
 ```
 
 Apply migrations once. This creates the schema. It does not insert boards, displays, media, or an administrator:
@@ -163,10 +172,10 @@ unset ADMIN_PASSWORD
 Start the web and API containers:
 
 ```bash
-docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --no-build
+docker compose --env-file .env.fresh -f compose.fresh.yaml up -d --no-build --wait
 ```
 
-Open `http://127.0.0.1:8080` when `WEB_PORT` is 8080, or the origin stored in `CLIENT_URL`. Sign in with the account just created.
+Open `http://127.0.0.1:8080` when `WEB_PORT` is 8080, or the origin stored in `CLIENT_URL`. Sign in with the account just created. On an empty installation, the board list starts empty. To verify the setup, create a board from Event Schedule, edit its title, and confirm the saved title survives a reload and appears in Preview. Publish the board and open its Display link in a private window. Save another title change and confirm the display keeps the published title until the next Publish.
 
 The sample board is optional. Run it only after migrations, and only with `compose.fresh.yaml`. It inserts the Tech Summit sample when that board id is absent, leaves an existing row unchanged, and does not publish the board. Its images are the static files built into the web image.
 
@@ -266,9 +275,9 @@ Any client that knows a display UUID can register as that screen and appear onli
 ## Known limitations
 
 - One administrator. No organizations, roles, or public registration.
-- No board, display, or media deletion.
+- Board and display deletion are unavailable. Media assets can be deleted when no saved board references them.
 - No device pairing. Knowing a display id is enough to appear online.
-- No weather, news, or external calendar feeds. Clocks and schedules are board content.
+- Weather uses Open-Meteo. The live news source is the USGS earthquake feed. General headlines use sample content, and schedules are entered on the board.
 - No production HTTPS deployment. The current Compose files bind web to loopback HTTP.
 - Login throttling is per process and uses the connecting IP. The API does not enable `trust proxy`.
 - A storage quota is not enforced. A crash after the file is written and before the metadata insert can leave an unreferenced file. A failed insert removes the file it just wrote.
